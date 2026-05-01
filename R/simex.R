@@ -1,96 +1,88 @@
 # =========================================================================
-# SIMEX: Simulation-Extrapolation for continuous measurement error
+# Unified SIMEX / MC-SIMEX estimator
 # =========================================================================
 
-#' SIMEX estimator for GLMs with measurement error
+#' SIMEX estimator for GLMs with measurement error or misclassification
 #'
-#' Implements the Simulation-Extrapolation algorithm of Cook and Stefanski (1994)
-#' for correcting attenuation bias due to measurement error in covariates.
-#' The simulation step runs in C++ for high performance.
+#' Fits a generalized linear model corrected for measurement error or
+#' misclassification using the Simulation-Extrapolation (SIMEX) method.
+#' Error-prone variables are specified directly in the formula using
+#' \code{\link{me}} (continuous measurement error) or \code{\link{mc}}
+#' (discrete misclassification).
 #'
-#' @param formula a formula describing the model (as in \code{\link{glm}}).
-#' @param family a family object (e.g. \code{gaussian()}, \code{binomial()}).
-#'   Default: \code{gaussian()}.
-#' @param data a data frame containing the variables in the formula.
-#' @param SIMEXvariable character vector naming the variable(s) measured with
-#'   error. These must appear as untransformed main effects in the formula.
-#' @param measurement.error known measurement error standard deviations.
-#'   Can be: a scalar (homoscedastic, one variable), a numeric vector of length
-#'   \code{length(SIMEXvariable)} (homoscedastic, multiple variables), or a
-#'   matrix with \code{nrow(data)} rows and \code{length(SIMEXvariable)} columns
-#'   (heteroscedastic).
-#' @param lambda numeric vector of SIMEX exponents (default:
-#'   \code{c(0.5, 1, 1.5, 2)}).
-#' @param B number of simulation replicates per lambda level (default: 200).
+#' @param formula a formula with \code{\link{me}} and/or \code{\link{mc}} terms.
+#'   See Examples.
+#' @param family a GLM family (default: \code{gaussian()}).
+#' @param data a data frame.
+#' @param method character: correction method for \code{mc()} terms.
+#'   \code{NULL} (default) auto-selects \code{"improved"}.
+#'   Ignored for \code{me()} terms. See Details.
+#' @param lambda numeric vector of SIMEX exponents, or \code{"optimal"}
+#'   (improved MC-SIMEX only). Default: auto-set based on error type.
+#' @param B integer number of simulation replicates. Default: auto-set.
 #' @param extrapolation extrapolation method: \code{"quadratic"} (default),
-#'   \code{"linear"}, or \code{"loglinear"}.
-#' @param jackknife logical or character. If \code{TRUE}, compute jackknife
-#'   variance using the same extrapolation method. If a character string, use
-#'   that method. \code{FALSE} to skip.
-#' @param weights optional prior weights (as in \code{\link{glm}}).
-#' @param seed random seed for reproducibility (default: 42).
+#'   \code{"linear"}, or \code{"loglinear"}. Ignored for improved MC-SIMEX.
+#' @param jackknife logical: compute variance estimates? Default \code{TRUE}.
+#' @param weights optional prior weights.
+#' @param seed random seed (default: 42).
 #'
-#' @return An object of class \code{"simex"} with components:
-#'   \describe{
-#'     \item{coefficients}{Named vector of SIMEX-corrected coefficients.}
-#'     \item{naive.coefficients}{Coefficients from the naive (uncorrected) model.}
-#'     \item{residuals}{Working residuals.}
-#'     \item{fitted.values}{Fitted values from the corrected model.}
-#'     \item{family}{The family object.}
-#'     \item{formula}{The model formula.}
-#'     \item{call}{The matched call.}
-#'     \item{data}{The data used.}
-#'     \item{vcov}{Jackknife variance-covariance matrix (if requested).}
-#'     \item{SIMEX.estimates}{Matrix of averaged estimates at each lambda.}
-#'     \item{theta}{List of B x p matrices of simulation estimates.}
-#'     \item{extrapolation}{Fitted extrapolation model(s).}
-#'     \item{lambda}{Lambda vector used (including 0).}
-#'     \item{B}{Number of replicates.}
-#'     \item{SIMEXvariable}{Name(s) of the error-prone variable(s).}
-#'     \item{measurement.error}{The measurement error specification.}
-#'     \item{naive.model}{The naive \code{glm} fit.}
-#'     \item{extrapolation.method}{Extrapolation method used.}
-#'   }
+#' @return An object of class \code{"simex"}.
 #'
 #' @details
-#' The SIMEX algorithm has two steps:
+#' The function auto-detects the error type from the formula:
 #'
-#' \strong{Simulation step}: For each \eqn{\lambda} in the lambda grid and
-#' \eqn{b = 1, \ldots, B}, extra measurement error is added:
-#' \eqn{X_b(\lambda) = X_{measured} + \sqrt{\lambda} \cdot \varepsilon_b \cdot \sigma_{me}},
-#' where \eqn{\varepsilon_b \sim N(0,1)}. The model is refitted to each
-#' contaminated dataset. The entire loop runs in C++.
-#'
-#' \strong{Extrapolation step}: The averaged coefficient estimates are modelled
-#' as a function of lambda and extrapolated to \eqn{\lambda = -1}.
+#' \itemize{
+#'   \item \strong{Continuous measurement error} (\code{me()} terms): Uses the
+#'     SIMEX algorithm of Cook and Stefanski (1994). Extra noise is added to
+#'     the error-prone variable, the model is refitted B times per lambda level,
+#'     and coefficients are extrapolated to lambda = -1.
+#'   \item \strong{Discrete misclassification} (\code{mc()} terms): Uses the
+#'     MC-SIMEX algorithm. With \code{method = "improved"} (default), the exact
+#'     correction factor of Sevilimedu and Yu (2026) is applied, requiring only
+#'     B = 1 replicate. With \code{method = "standard"}, the original
+#'     Kuchenhoff et al. (2006) extrapolation-based approach is used.
+#' }
 #'
 #' @references
 #' Cook, J.R. and Stefanski, L.A. (1994). Simulation-extrapolation estimation
-#' in parametric measurement error models. \emph{Journal of the American
-#' Statistical Association}, 89, 1314--1328.
+#' in parametric measurement error models. \emph{JASA}, 89, 1314--1328.
 #'
-#' Carroll, R.J., Ruppert, D., Stefanski, L.A. and Crainiceanu, C. (2006).
-#' \emph{Measurement error in nonlinear models: A modern perspective.}
-#' Second Edition. London: Chapman and Hall.
+#' Kuchenhoff, H., Mwalili, S.M. and Lesaffre, E. (2006). A general method for
+#' dealing with misclassification in regression: The misclassification SIMEX.
+#' \emph{Biometrics}, 62(1), 85--96.
+#'
+#' Sevilimedu, V. and Yu, L. (2026). An improved misclassification simulation
+#' extrapolation (MC-SIMEX) algorithm. \emph{Statistics in Medicine}, 45,
+#' e70418.
 #'
 #' @examples
-#' # Simulate data with measurement error
+#' # --- Continuous measurement error ---
 #' set.seed(42)
 #' n <- 500
 #' x_true <- rnorm(n)
 #' y <- 1 + 2 * x_true + rnorm(n, sd = 0.5)
-#' x_measured <- x_true + rnorm(n, sd = 0.5)
+#' x_obs <- x_true + rnorm(n, sd = 0.5)
+#' df <- data.frame(y = y, x = x_obs)
 #'
-#' df <- data.frame(y = y, x = x_measured)
-#' fit <- simex(y ~ x, family = gaussian(), data = df,
-#'              SIMEXvariable = "x", measurement.error = 0.5, B = 100)
-#' summary(fit)
+#' fit_me <- simex(y ~ me(x, 0.5), data = df, B = 50)
+#' summary(fit_me)
+#'
+#' # --- Misclassification (improved, default) ---
+#' Pi <- matrix(c(0.9, 0.1, 0.15, 0.85), 2, 2)
+#' z <- rbinom(n, 1, 0.4)
+#' y2 <- rpois(n, exp(0.5 + 0.8 * z + 0.3 * x_true))
+#' z_star <- z
+#' z_star[z == 0] <- rbinom(sum(z == 0), 1, 0.1)
+#' z_star[z == 1] <- 1 - rbinom(sum(z == 1), 1, 0.15)
+#' df2 <- data.frame(y = y2, z = factor(z_star), x = x_true)
+#'
+#' fit_mc <- simex(y ~ mc(z, Pi) + x, family = poisson(), data = df2)
+#' summary(fit_mc)
 #'
 #' @export
 simex <- function(formula, family = gaussian(), data,
-                  SIMEXvariable, measurement.error,
-                  lambda = c(0.5, 1, 1.5, 2),
-                  B = 200L,
+                  method = NULL,
+                  lambda = NULL, B = NULL,
                   extrapolation = c("quadratic", "linear", "loglinear"),
                   jackknife = TRUE,
                   weights = NULL,
@@ -106,79 +98,106 @@ simex <- function(formula, family = gaussian(), data,
   if (is.null(family$family))
     stop("'family' not recognized")
 
-  dist_code <- family_to_dist_code(family)
+  # --- parse formula ---
+  parsed <- parse_simex_formula(formula, data, parent.frame())
 
-  # --- validate inputs ---
-  if (!is.character(SIMEXvariable))
-    stop("SIMEXvariable must be a character vector")
-
-  for (sv in SIMEXvariable) {
-    if (!sv %in% names(data))
-      stop("SIMEXvariable '", sv, "' not found in data")
-    if (is.factor(data[[sv]]))
-      stop("SIMEXvariable '", sv, "' is a factor. Use mcsimex() for discrete misclassification.")
-  }
-
-  lambda <- sort(as.numeric(lambda))
-  if (any(lambda <= 0))
-    stop("lambda values must be positive")
-  B <- as.integer(B)
-  n <- nrow(data)
-  n_simex <- length(SIMEXvariable)
-
-  # --- process measurement.error ---
-  measurement.error <- as.matrix(measurement.error)
-  if (nrow(measurement.error) == 1 && n > 1) {
-    measurement.error <- matrix(measurement.error, nrow = n,
-                                ncol = ncol(measurement.error), byrow = TRUE)
-  }
-  if (ncol(measurement.error) == 1 && n_simex > 1) {
-    measurement.error <- matrix(measurement.error, nrow = n, ncol = n_simex)
-  }
-  if (nrow(measurement.error) != n || ncol(measurement.error) != n_simex)
-    stop("measurement.error dimensions must match data rows x SIMEXvariable count")
-  if (any(measurement.error < 0))
-    stop("measurement.error must be non-negative")
-  if (any(colSums(measurement.error) == 0))
-    stop("measurement.error must not be zero for all observations")
-
-  # --- fit naive model ---
-  if (!is.null(weights)) {
-    naive_fit <- glm(formula, family = family, data = data, weights = weights,
-                     x = TRUE, y = TRUE)
+  # --- dispatch ---
+  if (parsed$error_type == "me") {
+    if (!is.null(method))
+      warning("'method' is ignored for continuous measurement error (me() terms).",
+              call. = FALSE)
+    # defaults for me
+    if (is.null(lambda)) lambda <- c(0.5, 1, 1.5, 2)
+    if (is.null(B)) B <- 200L
+    result <- .simex_continuous(parsed, family, data, lambda, B,
+                                extrapolation, jackknife, weights, seed, cl)
   } else {
-    naive_fit <- glm(formula, family = family, data = data,
+    # mc terms
+    if (is.null(method)) method <- "improved"
+    method <- match.arg(method, c("standard", "improved"))
+
+    # defaults depend on method
+    if (is.null(lambda)) {
+      lambda <- if (method == "improved") 1 else c(0.5, 1, 1.5, 2)
+    }
+    if (is.null(B)) {
+      B <- if (method == "improved") 1L else 200L
+    }
+    result <- .simex_discrete(parsed, family, data, method, lambda, B,
+                              extrapolation, jackknife, weights, seed, cl)
+  }
+
+  # --- attach common fields ---
+  result$formula <- formula
+  result$clean.formula <- parsed$clean_formula
+  result$call <- cl
+  result$error.type <- parsed$error_type
+  result$me.terms <- parsed$me_terms
+  result$mc.terms <- parsed$mc_terms
+
+  structure(result, class = "simex")
+}
+
+
+# =========================================================================
+# Internal: continuous measurement error fitting
+# =========================================================================
+
+.simex_continuous <- function(parsed, family, data, lambda, B,
+                              extrapolation, jackknife, weights, seed, cl) {
+  dist_code <- family_to_dist_code(family)
+  me_terms <- parsed$me_terms
+  clean_formula <- parsed$clean_formula
+
+  SIMEXvariable <- vapply(me_terms, `[[`, character(1), "variable")
+
+  # Fit naive model
+  if (!is.null(weights)) {
+    naive_fit <- glm(clean_formula, family = family, data = data,
+                     weights = weights, x = TRUE, y = TRUE)
+  } else {
+    naive_fit <- glm(clean_formula, family = family, data = data,
                      x = TRUE, y = TRUE)
   }
 
   y <- naive_fit$y
-  X <- naive_fit$x  # model matrix
+  X <- naive_fit$x
+  n <- length(y)
   p <- ncol(X)
   p_names <- colnames(X)
   psi_naive <- unname(coef(naive_fit))
   names(psi_naive) <- p_names
-
-  # Weights
   wt <- if (is.null(weights)) rep(1.0, n) else as.numeric(weights)
 
-  # --- identify SIMEX columns in model matrix ---
+  lambda <- sort(as.numeric(lambda))
+  B <- as.integer(B)
+  n_lambda <- length(lambda)
+  n_simex <- length(SIMEXvariable)
+
+  # Build measurement error matrix from me_terms
+  measurement_error <- matrix(NA_real_, nrow = n, ncol = n_simex)
   simex_cols <- integer(n_simex)
   for (j in seq_len(n_simex)) {
-    idx <- which(p_names == SIMEXvariable[j])
+    sv <- SIMEXvariable[j]
+    sd_val <- me_terms[[j]]$sd
+    if (length(sd_val) == 1) sd_val <- rep(sd_val, n)
+    if (length(sd_val) != n)
+      stop("me() sd for '", sv, "' must be scalar or length n.", call. = FALSE)
+    measurement_error[, j] <- sd_val
+
+    idx <- which(p_names == sv)
     if (length(idx) != 1)
-      stop("SIMEXvariable '", SIMEXvariable[j],
-           "' must appear as exactly one untransformed main effect in the model matrix. ",
-           "Interactions and transformations are not supported in the C++ fast path.")
-    simex_cols[j] <- idx - 1L  # 0-based for C++
+      stop("me() variable '", sv,
+           "' must appear as exactly one untransformed main effect.",
+           call. = FALSE)
+    simex_cols[j] <- idx - 1L
   }
 
-  # --- simulation step (C++) ---
-  sim_result <- simex_sim_cpp(y, X, simex_cols, measurement.error,
+  # C++ simulation
+  sim_result <- simex_sim_cpp(y, X, simex_cols, measurement_error,
                               dist_code, lambda, B, wt, as.integer(seed))
 
-  n_lambda <- length(lambda)
-
-  # Reshape: list of B x p matrices
+  # Reshape
   theta_list <- vector("list", n_lambda)
   avg_estimates <- matrix(0, n_lambda, p)
   for (l in seq_len(n_lambda)) {
@@ -190,16 +209,15 @@ simex <- function(formula, family = gaussian(), data,
   }
   names(theta_list) <- paste0("lambda_", lambda)
 
-  # Stack estimates
   all_lambda <- c(0, lambda)
   all_estimates <- rbind(psi_naive, avg_estimates)
   rownames(all_estimates) <- paste0("lambda_", all_lambda)
   colnames(all_estimates) <- p_names
 
-  # --- extrapolation step ---
+  # Extrapolation
   extrap_result <- extrapolate_simex(all_lambda, all_estimates, extrapolation)
 
-  # --- jackknife variance ---
+  # Jackknife variance
   vcov_jk <- NULL
   if (!isFALSE(jackknife)) {
     jk_method <- if (is.character(jackknife)) jackknife else extrapolation
@@ -207,39 +225,244 @@ simex <- function(formula, family = gaussian(), data,
     rownames(vcov_jk) <- colnames(vcov_jk) <- p_names
   }
 
-  # --- fitted values and residuals ---
   corrected_coefs <- extrap_result$coefficients
-  eta_corrected <- as.numeric(X %*% corrected_coefs)
-  fitted_vals <- family$linkinv(eta_corrected)
-  resids <- y - fitted_vals
+  eta <- as.numeric(X %*% corrected_coefs)
+  fitted_vals <- family$linkinv(eta)
 
-  # --- build output ---
-  out <- structure(
-    list(
-      coefficients       = corrected_coefs,
-      naive.coefficients = psi_naive,
-      residuals          = resids,
-      fitted.values      = fitted_vals,
-      family             = family,
-      formula            = formula,
-      call               = cl,
-      data               = data,
-      vcov               = vcov_jk,
-      SIMEX.estimates    = all_estimates,
-      theta              = theta_list,
-      extrapolation      = extrap_result$model,
-      lambda             = all_lambda,
-      B                  = B,
-      n                  = n,
-      p                  = p,
-      SIMEXvariable      = SIMEXvariable,
-      measurement.error  = measurement.error,
-      naive.model        = naive_fit,
-      extrapolation.method = extrapolation
-    ),
-    class = "simex"
+  list(
+    coefficients        = corrected_coefs,
+    naive.coefficients  = psi_naive,
+    residuals           = y - fitted_vals,
+    fitted.values       = fitted_vals,
+    family              = family,
+    data                = data,
+    vcov                = vcov_jk,
+    SIMEX.estimates     = all_estimates,
+    theta               = theta_list,
+    extrapolation       = extrap_result$model,
+    lambda              = all_lambda,
+    B                   = B,
+    n                   = n,
+    p                   = p,
+    naive.model         = naive_fit,
+    extrapolation.method = extrapolation,
+    method              = NULL
   )
-  out
+}
+
+
+# =========================================================================
+# Internal: discrete misclassification fitting
+# =========================================================================
+
+.simex_discrete <- function(parsed, family, data, method, lambda, B,
+                            extrapolation, jackknife, weights, seed, cl) {
+  dist_code <- family_to_dist_code(family)
+  mc_term <- parsed$mc_terms[[1]]
+  SIMEXvariable <- mc_term$variable
+  Pi <- mc_term$mc_matrix
+  K <- nrow(Pi)
+  clean_formula <- parsed$clean_formula
+
+  # Ensure factor
+  if (!is.factor(data[[SIMEXvariable]]))
+    data[[SIMEXvariable]] <- factor(data[[SIMEXvariable]])
+
+  # Improved method requires K = 2
+  if (method == "improved" && K != 2L)
+    stop("method = 'improved' requires a binary misclassified covariate (K = 2).",
+         call. = FALSE)
+
+  # Handle lambda = "optimal"
+  optimal_lambda <- FALSE
+  if (is.character(lambda) && lambda == "optimal") {
+    optimal_lambda <- TRUE
+    lambda <- 1  # placeholder
+  }
+
+  # Fit naive model
+  if (!is.null(weights)) {
+    naive_fit <- glm(clean_formula, family = family, data = data,
+                     weights = weights, x = TRUE, y = TRUE)
+  } else {
+    naive_fit <- glm(clean_formula, family = family, data = data,
+                     x = TRUE, y = TRUE)
+  }
+
+  y <- naive_fit$y
+  n <- length(y)
+  z_factor <- data[[SIMEXvariable]]
+  z_levels <- levels(z_factor)
+  z_hat <- as.integer(z_factor) - 1L
+
+  other_terms <- setdiff(all.vars(clean_formula)[-1], SIMEXvariable)
+  if (length(other_terms) > 0) {
+    other_formula <- reformulate(other_terms, intercept = TRUE)
+    x_mat <- model.matrix(other_formula, data = data)
+  } else {
+    x_mat <- matrix(1, nrow = n, ncol = 1)
+    colnames(x_mat) <- "(Intercept)"
+  }
+
+  wt <- if (is.null(weights)) rep(1.0, n) else as.numeric(weights)
+
+  B <- as.integer(B)
+  xi_hat <- .build_xi_hat(z_hat, x_mat, K)
+  p <- ncol(xi_hat)
+  fam <- get_link_funs(family)
+
+  dat_naive <- data.frame(y = y, xi_hat)
+  naive_refit <- glm(y ~ . - 1, data = dat_naive, family = family, weights = wt)
+  psi_naive <- unname(coef(naive_refit))
+  nms <- .make_param_names(z_levels, x_mat, K)
+  names(psi_naive) <- nms
+
+  mc_list <- list(Pi)
+  names(mc_list) <- SIMEXvariable
+
+  # --- IMPROVED MC-SIMEX ---
+  if (method == "improved") {
+    pi_x <- .estimate_pi_x(z_hat, Pi)
+
+    if (optimal_lambda) {
+      lambda <- .find_optimal_lambda(Pi, pi_x)
+    }
+    lambda <- sort(as.numeric(lambda))
+    n_lambda <- length(lambda)
+
+    c_lam_vec <- .compute_c_lambda(Pi, pi_x, lambda)
+    intercept_correction <- .compute_intercept_correction(Pi, pi_x, lambda)
+
+    sim_result <- mcsimex_sim_cpp(y, z_hat, x_mat, Pi, K, dist_code,
+                                  lambda, B, wt, as.integer(seed))
+    s <- K - 1L
+    theta_list <- vector("list", n_lambda)
+    corrected_all <- matrix(0, nrow = 0, ncol = p)
+
+    for (l in seq_len(n_lambda)) {
+      rows <- ((l - 1) * B + 1):(l * B)
+      theta_mat <- sim_result[rows, , drop = FALSE]
+      colnames(theta_mat) <- nms
+      theta_corrected <- theta_mat
+      for (k in seq_len(s)) {
+        theta_corrected[, k] <- c_lam_vec[l] * theta_mat[, k]
+      }
+      icol <- s + 1
+      for (b_idx in seq_len(nrow(theta_corrected))) {
+        beta_x_corrected <- theta_corrected[b_idx, 1]
+        theta_corrected[b_idx, icol] <- theta_mat[b_idx, icol] -
+          beta_x_corrected * intercept_correction[l]
+      }
+      theta_list[[l]] <- theta_corrected
+      corrected_all <- rbind(corrected_all, theta_corrected)
+    }
+    names(theta_list) <- paste0("lambda_", lambda)
+
+    corrected_coefs <- colMeans(corrected_all)
+    names(corrected_coefs) <- nms
+
+    avg_estimates <- matrix(0, n_lambda, p)
+    for (l in seq_len(n_lambda)) {
+      avg_estimates[l, ] <- colMeans(theta_list[[l]])
+    }
+    all_lambda <- c(0, lambda)
+    all_estimates <- rbind(psi_naive, avg_estimates)
+    rownames(all_estimates) <- paste0("lambda_", all_lambda)
+    colnames(all_estimates) <- nms
+
+    vcov_imp <- NULL
+    if (!isFALSE(jackknife)) {
+      vcov_imp <- .variance_improved(theta_list, corrected_coefs, c_lam_vec,
+                                     n_lambda, B, p, naive_refit, xi_hat, y, wt, fam)
+      rownames(vcov_imp) <- colnames(vcov_imp) <- nms
+    }
+
+    eta <- as.numeric(xi_hat %*% corrected_coefs)
+    fitted_vals <- family$linkinv(eta)
+
+    return(list(
+      coefficients        = corrected_coefs,
+      naive.coefficients  = psi_naive,
+      residuals           = y - fitted_vals,
+      fitted.values       = fitted_vals,
+      family              = family,
+      data                = data,
+      vcov                = vcov_imp,
+      SIMEX.estimates     = all_estimates,
+      theta               = theta_list,
+      extrapolation       = NULL,
+      lambda              = all_lambda,
+      B                   = B,
+      n                   = n,
+      p                   = p,
+      naive.model         = naive_fit,
+      extrapolation.method = "exact (improved)",
+      method              = "improved",
+      c.lambda            = setNames(c_lam_vec, paste0("lambda_", lambda)),
+      pi.x                = pi_x,
+      SIMEXvariable       = SIMEXvariable,
+      mc.matrix           = mc_list
+    ))
+  }
+
+  # --- STANDARD MC-SIMEX ---
+  lambda <- sort(as.numeric(lambda))
+  n_lambda <- length(lambda)
+
+  sim_result <- mcsimex_sim_cpp(y, z_hat, x_mat, Pi, K, dist_code,
+                                lambda, B, wt, as.integer(seed))
+
+  theta_list <- vector("list", n_lambda)
+  avg_estimates <- matrix(0, n_lambda, p)
+  for (l in seq_len(n_lambda)) {
+    rows <- ((l - 1) * B + 1):(l * B)
+    theta_mat <- sim_result[rows, , drop = FALSE]
+    colnames(theta_mat) <- nms
+    theta_list[[l]] <- theta_mat
+    avg_estimates[l, ] <- colMeans(theta_mat)
+  }
+  names(theta_list) <- paste0("lambda_", lambda)
+
+  all_lambda <- c(0, lambda)
+  all_estimates <- rbind(psi_naive, avg_estimates)
+  rownames(all_estimates) <- paste0("lambda_", all_lambda)
+  colnames(all_estimates) <- nms
+
+  extrap_result <- extrapolate_simex(all_lambda, all_estimates, extrapolation)
+
+  vcov_jk <- NULL
+  if (!isFALSE(jackknife)) {
+    jk_method <- if (is.character(jackknife)) jackknife else extrapolation
+    vcov_jk <- jackknife_variance_mcsimex(theta_list, psi_naive, naive_refit,
+                                          lambda, jk_method, fam, xi_hat, y, wt)
+    rownames(vcov_jk) <- colnames(vcov_jk) <- nms
+  }
+
+  corrected_coefs <- extrap_result$coefficients
+  eta <- as.numeric(xi_hat %*% corrected_coefs)
+  fitted_vals <- family$linkinv(eta)
+
+  list(
+    coefficients        = corrected_coefs,
+    naive.coefficients  = psi_naive,
+    residuals           = y - fitted_vals,
+    fitted.values       = fitted_vals,
+    family              = family,
+    data                = data,
+    vcov                = vcov_jk,
+    SIMEX.estimates     = all_estimates,
+    theta               = theta_list,
+    extrapolation       = extrap_result$model,
+    lambda              = all_lambda,
+    B                   = B,
+    n                   = n,
+    p                   = p,
+    naive.model         = naive_fit,
+    extrapolation.method = extrapolation,
+    method              = "standard",
+    SIMEXvariable       = SIMEXvariable,
+    mc.matrix           = mc_list
+  )
 }
 
 
@@ -251,13 +474,13 @@ simex <- function(formula, family = gaussian(), data,
 print.simex <- function(x, digits = max(3, getOption("digits") - 3), ...) {
   cat("\nCall:\n")
   print(x$call)
-  cat("\nSIMEX corrected coefficients:\n")
+  label <- if (x$error.type == "mc") "MC-SIMEX" else "SIMEX"
+  cat(sprintf("\n%s corrected coefficients:\n", label))
   print.default(format(coef(x), digits = digits), print.gap = 2,
                 quote = FALSE)
   cat("\n")
   invisible(x)
 }
-
 
 #' @export
 summary.simex <- function(object, ...) {
@@ -271,16 +494,20 @@ summary.simex <- function(object, ...) {
   ans$call <- object$call
   ans$family <- object$family
   ans$formula <- object$formula
-  ans$SIMEXvariable <- object$SIMEXvariable
-  ans$measurement.error <- object$measurement.error
+  ans$error.type <- object$error.type
+  ans$me.terms <- object$me.terms
+  ans$mc.terms <- object$mc.terms
   ans$lambda <- object$lambda
   ans$B <- object$B
   ans$extrapolation.method <- object$extrapolation.method
+  ans$method <- object$method
   ans$SIMEX.estimates <- object$SIMEX.estimates
   ans$naive.coefficients <- object$naive.coefficients
   ans$residuals <- object$residuals
   ans$n <- n
   ans$df.residual <- rdf
+  ans$c.lambda <- object$c.lambda
+  ans$pi.x <- object$pi.x
 
   if (!is.null(object$vcov)) {
     se <- sqrt(pmax(diag(object$vcov), 0))
@@ -300,7 +527,6 @@ summary.simex <- function(object, ...) {
   ans
 }
 
-
 #' @export
 print.summary.simex <- function(x,
                                 digits = max(3, getOption("digits") - 3),
@@ -308,16 +534,25 @@ print.summary.simex <- function(x,
   cat("\nCall:\n")
   print(x$call)
   cat("\nFamily:", x$family$family, "\n")
-  cat("SIMEX variable(s):", paste(x$SIMEXvariable, collapse = ", "), "\n")
 
-  # Summarize measurement error
-  me_summary <- apply(x$measurement.error, 2, function(col) {
-    if (length(unique(col)) == 1) unique(col) else "heteroscedastic"
-  })
-  cat("Measurement error:", paste(me_summary, collapse = ", "), "\n")
+  if (x$error.type == "me") {
+    me_vars <- vapply(x$me.terms, `[[`, character(1), "variable")
+    cat("SIMEX variable(s):", paste(me_vars, collapse = ", "), "\n")
+  } else {
+    mc_vars <- vapply(x$mc.terms, `[[`, character(1), "variable")
+    cat("MC-SIMEX variable:", paste(mc_vars, collapse = ", "), "\n")
+    if (!is.null(x$method))
+      cat("Method:", x$method, "\n")
+  }
+
   cat("Extrapolation:", x$extrapolation.method, "\n")
   cat("Lambda grid:", paste(x$lambda, collapse = ", "), "\n")
   cat("B =", x$B, ", n =", x$n, "\n")
+
+  if (!is.null(x$pi.x))
+    cat("Estimated P(X=1):", round(x$pi.x, 4), "\n")
+  if (!is.null(x$c.lambda))
+    cat("Correction factor(s):", paste(round(x$c.lambda, 4), collapse = ", "), "\n")
 
   if (!is.null(x$residuals)) {
     cat("\nResiduals:\n")
@@ -329,7 +564,8 @@ print.summary.simex <- function(x,
   cat("\nNaive coefficients:\n")
   print(round(x$naive.coefficients, digits))
 
-  cat("\nSIMEX corrected coefficients:\n")
+  label <- if (x$error.type == "mc") "MC-SIMEX" else "SIMEX"
+  cat(sprintf("\n%s corrected coefficients:\n", label))
   if (ncol(x$coefficients) > 1) {
     printCoefmat(x$coefficients, digits = digits)
   } else {
@@ -339,13 +575,9 @@ print.summary.simex <- function(x,
   invisible(x)
 }
 
-
 #' @export
-plot.simex <- function(x,
-                       xlab = expression(1 + lambda),
-                       ylab = NULL,
-                       ask = FALSE,
-                       show = NULL, ...) {
+plot.simex <- function(x, xlab = expression(1 + lambda),
+                       ylab = NULL, ask = FALSE, show = NULL, ...) {
   old.par <- par(no.readonly = TRUE)
   on.exit(par(old.par))
   if (ask) par(ask = TRUE)
@@ -363,47 +595,69 @@ plot.simex <- function(x,
   for (j in seq_len(p)) {
     if (!show[j]) next
 
-    fit_j <- x$extrapolation[[j]]
-    nd <- data.frame(lambda = a)
-    if (x$extrapolation.method == "loglinear") {
-      offset <- attr(fit_j, "loglinear_offset")
-      if (is.null(offset)) offset <- 0
-      d <- exp(predict(fit_j, newdata = nd)) - offset
+    if (!is.null(x$extrapolation) && !is.null(x$extrapolation[[j]])) {
+      fit_j <- x$extrapolation[[j]]
+      nd <- data.frame(lambda = a)
+      if (x$extrapolation.method == "loglinear") {
+        offset <- attr(fit_j, "loglinear_offset")
+        if (is.null(offset)) offset <- 0
+        d <- exp(predict(fit_j, newdata = nd)) - offset
+      } else {
+        d <- predict(fit_j, newdata = nd)
+      }
+      plot(lam + 1, b[, j], xlab = xlab, ylab = ylab[j], type = "n",
+           main = p.names[j], ...)
+      points(lam[-1] + 1, b[-1, j], pch = 19)
+      points(lam[1] + 1, b[1, j], pch = 1)
+      lines(a[a >= 0] + 1, d[a >= 0])
+      lines(a[a < 0] + 1, d[a < 0], lty = 2)
+      points(0, x$coefficients[j], pch = 4, cex = 1.5, col = "red")
     } else {
-      d <- predict(fit_j, newdata = nd)
+      plot(lam + 1, b[, j], xlab = xlab, ylab = ylab[j], type = "n",
+           main = p.names[j], ...)
+      points(lam[-1] + 1, b[-1, j], pch = 19)
+      points(lam[1] + 1, b[1, j], pch = 1)
+      abline(h = x$coefficients[j], lty = 2, col = "red")
+      points(0, x$coefficients[j], pch = 4, cex = 1.5, col = "red")
     }
-
-    plot(lam + 1, b[, j], xlab = xlab, ylab = ylab[j], type = "n",
-         main = p.names[j], ...)
-    points(lam[-1] + 1, b[-1, j], pch = 19)
-    points(lam[1] + 1, b[1, j], pch = 1)
-    lines(a[a >= 0] + 1, d[a >= 0])
-    lines(a[a < 0] + 1, d[a < 0], lty = 2)
-    points(0, x$coefficients[j], pch = 4, cex = 1.5, col = "red")
   }
 }
-
 
 #' @export
 predict.simex <- function(object, newdata = NULL, type = "response", ...) {
   if (is.null(newdata)) {
-    if (type == "link") {
-      return(object$family$linkfun(object$fitted.values))
-    }
+    if (type == "link") return(object$family$linkfun(object$fitted.values))
     return(object$fitted.values)
   }
 
-  # Use the naive model's formula to build the model matrix for new data
-  tt <- terms(object$formula)
-  tt <- delete.response(tt)
-  mf <- model.frame(tt, data = newdata)
-  X_new <- model.matrix(tt, mf)
+  if (object$error.type == "mc") {
+    # MC-SIMEX predict: build xi_hat from factor + other covariates
+    sv <- object$mc.terms[[1]]$variable
+    if (!is.factor(newdata[[sv]]))
+      newdata[[sv]] <- factor(newdata[[sv]])
+
+    z_new <- as.integer(newdata[[sv]]) - 1L
+    K <- nrow(object$mc.terms[[1]]$mc_matrix)
+    clean_f <- object$clean.formula
+    other_terms <- setdiff(all.vars(clean_f)[-1], sv)
+    if (length(other_terms) > 0) {
+      x_new <- model.matrix(reformulate(other_terms, intercept = TRUE),
+                            data = newdata)
+    } else {
+      x_new <- matrix(1, nrow = nrow(newdata), ncol = 1)
+    }
+    X_new <- .build_xi_hat(z_new, x_new, K)
+  } else {
+    # ME predict: use model.matrix from clean formula
+    tt <- delete.response(terms(object$clean.formula))
+    mf <- model.frame(tt, data = newdata)
+    X_new <- model.matrix(tt, mf)
+  }
 
   eta <- as.numeric(X_new %*% object$coefficients)
   if (type == "link") return(eta)
   object$family$linkinv(eta)
 }
-
 
 #' @export
 coef.simex <- function(object, ...) object$coefficients
@@ -437,11 +691,8 @@ confint.simex <- function(object, parm, level = 0.95, ...) {
   fac <- qnorm(c(a, 1 - a))
 
   pnames <- names(cf)
-  if (missing(parm)) {
-    parm <- pnames
-  } else if (is.numeric(parm)) {
-    parm <- pnames[parm]
-  }
+  if (missing(parm)) parm <- pnames
+  else if (is.numeric(parm)) parm <- pnames[parm]
 
   ci <- cbind(cf[parm] + fac[1] * ses[parm],
               cf[parm] + fac[2] * ses[parm])

@@ -2,30 +2,21 @@
 % Please edit documentation in R/refit.R
 \name{refit}
 \alias{refit}
-\title{Refit a SIMEX or MC-SIMEX model with a different extrapolation function}
+\title{Refit a SIMEX model with a different extrapolation function}
 \usage{
 refit(object, ...)
 }
 \arguments{
-\item{object}{a \code{simex} or \code{mcsimex} object.}
+\item{object}{a \code{simex} object.}
 
-\item{...}{additional arguments passed to methods, including
-\code{extrapolation} (\code{"quadratic"}, \code{"linear"}, or
-\code{"loglinear"}) and \code{jackknife} (logical or character).}
+\item{...}{additional arguments, including \code{extrapolation}
+(\code{"quadratic"}, \code{"linear"}, or \code{"loglinear"}) and
+\code{jackknife} (logical or character).}
 }
 \value{
-An updated object of the same class with new extrapolation results.
+An updated \code{simex} object with new extrapolation results.
 }
 \description{
 Re-extrapolates the stored simulation results using a different fitting
-method, without re-running the simulation step. Pass \code{extrapolation}
-and \code{jackknife} arguments to the method.
-}
-\examples{
-\dontrun{
-fit_quad <- simex(y ~ x, data = df, SIMEXvariable = "x",
-                  measurement.error = 0.3, extrapolation = "quadratic")
-fit_lin <- refit(fit_quad, extrapolation = "linear")
-}
-
+method, without re-running the simulation step.
 }

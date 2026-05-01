@@ -2,16 +2,15 @@
 % Please edit documentation in R/simex.R
 \name{simex}
 \alias{simex}
-\title{SIMEX estimator for GLMs with measurement error}
+\title{SIMEX estimator for GLMs with measurement error or misclassification}
 \usage{
 simex(
   formula,
   family = gaussian(),
   data,
-  SIMEXvariable,
-  measurement.error,
-  lambda = c(0.5, 1, 1.5, 2),
-  B = 200L,
+  method = NULL,
+  lambda = NULL,
+  B = NULL,
   extrapolation = c("quadratic", "linear", "loglinear"),
   jackknife = TRUE,
   weights = NULL,
@@ -19,98 +18,90 @@ simex(
 )
 }
 \arguments{
-\item{formula}{a formula describing the model (as in \code{\link{glm}}).}
+\item{formula}{a formula with \code{\link{me}} and/or \code{\link{mc}} terms.
+See Examples.}
 
-\item{family}{a family object (e.g. \code{gaussian()}, \code{binomial()}).
-Default: \code{gaussian()}.}
+\item{family}{a GLM family (default: \code{gaussian()}).}
 
-\item{data}{a data frame containing the variables in the formula.}
+\item{data}{a data frame.}
 
-\item{SIMEXvariable}{character vector naming the variable(s) measured with
-error. These must appear as untransformed main effects in the formula.}
+\item{method}{character: correction method for \code{mc()} terms.
+\code{NULL} (default) auto-selects \code{"improved"}.
+Ignored for \code{me()} terms. See Details.}
 
-\item{measurement.error}{known measurement error standard deviations.
-Can be: a scalar (homoscedastic, one variable), a numeric vector of length
-\code{length(SIMEXvariable)} (homoscedastic, multiple variables), or a
-matrix with \code{nrow(data)} rows and \code{length(SIMEXvariable)} columns
-(heteroscedastic).}
+\item{lambda}{numeric vector of SIMEX exponents, or \code{"optimal"}
+(improved MC-SIMEX only). Default: auto-set based on error type.}
 
-\item{lambda}{numeric vector of SIMEX exponents (default:
-\code{c(0.5, 1, 1.5, 2)}).}
-
-\item{B}{number of simulation replicates per lambda level (default: 200).}
+\item{B}{integer number of simulation replicates. Default: auto-set.}
 
 \item{extrapolation}{extrapolation method: \code{"quadratic"} (default),
-\code{"linear"}, or \code{"loglinear"}.}
+\code{"linear"}, or \code{"loglinear"}. Ignored for improved MC-SIMEX.}
 
-\item{jackknife}{logical or character. If \code{TRUE}, compute jackknife
-variance using the same extrapolation method. If a character string, use
-that method. \code{FALSE} to skip.}
+\item{jackknife}{logical: compute variance estimates? Default \code{TRUE}.}
 
-\item{weights}{optional prior weights (as in \code{\link{glm}}).}
+\item{weights}{optional prior weights.}
 
-\item{seed}{random seed for reproducibility (default: 42).}
+\item{seed}{random seed (default: 42).}
 }
 \value{
-An object of class \code{"simex"} with components:
-  \describe{
-    \item{coefficients}{Named vector of SIMEX-corrected coefficients.}
-    \item{naive.coefficients}{Coefficients from the naive (uncorrected) model.}
-    \item{residuals}{Working residuals.}
-    \item{fitted.values}{Fitted values from the corrected model.}
-    \item{family}{The family object.}
-    \item{formula}{The model formula.}
-    \item{call}{The matched call.}
-    \item{data}{The data used.}
-    \item{vcov}{Jackknife variance-covariance matrix (if requested).}
-    \item{SIMEX.estimates}{Matrix of averaged estimates at each lambda.}
-    \item{theta}{List of B x p matrices of simulation estimates.}
-    \item{extrapolation}{Fitted extrapolation model(s).}
-    \item{lambda}{Lambda vector used (including 0).}
-    \item{B}{Number of replicates.}
-    \item{SIMEXvariable}{Name(s) of the error-prone variable(s).}
-    \item{measurement.error}{The measurement error specification.}
-    \item{naive.model}{The naive \code{glm} fit.}
-    \item{extrapolation.method}{Extrapolation method used.}
-  }
+An object of class \code{"simex"}.
 }
 \description{
-Implements the Simulation-Extrapolation algorithm of Cook and Stefanski (1994)
-for correcting attenuation bias due to measurement error in covariates.
-The simulation step runs in C++ for high performance.
+Fits a generalized linear model corrected for measurement error or
+misclassification using the Simulation-Extrapolation (SIMEX) method.
+Error-prone variables are specified directly in the formula using
+\code{\link{me}} (continuous measurement error) or \code{\link{mc}}
+(discrete misclassification).
 }
 \details{
-The SIMEX algorithm has two steps:
+The function auto-detects the error type from the formula:
 
-\strong{Simulation step}: For each \eqn{\lambda} in the lambda grid and
-\eqn{b = 1, \ldots, B}, extra measurement error is added:
-\eqn{X_b(\lambda) = X_{measured} + \sqrt{\lambda} \cdot \varepsilon_b \cdot \sigma_{me}},
-where \eqn{\varepsilon_b \sim N(0,1)}. The model is refitted to each
-contaminated dataset. The entire loop runs in C++.
-
-\strong{Extrapolation step}: The averaged coefficient estimates are modelled
-as a function of lambda and extrapolated to \eqn{\lambda = -1}.
+\itemize{
+  \item \strong{Continuous measurement error} (\code{me()} terms): Uses the
+    SIMEX algorithm of Cook and Stefanski (1994). Extra noise is added to
+    the error-prone variable, the model is refitted B times per lambda level,
+    and coefficients are extrapolated to lambda = -1.
+  \item \strong{Discrete misclassification} (\code{mc()} terms): Uses the
+    MC-SIMEX algorithm. With \code{method = "improved"} (default), the exact
+    correction factor of Sevilimedu and Yu (2026) is applied, requiring only
+    B = 1 replicate. With \code{method = "standard"}, the original
+    Kuchenhoff et al. (2006) extrapolation-based approach is used.
+}
 }
 \examples{
-# Simulate data with measurement error
+# --- Continuous measurement error ---
 set.seed(42)
 n <- 500
 x_true <- rnorm(n)
 y <- 1 + 2 * x_true + rnorm(n, sd = 0.5)
-x_measured <- x_true + rnorm(n, sd = 0.5)
+x_obs <- x_true + rnorm(n, sd = 0.5)
+df <- data.frame(y = y, x = x_obs)
 
-df <- data.frame(y = y, x = x_measured)
-fit <- simex(y ~ x, family = gaussian(), data = df,
-             SIMEXvariable = "x", measurement.error = 0.5, B = 100)
-summary(fit)
+fit_me <- simex(y ~ me(x, 0.5), data = df, B = 50)
+summary(fit_me)
+
+# --- Misclassification (improved, default) ---
+Pi <- matrix(c(0.9, 0.1, 0.15, 0.85), 2, 2)
+z <- rbinom(n, 1, 0.4)
+y2 <- rpois(n, exp(0.5 + 0.8 * z + 0.3 * x_true))
+z_star <- z
+z_star[z == 0] <- rbinom(sum(z == 0), 1, 0.1)
+z_star[z == 1] <- 1 - rbinom(sum(z == 1), 1, 0.15)
+df2 <- data.frame(y = y2, z = factor(z_star), x = x_true)
+
+fit_mc <- simex(y ~ mc(z, Pi) + x, family = poisson(), data = df2)
+summary(fit_mc)
 
 }
 \references{
 Cook, J.R. and Stefanski, L.A. (1994). Simulation-extrapolation estimation
-in parametric measurement error models. \emph{Journal of the American
-Statistical Association}, 89, 1314--1328.
+in parametric measurement error models. \emph{JASA}, 89, 1314--1328.
 
-Carroll, R.J., Ruppert, D., Stefanski, L.A. and Crainiceanu, C. (2006).
-\emph{Measurement error in nonlinear models: A modern perspective.}
-Second Edition. London: Chapman and Hall.
+Kuchenhoff, H., Mwalili, S.M. and Lesaffre, E. (2006). A general method for
+dealing with misclassification in regression: The misclassification SIMEX.
+\emph{Biometrics}, 62(1), 85--96.
+
+Sevilimedu, V. and Yu, L. (2026). An improved misclassification simulation
+extrapolation (MC-SIMEX) algorithm. \emph{Statistics in Medicine}, 45,
+e70418.
 }

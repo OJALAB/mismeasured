@@ -1,0 +1,94 @@
+---
+output: github_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "man/figures/README-"
+)
+```
+
+# mismeasured
+
+High-performance SIMEX and MC-SIMEX correction for measurement error and misclassification in generalized linear models.
+
+## Installation
+
+```r
+# install.packages("remotes")
+remotes::install_github("OJALAB/mismeasured")
+```
+
+## Overview
+
+The `mismeasured` package implements the Simulation-Extrapolation (SIMEX) and Misclassification SIMEX (MC-SIMEX) algorithms for correcting bias due to measurement error or misclassification in regression models. It provides:
+
+- A **unified `simex()` function** with brms-style formula terms: `me()` for continuous measurement error and `mc()` for discrete misclassification
+- **C++ simulation engine** via Rcpp/RcppEigen (100-300x faster than pure-R implementations)
+- **Standard and improved MC-SIMEX** (Sevilimedu & Yu, 2026) with exact correction factors
+- Standard S3 methods: `summary()`, `plot()`, `predict()`, `confint()`, `refit()`, etc.
+
+## Quick start
+
+### Continuous measurement error
+
+When a covariate is measured with additive Gaussian error, wrap it with `me(variable, sd)`:
+
+```{r simex-me}
+library(mismeasured)
+
+set.seed(42)
+n <- 2000
+x_true <- rnorm(n)
+y <- 1 + 2 * x_true + rnorm(n, sd = 0.5)
+x_obs <- x_true + rnorm(n, sd = 0.5)  # observed with error
+df <- data.frame(y = y, x = x_obs)
+
+fit <- simex(y ~ me(x, 0.5), data = df, B = 200)
+summary(fit)
+```
+
+### Misclassification
+
+When a discrete covariate is subject to misclassification, wrap it with `mc(variable, matrix)`:
+
+```{r simex-mc}
+z_true <- rbinom(n, 1, 0.4)
+y2 <- rpois(n, exp(0.5 + 0.8 * z_true + 0.3 * x_true))
+
+# Misclassify z
+z_star <- z_true
+z_star[z_true == 0] <- rbinom(sum(z_true == 0), 1, 0.10)
+z_star[z_true == 1] <- 1 - rbinom(sum(z_true == 1), 1, 0.15)
+
+Pi <- matrix(c(0.9, 0.1, 0.15, 0.85), 2, 2)
+df2 <- data.frame(y = y2, z = factor(z_star), x = x_true)
+
+# Improved MC-SIMEX (default) -- only needs B=1
+fit_mc <- simex(y ~ mc(z, Pi) + x, family = poisson(), data = df2)
+summary(fit_mc)
+```
+
+Use `method = "standard"` for the classic extrapolation-based MC-SIMEX:
+
+```{r simex-mc-std}
+fit_std <- simex(y ~ mc(z, Pi) + x, family = poisson(), data = df2,
+                 method = "standard", B = 200)
+summary(fit_std)
+```
+
+## Formula syntax
+
+| Term | Meaning | Example |
+|------|---------|---------|
+| `me(x, 0.5)` | `x` measured with Gaussian error, sd = 0.5 | `y ~ me(x, 0.5) + w` |
+| `me(x, sd_x)` | Heteroscedastic error, sd from column `sd_x` | `y ~ me(x, sd_x) + w` |
+| `mc(z, Pi)` | `z` is a misclassified factor, Pi is the K x K misclassification matrix | `y ~ mc(z, Pi) + x` |
+
+## References
+
+- Cook, J.R. and Stefanski, L.A. (1994). Simulation-extrapolation estimation in parametric measurement error models. *JASA*, 89, 1314--1328.
+- Kuchenhoff, H., Mwalili, S.M. and Lesaffre, E. (2006). A general method for dealing with misclassification in regression: The misclassification SIMEX. *Biometrics*, 62(1), 85--96.
+- Sevilimedu, V. and Yu, L. (2026). An improved misclassification simulation extrapolation (MC-SIMEX) algorithm. *Statistics in Medicine*, 45, e70418.
