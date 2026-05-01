@@ -1,2 +1,4 @@
 simex/
-theory/
+theory/src/*.o
+src/*.so
+src/*.dll
