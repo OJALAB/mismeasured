@@ -1,0 +1,33 @@
+Package: mismeasured
+Type: Package
+Title: SIMEX and MC-SIMEX Correction for Measurement Error and Misclassification
+Version: 0.1.0
+Authors@R: c(
+    person("Maciej", "Beresewicz", role = c("aut", "cre"),
+           email = "maciej.beresewicz@ue.poznan.pl",
+           comment = c(ORCID = "0000-0002-8281-4301")),
+    person("Helmut", "Kuechenhoff", role = "ctb"))
+Description: High-performance implementation of the Simulation-Extrapolation (SIMEX)
+    and Misclassification SIMEX (MC-SIMEX) algorithms for correcting measurement error
+    and misclassification bias in regression models. The simulation step uses compiled
+    C++ code via 'Rcpp' and 'RcppEigen' for Iteratively Reweighted Least Squares (IRLS)
+    fitting, providing substantial speedups over pure-R implementations. Supports
+    Gaussian, Poisson, and Binomial GLM families with a formula interface mimicking
+    'glm()' and standard S3 methods. Based on Cook and Stefanski (1994)
+    <doi:10.1080/01621459.1994.10476871> and Kuechenhoff, Mwalili, and Lesaffre (2006)
+    <doi:10.1111/j.1541-0420.2005.00396.x>.
+License: GPL (>= 3)
+Depends: R (>= 3.5.0)
+Imports:
+    Rcpp (>= 1.0.0),
+    stats,
+    graphics,
+    MASS
+LinkingTo:
+    Rcpp,
+    RcppEigen
+Encoding: UTF-8
+RoxygenNote: 7.3.3
+Author: Maciej Beresewicz [aut, cre] (<https://orcid.org/0000-0002-8281-4301>),
+    Helmut Kuechenhoff [ctb]
+Maintainer: Maciej Beresewicz <maciej.beresewicz@ue.poznan.pl>

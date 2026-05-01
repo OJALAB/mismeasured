@@ -1,0 +1,8 @@
+^simex$
+^\.gitignore$
+^.*\.Rproj$
+^\.Rproj\.user$
+^LICENSE\.md$
+^README\.Rmd$
+^\.claude$
+^\.DS_Store$

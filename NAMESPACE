@@ -1,0 +1,50 @@
+useDynLib(mismeasured, .registration = TRUE)
+importFrom(Rcpp, sourceCpp)
+
+importFrom(stats, coef, vcov, residuals, fitted, predict, family, formula,
+           model.matrix, model.frame, model.response, model.weights,
+           glm, lm, cov, printCoefmat, pnorm, pt, qnorm, nls,
+           gaussian, poisson, binomial, terms, update, delete.response,
+           na.omit, .getXlevels, model.offset, weights, df.residual,
+           deviance, AIC, logLik, nobs, confint.default, setNames,
+           quantile, reformulate)
+importFrom(graphics, plot, points, lines, par, abline)
+importFrom(MASS, ginv)
+
+export(simex)
+export(mcsimex)
+export(misclass)
+export(build.mc.matrix)
+export(check.mc.matrix)
+export(refit)
+export(diag.block)
+
+S3method(print, simex)
+S3method(summary, simex)
+S3method(print, summary.simex)
+S3method(plot, simex)
+S3method(predict, simex)
+S3method(coef, simex)
+S3method(vcov, simex)
+S3method(residuals, simex)
+S3method(fitted, simex)
+S3method(confint, simex)
+S3method(refit, simex)
+S3method(nobs, simex)
+S3method(family, simex)
+S3method(formula, simex)
+
+S3method(print, mcsimex)
+S3method(summary, mcsimex)
+S3method(print, summary.mcsimex)
+S3method(plot, mcsimex)
+S3method(predict, mcsimex)
+S3method(coef, mcsimex)
+S3method(vcov, mcsimex)
+S3method(residuals, mcsimex)
+S3method(fitted, mcsimex)
+S3method(confint, mcsimex)
+S3method(refit, mcsimex)
+S3method(nobs, mcsimex)
+S3method(family, mcsimex)
+S3method(formula, mcsimex)
