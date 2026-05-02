@@ -238,6 +238,111 @@ Rcpp::NumericMatrix mcsimex_sim_cpp(
 
 
 // =========================================================================
+// Multi-variable MC-SIMEX simulation step (exported to R)
+// =========================================================================
+// Handles multiple misclassified variables simultaneously.
+// z_list:  list of integer vectors (0-based factor codes), one per mc variable
+// Pi_list: list of K_j x K_j misclassification matrices
+// K_vec:   integer vector of number of levels per mc variable
+// x_r:     other covariates matrix (n x r), including intercept
+//
+// Design matrix: [dummies_z1(K1-1) | dummies_z2(K2-1) | ... | x_other]
+// Returns matrix of dimension (B * n_lambda) x p
+
+// [[Rcpp::export]]
+Rcpp::NumericMatrix mcsimex_multi_sim_cpp(
+    Rcpp::NumericVector y_r,
+    Rcpp::List z_list,
+    Rcpp::List Pi_list,
+    Rcpp::IntegerVector K_vec,
+    Rcpp::NumericMatrix x_r,
+    int dist_code,
+    Rcpp::NumericVector lambda_r,
+    int B,
+    Rcpp::NumericVector wt_r,
+    unsigned int seed) {
+
+  int n = y_r.size();
+  int n_mc = z_list.size();
+  int r = x_r.ncol();
+  int n_lambda = lambda_r.size();
+
+  // Compute total dummy columns: sum(K_j - 1)
+  int total_dummies = 0;
+  for (int j = 0; j < n_mc; j++) {
+    total_dummies += K_vec[j] - 1;
+  }
+  int p = total_dummies + r;
+
+  Eigen::Map<VectorXd> y(y_r.begin(), n);
+  Eigen::Map<MatrixXd> x(x_r.begin(), n, r);
+  Eigen::Map<VectorXd> wt(wt_r.begin(), n);
+
+  // Map z vectors and Pi matrices
+  std::vector<Eigen::Map<VectorXi>> z_hats;
+  std::vector<Eigen::Map<MatrixXd>> Pis;
+  z_hats.reserve(n_mc);
+  Pis.reserve(n_mc);
+
+  for (int j = 0; j < n_mc; j++) {
+    Rcpp::IntegerVector zj = z_list[j];
+    Rcpp::NumericMatrix Pj = Pi_list[j];
+    z_hats.push_back(Eigen::Map<VectorXi>(zj.begin(), n));
+    Pis.push_back(Eigen::Map<MatrixXd>(Pj.begin(), K_vec[j], K_vec[j]));
+  }
+
+  // Pre-compute Pi^lambda for each (variable, lambda)
+  // Pi_powers[j][l] = Pi_j^{lambda_l}
+  std::vector<std::vector<MatrixXd>> Pi_powers(n_mc);
+  for (int j = 0; j < n_mc; j++) {
+    Pi_powers[j].resize(n_lambda);
+    for (int l = 0; l < n_lambda; l++) {
+      Pi_powers[j][l] = mat_power(MatrixXd(Pis[j]), lambda_r[l]);
+    }
+  }
+
+  Rcpp::NumericMatrix result(n_lambda * B, p);
+  std::mt19937 rng(seed);
+
+  for (int l = 0; l < n_lambda; l++) {
+    for (int b = 0; b < B; b++) {
+      // Build design matrix: resample each mc variable, create dummies
+      MatrixXd xi(n, p);
+
+      int col_offset = 0;
+      for (int j = 0; j < n_mc; j++) {
+        int Kj = K_vec[j];
+        int sj = Kj - 1;
+        VectorXi z_sim = resample_z(z_hats[j], Pi_powers[j][l], rng);
+
+        // Write dummies for variable j
+        for (int k = 0; k < sj; k++) {
+          for (int i = 0; i < n; i++) {
+            xi(i, col_offset + k) = (z_sim(i) == k + 1) ? 1.0 : 0.0;
+          }
+        }
+        col_offset += sj;
+      }
+
+      // Copy other covariates
+      xi.rightCols(r) = x;
+
+      VectorXd beta = irls_fit(y, xi, dist_code, wt);
+
+      int row = l * B + b;
+      for (int jj = 0; jj < p; jj++) {
+        result(row, jj) = beta(jj);
+      }
+    }
+
+    Rcpp::checkUserInterrupt();
+  }
+
+  return result;
+}
+
+
+// =========================================================================
 // SIMEX simulation step for continuous measurement error (exported to R)
 // =========================================================================
 // X_r:          full model matrix (n x p) from the naive model

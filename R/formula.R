@@ -121,8 +121,6 @@ parse_simex_formula <- function(formula, data, env) {
   mc_terms <- Filter(function(d) d$type == "mc", .env_descriptors$items)
 
   # --- Validation ---
-  if (length(mc_terms) > 1)
-    stop("Currently only one mc() term is supported per formula.", call. = FALSE)
 
   for (mt in me_terms) {
     if (is.factor(data[[mt$variable]]))

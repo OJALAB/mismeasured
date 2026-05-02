@@ -1,5 +1,5 @@
 simex/
-theory/src/*.o
+theory/
 src/*.so
 src/*.dll
 README.html

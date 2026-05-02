@@ -113,8 +113,15 @@ simex <- function(formula, family = gaussian(), data,
                                 extrapolation, jackknife, weights, seed, cl)
   } else {
     # mc terms
-    if (is.null(method)) method <- "improved"
+    n_mc <- length(parsed$mc_terms)
+    if (is.null(method)) {
+      method <- if (n_mc == 1L) "improved" else "standard"
+    }
     method <- match.arg(method, c("standard", "improved"))
+
+    if (method == "improved" && n_mc > 1L)
+      stop("method = 'improved' is only supported for a single mc() term.",
+           call. = FALSE)
 
     # defaults depend on method
     if (is.null(lambda)) {
@@ -151,10 +158,11 @@ simex <- function(formula, family = gaussian(), data,
 
   SIMEXvariable <- vapply(me_terms, `[[`, character(1), "variable")
 
-  # Fit naive model
+  # Fit naive model — use .wt in data to avoid glm() NSE issues with weights
   if (!is.null(weights)) {
+    data$.wt <- as.numeric(weights)
     naive_fit <- glm(clean_formula, family = family, data = data,
-                     weights = weights, x = TRUE, y = TRUE)
+                     weights = .wt, x = TRUE, y = TRUE)
   } else {
     naive_fit <- glm(clean_formula, family = family, data = data,
                      x = TRUE, y = TRUE)
@@ -258,20 +266,41 @@ simex <- function(formula, family = gaussian(), data,
 .simex_discrete <- function(parsed, family, data, method, lambda, B,
                             extrapolation, jackknife, weights, seed, cl) {
   dist_code <- family_to_dist_code(family)
-  mc_term <- parsed$mc_terms[[1]]
-  SIMEXvariable <- mc_term$variable
-  Pi <- mc_term$mc_matrix
-  K <- nrow(Pi)
+  mc_terms <- parsed$mc_terms
+  n_mc <- length(mc_terms)
   clean_formula <- parsed$clean_formula
 
-  # Ensure factor
-  if (!is.factor(data[[SIMEXvariable]]))
-    data[[SIMEXvariable]] <- factor(data[[SIMEXvariable]])
+  SIMEXvariables <- vapply(mc_terms, `[[`, character(1), "variable")
 
-  # Improved method requires K = 2
-  if (method == "improved" && K != 2L)
-    stop("method = 'improved' requires a binary misclassified covariate (K = 2).",
-         call. = FALSE)
+  # Build named list of misclassification matrices
+  mc_list <- setNames(
+    lapply(mc_terms, `[[`, "mc_matrix"),
+    SIMEXvariables
+  )
+
+  # Ensure all mc variables are factors
+
+  for (sv in SIMEXvariables) {
+    if (!is.factor(data[[sv]]))
+      data[[sv]] <- factor(data[[sv]])
+  }
+
+  # Single-mc: extract for C++ fast path
+  if (n_mc == 1L) {
+    Pi <- mc_list[[1]]
+    K <- nrow(Pi)
+    SIMEXvariable <- SIMEXvariables[1]
+  }
+
+  # Improved method requires single binary mc variable
+  if (method == "improved") {
+    if (n_mc > 1L)
+      stop("method = 'improved' is only supported for a single mc() term.",
+           call. = FALSE)
+    if (nrow(Pi) != 2L)
+      stop("method = 'improved' requires a binary misclassified covariate (K = 2).",
+           call. = FALSE)
+  }
 
   # Handle lambda = "optimal"
   optimal_lambda <- FALSE
@@ -280,10 +309,11 @@ simex <- function(formula, family = gaussian(), data,
     lambda <- 1  # placeholder
   }
 
-  # Fit naive model
+  # Fit naive model — use .wt in data to avoid glm() NSE issues with weights
   if (!is.null(weights)) {
+    data$.wt <- as.numeric(weights)
     naive_fit <- glm(clean_formula, family = family, data = data,
-                     weights = weights, x = TRUE, y = TRUE)
+                     weights = .wt, x = TRUE, y = TRUE)
   } else {
     naive_fit <- glm(clean_formula, family = family, data = data,
                      x = TRUE, y = TRUE)
@@ -291,36 +321,71 @@ simex <- function(formula, family = gaussian(), data,
 
   y <- naive_fit$y
   n <- length(y)
-  z_factor <- data[[SIMEXvariable]]
-  z_levels <- levels(z_factor)
-  z_hat <- as.integer(z_factor) - 1L
-
-  other_terms <- setdiff(all.vars(clean_formula)[-1], SIMEXvariable)
-  if (length(other_terms) > 0) {
-    other_formula <- reformulate(other_terms, intercept = TRUE)
-    x_mat <- model.matrix(other_formula, data = data)
-  } else {
-    x_mat <- matrix(1, nrow = n, ncol = 1)
-    colnames(x_mat) <- "(Intercept)"
-  }
-
   wt <- if (is.null(weights)) rep(1.0, n) else as.numeric(weights)
-
   B <- as.integer(B)
-  xi_hat <- .build_xi_hat(z_hat, x_mat, K)
-  p <- ncol(xi_hat)
   fam <- get_link_funs(family)
 
-  dat_naive <- data.frame(y = y, xi_hat)
-  naive_refit <- glm(y ~ . - 1, data = dat_naive, family = family, weights = wt)
-  psi_naive <- unname(coef(naive_refit))
-  nms <- .make_param_names(z_levels, x_mat, K)
-  names(psi_naive) <- nms
+  # --- Build design matrix and naive refit ---
+  if (n_mc == 1L) {
+    # Single-mc: manual design matrix (compatible with C++ path)
+    z_factor <- data[[SIMEXvariable]]
+    z_levels <- levels(z_factor)
+    z_hat <- as.integer(z_factor) - 1L
 
-  mc_list <- list(Pi)
-  names(mc_list) <- SIMEXvariable
+    other_terms <- setdiff(all.vars(clean_formula)[-1], SIMEXvariable)
+    if (length(other_terms) > 0) {
+      other_formula <- reformulate(other_terms, intercept = TRUE)
+      x_mat <- model.matrix(other_formula, data = data)
+    } else {
+      x_mat <- matrix(1, nrow = n, ncol = 1)
+      colnames(x_mat) <- "(Intercept)"
+    }
 
-  # --- IMPROVED MC-SIMEX ---
+    xi_hat <- .build_xi_hat(z_hat, x_mat, K)
+    p <- ncol(xi_hat)
+    nms <- .make_param_names(z_levels, x_mat, K)
+
+    dat_naive <- data.frame(y = y, .wt = wt, xi_hat)
+    naive_refit <- glm(y ~ . - .wt - 1, data = dat_naive, family = family,
+                       weights = .wt)
+    psi_naive <- unname(coef(naive_refit))
+    names(psi_naive) <- nms
+  } else {
+    # Multi-mc: build design matrix manually [dummies_z1 | dummies_z2 | ... | x]
+    # Extract z_hat vectors and levels for each mc variable
+    z_hats <- list()
+    z_levels_list <- list()
+    K_vec <- integer(n_mc)
+    for (j in seq_len(n_mc)) {
+      sv <- SIMEXvariables[j]
+      z_factor_j <- data[[sv]]
+      z_levels_list[[sv]] <- levels(z_factor_j)
+      z_hats[[j]] <- as.integer(z_factor_j) - 1L
+      K_vec[j] <- length(levels(z_factor_j))
+    }
+
+    other_terms <- setdiff(all.vars(clean_formula)[-1], SIMEXvariables)
+    if (length(other_terms) > 0) {
+      other_formula <- reformulate(other_terms, intercept = TRUE)
+      x_mat <- model.matrix(other_formula, data = data)
+    } else {
+      x_mat <- matrix(1, nrow = n, ncol = 1)
+      colnames(x_mat) <- "(Intercept)"
+    }
+
+    # Build xi_hat = [dummies_z1 | dummies_z2 | ... | x_mat]
+    xi_hat <- .build_multi_xi_hat(z_hats, K_vec, x_mat)
+    p <- ncol(xi_hat)
+    nms <- .make_multi_param_names(z_levels_list, K_vec, x_mat)
+
+    dat_naive <- data.frame(y = y, .wt = wt, xi_hat)
+    naive_refit <- glm(y ~ . - .wt - 1, data = dat_naive, family = family,
+                       weights = .wt)
+    psi_naive <- unname(coef(naive_refit))
+    names(psi_naive) <- nms
+  }
+
+  # --- IMPROVED MC-SIMEX (single mc only) ---
   if (method == "improved") {
     pi_x <- .estimate_pi_x(z_hat, Pi)
 
@@ -400,7 +465,7 @@ simex <- function(formula, family = gaussian(), data,
       method              = "improved",
       c.lambda            = setNames(c_lam_vec, paste0("lambda_", lambda)),
       pi.x                = pi_x,
-      SIMEXvariable       = SIMEXvariable,
+      SIMEXvariable       = SIMEXvariables,
       mc.matrix           = mc_list
     ))
   }
@@ -409,17 +474,38 @@ simex <- function(formula, family = gaussian(), data,
   lambda <- sort(as.numeric(lambda))
   n_lambda <- length(lambda)
 
-  sim_result <- mcsimex_sim_cpp(y, z_hat, x_mat, Pi, K, dist_code,
-                                lambda, B, wt, as.integer(seed))
+  set.seed(seed)
 
-  theta_list <- vector("list", n_lambda)
-  avg_estimates <- matrix(0, n_lambda, p)
-  for (l in seq_len(n_lambda)) {
-    rows <- ((l - 1) * B + 1):(l * B)
-    theta_mat <- sim_result[rows, , drop = FALSE]
-    colnames(theta_mat) <- nms
-    theta_list[[l]] <- theta_mat
-    avg_estimates[l, ] <- colMeans(theta_mat)
+  if (n_mc == 1L) {
+    # Single mc: C++ fast path
+    sim_result <- mcsimex_sim_cpp(y, z_hat, x_mat, Pi, K, dist_code,
+                                  lambda, B, wt, as.integer(seed))
+
+    theta_list <- vector("list", n_lambda)
+    avg_estimates <- matrix(0, n_lambda, p)
+    for (l in seq_len(n_lambda)) {
+      rows <- ((l - 1) * B + 1):(l * B)
+      theta_mat <- sim_result[rows, , drop = FALSE]
+      colnames(theta_mat) <- nms
+      theta_list[[l]] <- theta_mat
+      avg_estimates[l, ] <- colMeans(theta_mat)
+    }
+  } else {
+    # Multi-mc: C++ fast path
+    Pi_list <- lapply(mc_list, unname)
+    sim_result <- mcsimex_multi_sim_cpp(y, z_hats, Pi_list, K_vec, x_mat,
+                                        dist_code, lambda, B, wt,
+                                        as.integer(seed))
+
+    theta_list <- vector("list", n_lambda)
+    avg_estimates <- matrix(0, n_lambda, p)
+    for (l in seq_len(n_lambda)) {
+      rows <- ((l - 1) * B + 1):(l * B)
+      theta_mat <- sim_result[rows, , drop = FALSE]
+      colnames(theta_mat) <- nms
+      theta_list[[l]] <- theta_mat
+      avg_estimates[l, ] <- colMeans(theta_mat)
+    }
   }
   names(theta_list) <- paste0("lambda_", lambda)
 
@@ -460,7 +546,7 @@ simex <- function(formula, family = gaussian(), data,
     naive.model         = naive_fit,
     extrapolation.method = extrapolation,
     method              = "standard",
-    SIMEXvariable       = SIMEXvariable,
+    SIMEXvariable       = SIMEXvariables,
     mc.matrix           = mc_list
   )
 }
@@ -540,7 +626,8 @@ print.summary.simex <- function(x,
     cat("SIMEX variable(s):", paste(me_vars, collapse = ", "), "\n")
   } else {
     mc_vars <- vapply(x$mc.terms, `[[`, character(1), "variable")
-    cat("MC-SIMEX variable:", paste(mc_vars, collapse = ", "), "\n")
+    label_mc <- if (length(mc_vars) > 1) "MC-SIMEX variables:" else "MC-SIMEX variable:"
+    cat(label_mc, paste(mc_vars, collapse = ", "), "\n")
     if (!is.null(x$method))
       cat("Method:", x$method, "\n")
   }
@@ -631,22 +718,34 @@ predict.simex <- function(object, newdata = NULL, type = "response", ...) {
   }
 
   if (object$error.type == "mc") {
-    # MC-SIMEX predict: build xi_hat from factor + other covariates
-    sv <- object$mc.terms[[1]]$variable
-    if (!is.factor(newdata[[sv]]))
-      newdata[[sv]] <- factor(newdata[[sv]])
+    mc_vars <- object$SIMEXvariable
+    if (length(mc_vars) == 1L) {
+      # Single mc: manual design matrix (backward compatible)
+      sv <- mc_vars[1]
+      if (!is.factor(newdata[[sv]]))
+        newdata[[sv]] <- factor(newdata[[sv]])
 
-    z_new <- as.integer(newdata[[sv]]) - 1L
-    K <- nrow(object$mc.terms[[1]]$mc_matrix)
-    clean_f <- object$clean.formula
-    other_terms <- setdiff(all.vars(clean_f)[-1], sv)
-    if (length(other_terms) > 0) {
-      x_new <- model.matrix(reformulate(other_terms, intercept = TRUE),
-                            data = newdata)
+      z_new <- as.integer(newdata[[sv]]) - 1L
+      K <- nrow(object$mc.matrix[[sv]])
+      clean_f <- object$clean.formula
+      other_terms <- setdiff(all.vars(clean_f)[-1], sv)
+      if (length(other_terms) > 0) {
+        x_new <- model.matrix(reformulate(other_terms, intercept = TRUE),
+                              data = newdata)
+      } else {
+        x_new <- matrix(1, nrow = nrow(newdata), ncol = 1)
+      }
+      X_new <- .build_xi_hat(z_new, x_new, K)
     } else {
-      x_new <- matrix(1, nrow = nrow(newdata), ncol = 1)
+      # Multi-mc: use R's formula interface
+      for (sv in mc_vars) {
+        if (!is.factor(newdata[[sv]]))
+          newdata[[sv]] <- factor(newdata[[sv]])
+      }
+      tt <- delete.response(terms(object$clean.formula))
+      mf <- model.frame(tt, data = newdata)
+      X_new <- model.matrix(tt, mf)
     }
-    X_new <- .build_xi_hat(z_new, x_new, K)
   } else {
     # ME predict: use model.matrix from clean formula
     tt <- delete.response(terms(object$clean.formula))

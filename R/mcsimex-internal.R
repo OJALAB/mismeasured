@@ -16,13 +16,48 @@
   cbind(dummies, x_mat)
 }
 
-#' Generate parameter names for the SIMEX model
+#' Generate parameter names for the SIMEX model (single mc variable)
 #' @keywords internal
 .make_param_names <- function(z_levels, x_mat, K) {
   if (K == 2L) {
     dummy_names <- z_levels[2]
   } else {
     dummy_names <- z_levels[-1]
+  }
+  c(dummy_names, colnames(x_mat))
+}
+
+#' Build design matrix for multiple mc variables
+#' [dummies_z1(K1-1) | dummies_z2(K2-1) | ... | x_mat]
+#' @keywords internal
+.build_multi_xi_hat <- function(z_hats, K_vec, x_mat) {
+  n <- length(z_hats[[1]])
+  n_mc <- length(z_hats)
+  dummy_blocks <- vector("list", n_mc)
+  for (j in seq_len(n_mc)) {
+    sj <- K_vec[j] - 1L
+    dummies <- matrix(0, n, sj)
+    for (k in seq_len(sj)) {
+      dummies[, k] <- as.numeric(z_hats[[j]] == k)
+    }
+    dummy_blocks[[j]] <- dummies
+  }
+  do.call(cbind, c(dummy_blocks, list(x_mat)))
+}
+
+#' Generate parameter names for multiple mc variables
+#' @keywords internal
+.make_multi_param_names <- function(z_levels_list, K_vec, x_mat) {
+  dummy_names <- character(0)
+  var_names <- names(z_levels_list)
+  for (j in seq_along(z_levels_list)) {
+    levs <- z_levels_list[[j]]
+    prefix <- var_names[j]
+    if (K_vec[j] == 2L) {
+      dummy_names <- c(dummy_names, paste0(prefix, levs[2]))
+    } else {
+      dummy_names <- c(dummy_names, paste0(prefix, levs[-1]))
+    }
   }
   c(dummy_names, colnames(x_mat))
 }

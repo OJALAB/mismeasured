@@ -5,6 +5,10 @@ mcsimex_sim_cpp <- function(y_r, z_hat_r, x_r, Pi_r, K, dist_code, lambda_r, B, 
     .Call(`_mismeasured_mcsimex_sim_cpp`, y_r, z_hat_r, x_r, Pi_r, K, dist_code, lambda_r, B, wt_r, seed)
 }
 
+mcsimex_multi_sim_cpp <- function(y_r, z_list, Pi_list, K_vec, x_r, dist_code, lambda_r, B, wt_r, seed) {
+    .Call(`_mismeasured_mcsimex_multi_sim_cpp`, y_r, z_list, Pi_list, K_vec, x_r, dist_code, lambda_r, B, wt_r, seed)
+}
+
 simex_sim_cpp <- function(y_r, X_r, simex_cols_r, me_r, dist_code, lambda_r, B, wt_r, seed) {
     .Call(`_mismeasured_simex_sim_cpp`, y_r, X_r, simex_cols_r, me_r, dist_code, lambda_r, B, wt_r, seed)
 }
