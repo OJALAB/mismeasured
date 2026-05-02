@@ -240,11 +240,16 @@ Rcpp::NumericMatrix mcsimex_sim_cpp(
 // =========================================================================
 // Multi-variable MC-SIMEX simulation step (exported to R)
 // =========================================================================
-// Handles multiple misclassified variables simultaneously.
-// z_list:  list of integer vectors (0-based factor codes), one per mc variable
-// Pi_list: list of K_j x K_j misclassification matrices
-// K_vec:   integer vector of number of levels per mc variable
-// x_r:     other covariates matrix (n x r), including intercept
+// Handles multiple misclassified covariates, optionally with response
+// misclassification.
+//
+// z_list:      list of integer vectors (0-based factor codes), one per mc covariate
+// Pi_list:     list of K_j x K_j misclassification matrices for covariates
+// K_vec:       integer vector of number of levels per mc covariate
+// x_r:         other covariates matrix (n x r), including intercept
+// y_z_hat_r:   0-based factor codes for the response (or empty if no response mc)
+// Pi_y_r:      misclassification matrix for the response (or 0x0 if none)
+// K_y:         number of response levels (0 if no response mc)
 //
 // Design matrix: [dummies_z1(K1-1) | dummies_z2(K2-1) | ... | x_other]
 // Returns matrix of dimension (B * n_lambda) x p
@@ -260,12 +265,16 @@ Rcpp::NumericMatrix mcsimex_multi_sim_cpp(
     Rcpp::NumericVector lambda_r,
     int B,
     Rcpp::NumericVector wt_r,
-    unsigned int seed) {
+    unsigned int seed,
+    Rcpp::IntegerVector y_z_hat_r = Rcpp::IntegerVector(0),
+    Rcpp::NumericMatrix Pi_y_r = Rcpp::NumericMatrix(0, 0),
+    int K_y = 0) {
 
   int n = y_r.size();
   int n_mc = z_list.size();
   int r = x_r.ncol();
   int n_lambda = lambda_r.size();
+  bool has_response_mc = (K_y > 0);
 
   // Compute total dummy columns: sum(K_j - 1)
   int total_dummies = 0;
@@ -278,7 +287,7 @@ Rcpp::NumericMatrix mcsimex_multi_sim_cpp(
   Eigen::Map<MatrixXd> x(x_r.begin(), n, r);
   Eigen::Map<VectorXd> wt(wt_r.begin(), n);
 
-  // Map z vectors and Pi matrices
+  // Map covariate z vectors and Pi matrices
   std::vector<Eigen::Map<VectorXi>> z_hats;
   std::vector<Eigen::Map<MatrixXd>> Pis;
   z_hats.reserve(n_mc);
@@ -291,8 +300,15 @@ Rcpp::NumericMatrix mcsimex_multi_sim_cpp(
     Pis.push_back(Eigen::Map<MatrixXd>(Pj.begin(), K_vec[j], K_vec[j]));
   }
 
-  // Pre-compute Pi^lambda for each (variable, lambda)
-  // Pi_powers[j][l] = Pi_j^{lambda_l}
+  // Map response mc data if present
+  VectorXi y_z_hat;
+  MatrixXd Pi_y;
+  if (has_response_mc) {
+    y_z_hat = Eigen::Map<VectorXi>(y_z_hat_r.begin(), n);
+    Pi_y = Eigen::Map<MatrixXd>(Pi_y_r.begin(), K_y, K_y);
+  }
+
+  // Pre-compute Pi^lambda for each (covariate, lambda)
   std::vector<std::vector<MatrixXd>> Pi_powers(n_mc);
   for (int j = 0; j < n_mc; j++) {
     Pi_powers[j].resize(n_lambda);
@@ -301,12 +317,30 @@ Rcpp::NumericMatrix mcsimex_multi_sim_cpp(
     }
   }
 
+  // Pre-compute Pi_y^lambda if response mc
+  std::vector<MatrixXd> Pi_y_powers;
+  if (has_response_mc) {
+    Pi_y_powers.resize(n_lambda);
+    for (int l = 0; l < n_lambda; l++) {
+      Pi_y_powers[l] = mat_power(Pi_y, lambda_r[l]);
+    }
+  }
+
   Rcpp::NumericMatrix result(n_lambda * B, p);
   std::mt19937 rng(seed);
 
   for (int l = 0; l < n_lambda; l++) {
     for (int b = 0; b < B; b++) {
-      // Build design matrix: resample each mc variable, create dummies
+      // Resample response if response mc is present
+      VectorXd y_sim = y;
+      if (has_response_mc) {
+        VectorXi y_resampled = resample_z(y_z_hat, Pi_y_powers[l], rng);
+        for (int i = 0; i < n; i++) {
+          y_sim(i) = static_cast<double>(y_resampled(i));
+        }
+      }
+
+      // Build design matrix: resample each mc covariate, create dummies
       MatrixXd xi(n, p);
 
       int col_offset = 0;
@@ -327,7 +361,7 @@ Rcpp::NumericMatrix mcsimex_multi_sim_cpp(
       // Copy other covariates
       xi.rightCols(r) = x;
 
-      VectorXd beta = irls_fit(y, xi, dist_code, wt);
+      VectorXd beta = irls_fit(y_sim, xi, dist_code, wt);
 
       int row = l * B + b;
       for (int jj = 0; jj < p; jj++) {

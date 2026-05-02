@@ -350,13 +350,37 @@ simex <- function(formula, family = gaussian(), data,
     xi_hat <- naive_fit$x
     naive_refit <- naive_fit
   } else if (has_response_mc && n_mc >= 1L) {
-    # Response mc + covariate mc(s): use naive GLM's design matrix
-    psi_naive <- unname(coef(naive_fit))
-    nms <- names(coef(naive_fit))
+    # Response mc + covariate mc(s): build covariate design matrix for C++
+    # Also prepare covariate mc data structures for simulation
+    z_hats <- list()
+    z_levels_list <- list()
+    K_vec <- integer(n_mc)
+    for (j in seq_len(n_mc)) {
+      sv <- SIMEXvariables[j]
+      z_factor_j <- data[[sv]]
+      z_levels_list[[sv]] <- levels(z_factor_j)
+      z_hats[[j]] <- as.integer(z_factor_j) - 1L
+      K_vec[j] <- length(levels(z_factor_j))
+    }
+
+    other_terms <- setdiff(all.vars(clean_formula)[-1], SIMEXvariables)
+    if (length(other_terms) > 0) {
+      other_formula <- reformulate(other_terms, intercept = TRUE)
+      x_mat <- model.matrix(other_formula, data = data)
+    } else {
+      x_mat <- matrix(1, nrow = n, ncol = 1)
+      colnames(x_mat) <- "(Intercept)"
+    }
+
+    xi_hat <- .build_multi_xi_hat(z_hats, K_vec, x_mat)
+    p <- ncol(xi_hat)
+    nms <- .make_multi_param_names(z_levels_list, K_vec, x_mat)
+
+    dat_naive <- data.frame(y = y, .wt = wt, xi_hat)
+    naive_refit <- glm(y ~ . - .wt - 1, data = dat_naive, family = family,
+                       weights = .wt)
+    psi_naive <- unname(coef(naive_refit))
     names(psi_naive) <- nms
-    p <- length(psi_naive)
-    xi_hat <- naive_fit$x
-    naive_refit <- naive_fit
   } else if (n_mc == 1L) {
     # Single-mc covariate: manual design matrix (compatible with C++ path)
     z_factor <- data[[SIMEXvariable]]
@@ -508,42 +532,36 @@ simex <- function(formula, family = gaussian(), data,
   set.seed(seed)
 
   if (has_response_mc) {
-    # Response misclassification: R-level simulation
-    # Build full mc_list including response
+    # Response misclassification: C++ path via mcsimex_multi_sim_cpp
     resp_var <- response_mc$variable
-    all_mc_list <- mc_list
-    all_mc_list[[resp_var]] <- response_mc$mc_matrix
-    all_mc_vars <- c(SIMEXvariables, resp_var)
-
-    # Ensure response is factor and set colnames on all matrices
     if (!is.factor(data[[resp_var]]))
       data[[resp_var]] <- factor(data[[resp_var]])
-    for (sv in all_mc_vars) {
-      colnames(all_mc_list[[sv]]) <- levels(data[[sv]])
-    }
+    y_z_hat <- as.integer(data[[resp_var]]) - 1L
+    Pi_y <- response_mc$mc_matrix
+    K_y <- nrow(Pi_y)
 
-    mc_data <- data[, all_mc_vars, drop = FALSE]
+    if (n_mc == 0L) {
+      # Response-only mc: no covariate mc terms
+      sim_result <- mcsimex_multi_sim_cpp(
+        y, list(), list(), integer(0), xi_hat,
+        dist_code, lambda, B, wt, as.integer(seed),
+        y_z_hat, Pi_y, K_y
+      )
+    } else {
+      # Response mc + covariate mc(s)
+      Pi_list_cov <- lapply(mc_list, unname)
+      sim_result <- mcsimex_multi_sim_cpp(
+        y, z_hats, Pi_list_cov, K_vec, x_mat,
+        dist_code, lambda, B, wt, as.integer(seed),
+        y_z_hat, Pi_y, K_y
+      )
+    }
 
     theta_list <- vector("list", n_lambda)
     avg_estimates <- matrix(0, n_lambda, p)
-
     for (l in seq_len(n_lambda)) {
-      theta_mat <- matrix(0, B, p)
-      for (b in seq_len(B)) {
-        sim_data <- data
-        mc_resampled <- misclass(mc_data, all_mc_list, k = lambda[l])
-        for (sv in all_mc_vars) {
-          sim_data[[sv]] <- mc_resampled[[sv]]
-        }
-        if (!is.null(weights)) {
-          sim_fit <- glm(clean_formula, family = family, data = sim_data,
-                         weights = .wt, x = FALSE, y = FALSE)
-        } else {
-          sim_fit <- glm(clean_formula, family = family, data = sim_data,
-                         x = FALSE, y = FALSE)
-        }
-        theta_mat[b, ] <- coef(sim_fit)
-      }
+      rows <- ((l - 1) * B + 1):(l * B)
+      theta_mat <- sim_result[rows, , drop = FALSE]
       colnames(theta_mat) <- nms
       theta_list[[l]] <- theta_mat
       avg_estimates[l, ] <- colMeans(theta_mat)

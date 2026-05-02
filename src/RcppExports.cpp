@@ -32,8 +32,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // mcsimex_multi_sim_cpp
-Rcpp::NumericMatrix mcsimex_multi_sim_cpp(Rcpp::NumericVector y_r, Rcpp::List z_list, Rcpp::List Pi_list, Rcpp::IntegerVector K_vec, Rcpp::NumericMatrix x_r, int dist_code, Rcpp::NumericVector lambda_r, int B, Rcpp::NumericVector wt_r, unsigned int seed);
-RcppExport SEXP _mismeasured_mcsimex_multi_sim_cpp(SEXP y_rSEXP, SEXP z_listSEXP, SEXP Pi_listSEXP, SEXP K_vecSEXP, SEXP x_rSEXP, SEXP dist_codeSEXP, SEXP lambda_rSEXP, SEXP BSEXP, SEXP wt_rSEXP, SEXP seedSEXP) {
+Rcpp::NumericMatrix mcsimex_multi_sim_cpp(Rcpp::NumericVector y_r, Rcpp::List z_list, Rcpp::List Pi_list, Rcpp::IntegerVector K_vec, Rcpp::NumericMatrix x_r, int dist_code, Rcpp::NumericVector lambda_r, int B, Rcpp::NumericVector wt_r, unsigned int seed, Rcpp::IntegerVector y_z_hat_r, Rcpp::NumericMatrix Pi_y_r, int K_y);
+RcppExport SEXP _mismeasured_mcsimex_multi_sim_cpp(SEXP y_rSEXP, SEXP z_listSEXP, SEXP Pi_listSEXP, SEXP K_vecSEXP, SEXP x_rSEXP, SEXP dist_codeSEXP, SEXP lambda_rSEXP, SEXP BSEXP, SEXP wt_rSEXP, SEXP seedSEXP, SEXP y_z_hat_rSEXP, SEXP Pi_y_rSEXP, SEXP K_ySEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -47,7 +47,10 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type B(BSEXP);
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type wt_r(wt_rSEXP);
     Rcpp::traits::input_parameter< unsigned int >::type seed(seedSEXP);
-    rcpp_result_gen = Rcpp::wrap(mcsimex_multi_sim_cpp(y_r, z_list, Pi_list, K_vec, x_r, dist_code, lambda_r, B, wt_r, seed));
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type y_z_hat_r(y_z_hat_rSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type Pi_y_r(Pi_y_rSEXP);
+    Rcpp::traits::input_parameter< int >::type K_y(K_ySEXP);
+    rcpp_result_gen = Rcpp::wrap(mcsimex_multi_sim_cpp(y_r, z_list, Pi_list, K_vec, x_r, dist_code, lambda_r, B, wt_r, seed, y_z_hat_r, Pi_y_r, K_y));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -73,7 +76,7 @@ END_RCPP
 
 static const R_CallMethodDef CallEntries[] = {
     {"_mismeasured_mcsimex_sim_cpp", (DL_FUNC) &_mismeasured_mcsimex_sim_cpp, 10},
-    {"_mismeasured_mcsimex_multi_sim_cpp", (DL_FUNC) &_mismeasured_mcsimex_multi_sim_cpp, 10},
+    {"_mismeasured_mcsimex_multi_sim_cpp", (DL_FUNC) &_mismeasured_mcsimex_multi_sim_cpp, 13},
     {"_mismeasured_simex_sim_cpp", (DL_FUNC) &_mismeasured_simex_sim_cpp, 9},
     {NULL, NULL, 0}
 };
