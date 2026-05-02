@@ -1,5 +1,11 @@
 # mismeasured 0.2.0
 
+## Documentation
+
+* Added package vignette "Correcting measurement error and misclassification
+  with mismeasured" with 10 worked examples covering all error types, families,
+  and features.
+
 ## New features
 
 * **Multiple `mc()` terms**: formulas like `y ~ mc(z1, Pi1) + mc(z2, Pi2) + x`

@@ -1,0 +1,389 @@
+---
+title: "Correcting measurement error and misclassification with mismeasured"
+author: "Maciej Beresewicz"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Correcting measurement error and misclassification with mismeasured}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 6, fig.height = 4
+)
+library(mismeasured)
+set.seed(42)
+```
+
+## Introduction
+
+The **mismeasured** package provides Simulation-Extrapolation (SIMEX) and
+Misclassification SIMEX (MC-SIMEX) corrections for generalized linear models
+where covariates are measured with error or subject to misclassification.
+
+The package uses a formula interface inspired by **brms**: error-prone variables
+are marked directly in the formula with `me()` (continuous measurement error) or
+`mc()` (discrete misclassification). The simulation step runs in C++ via Rcpp and
+RcppEigen for high performance.
+
+### Supported error types
+
+| Type | Formula syntax | Method |
+|------|---------------|--------|
+| Continuous measurement error | `me(x, sd)` | SIMEX (Cook & Stefanski, 1994) |
+| Berkson measurement error | `me(x, sd, type = "berkson")` | Berkson SIMEX |
+| Systematic (non-zero mean) ME | `me(x, sd, mean = mu)` | Non-zero mean SIMEX |
+| Discrete misclassification | `mc(z, Pi)` | MC-SIMEX (Kuchenhoff et al., 2006) |
+| Improved misclassification | `mc(z, Pi)` with `method = "improved"` | Sevilimedu & Yu (2026) |
+| Response misclassification | `mc(y, Pi_y) ~ ...` | MC-SIMEX on response |
+
+### Supported families
+
+Gaussian (`gaussian()`), Poisson (`poisson()`), and Binomial (`binomial()`).
+
+## Background: the SIMEX algorithm
+
+When a covariate $X$ is measured with additive error $W = X + U$, where
+$U \sim N(0, \sigma_u^2)$, regression coefficients are biased toward zero
+(attenuation bias). SIMEX corrects this in two steps:
+
+1. **Simulation**: For $\lambda \in \{0.5, 1, 1.5, 2\}$ and $b = 1, \ldots, B$,
+   generate $W^*_{b,\lambda} = W + \sqrt{\lambda} \cdot U_b$, where
+   $U_b \sim N(0, \sigma_u^2)$. Refit the model on each pseudo-dataset.
+
+2. **Extrapolation**: Fit a polynomial (quadratic, linear, or loglinear) to the
+   average estimates $\bar{\hat\beta}(\lambda)$ as a function of $\lambda$, and
+   extrapolate to $\lambda = -1$ (no measurement error).
+
+For misclassification, the MC-SIMEX algorithm replaces additive noise with
+resampling from $\Pi^\lambda$, the misclassification matrix raised to fractional
+powers.
+
+## Example 1: Continuous measurement error
+
+```{r me-example}
+n <- 2000
+x_true <- rnorm(n)
+y <- 1 + 2 * x_true + rnorm(n, sd = 0.5)
+x_obs <- x_true + rnorm(n, sd = 0.5)  # measurement error with sd = 0.5
+df <- data.frame(y = y, x = x_obs)
+
+# Naive OLS (biased)
+naive <- lm(y ~ x, data = df)
+
+# SIMEX corrected
+fit <- simex(y ~ me(x, 0.5), data = df, B = 200, seed = 42)
+
+cat("True slope:  2.000\n")
+cat("Naive slope:", round(coef(naive)["x"], 3), "\n")
+cat("SIMEX slope:", round(coef(fit)["x"], 3), "\n")
+```
+
+The naive estimate is attenuated toward zero. SIMEX recovers a value closer to
+the true slope of 2.
+
+### Summary and inference
+
+```{r me-summary}
+summary(fit)
+confint(fit)
+```
+
+### SIMEX trajectory plot
+
+```{r me-plot}
+plot(fit)
+```
+
+The plot shows coefficient estimates at each $\lambda$ level (solid points),
+the naive estimate at $\lambda = 0$ (open circle), the extrapolation curve,
+and the corrected estimate at $\lambda = -1$ (red cross).
+
+### Changing the extrapolation method
+
+```{r me-refit}
+fit_lin <- refit(fit, extrapolation = "linear")
+cat("Quadratic:", round(coef(fit)["x"], 3), "\n")
+cat("Linear:   ", round(coef(fit_lin)["x"], 3), "\n")
+```
+
+## Example 2: Multiple error-prone covariates
+
+```{r multi-me}
+x1_true <- rnorm(n)
+x2_true <- rnorm(n)
+y <- 1 + 1.5 * x1_true - 0.8 * x2_true + rnorm(n, sd = 0.5)
+df2 <- data.frame(
+  y  = y,
+  x1 = x1_true + rnorm(n, sd = 0.3),
+  x2 = x2_true + rnorm(n, sd = 0.5)
+)
+
+fit2 <- simex(y ~ me(x1, 0.3) + me(x2, 0.5), data = df2, B = 200, seed = 42)
+summary(fit2)
+```
+
+## Example 3: Misclassification (standard MC-SIMEX)
+
+A binary covariate $Z$ is misclassified with known misclassification matrix
+$\Pi$, where $\Pi_{jl} = P(Z^* = j \mid Z = l)$.
+
+```{r mc-standard}
+z <- rbinom(n, 1, 0.4)
+y3 <- 1 + 2 * z + 0.5 * rnorm(n) + rnorm(n)
+
+# Misclassify: sensitivity = 0.85, specificity = 0.9
+z_star <- z
+z_star[z == 0] <- rbinom(sum(z == 0), 1, 0.10)
+z_star[z == 1] <- 1 - rbinom(sum(z == 1), 1, 0.15)
+
+Pi <- matrix(c(0.9, 0.1, 0.15, 0.85), 2, 2)
+df3 <- data.frame(y = y3, z = factor(z_star))
+
+fit3 <- simex(y ~ mc(z, Pi), data = df3, method = "standard",
+              B = 200, seed = 42)
+
+cat("True z effect:     2.000\n")
+cat("Naive z effect:   ", round(fit3$naive.coefficients[1], 3), "\n")
+cat("MC-SIMEX z effect:", round(coef(fit3)[1], 3), "\n")
+```
+
+## Example 4: Improved MC-SIMEX (exact correction)
+
+The improved method (Sevilimedu & Yu, 2026) computes an exact correction factor
+instead of extrapolation. It requires only B = 1 replicate and is the default
+for single binary misclassified covariates.
+
+```{r mc-improved}
+fit4 <- simex(y ~ mc(z, Pi), data = df3, seed = 42)  # default: method = "improved"
+
+cat("Method:", fit4$method, "\n")
+cat("Correction factor c(lambda):", round(fit4$c.lambda, 4), "\n")
+cat("Improved z effect:", round(coef(fit4)[1], 3), "\n")
+```
+
+### Optimal lambda
+
+The improved method can search for the lambda that minimizes the absolute
+correction factor:
+
+```{r mc-optimal}
+fit4_opt <- simex(y ~ mc(z, Pi), data = df3, lambda = "optimal", seed = 42)
+cat("Optimal lambda:", fit4_opt$lambda[-1], "\n")
+cat("Optimal c(lambda):", round(fit4_opt$c.lambda, 4), "\n")
+```
+
+## Example 5: Multiple misclassified covariates
+
+```{r multi-mc}
+z1 <- rbinom(n, 1, 0.4)
+z2 <- rbinom(n, 1, 0.6)
+y5 <- 1 + 2 * z1 + 1.5 * z2 + rnorm(n)
+
+# Misclassify both
+z1_star <- z1
+z1_star[z1 == 0] <- rbinom(sum(z1 == 0), 1, 0.10)
+z1_star[z1 == 1] <- 1 - rbinom(sum(z1 == 1), 1, 0.15)
+
+z2_star <- z2
+z2_star[z2 == 0] <- rbinom(sum(z2 == 0), 1, 0.08)
+z2_star[z2 == 1] <- 1 - rbinom(sum(z2 == 1), 1, 0.12)
+
+Pi1 <- matrix(c(0.9, 0.1, 0.15, 0.85), 2, 2)
+Pi2 <- matrix(c(0.92, 0.08, 0.12, 0.88), 2, 2)
+df5 <- data.frame(y = y5, z1 = factor(z1_star), z2 = factor(z2_star))
+
+fit5 <- simex(y ~ mc(z1, Pi1) + mc(z2, Pi2), data = df5,
+              method = "standard", B = 200, seed = 42)
+summary(fit5)
+```
+
+With multiple `mc()` terms, the standard method is used automatically. Each
+variable is resampled independently via its own misclassification matrix.
+
+## Example 6: Response misclassification
+
+When the outcome itself is misclassified (e.g., disease status from an imperfect
+diagnostic test), use `mc()` on the left-hand side:
+
+```{r response-mc}
+x6 <- rnorm(n)
+y6_true <- rbinom(n, 1, plogis(-0.5 + 1.2 * x6))
+
+# Misclassify the response
+y6_obs <- y6_true
+y6_obs[y6_true == 0] <- rbinom(sum(y6_true == 0), 1, 0.10)
+y6_obs[y6_true == 1] <- 1 - rbinom(sum(y6_true == 1), 1, 0.08)
+
+Pi_y <- matrix(c(0.90, 0.10, 0.08, 0.92), 2, 2)
+df6 <- data.frame(y = factor(y6_obs), x = x6)
+
+fit6 <- simex(mc(y, Pi_y) ~ x, family = binomial(), data = df6,
+              B = 200, seed = 42)
+
+cat("True x effect:     1.200\n")
+cat("Naive x effect:   ", round(fit6$naive.coefficients["x"], 3), "\n")
+cat("MC-SIMEX x effect:", round(coef(fit6)["x"], 3), "\n")
+```
+
+Response misclassification can be combined with covariate misclassification:
+
+```{r response-plus-covariate}
+z6 <- rbinom(n, 1, 0.4)
+y6b_true <- rbinom(n, 1, plogis(-0.5 + 1.0 * z6 + 0.5 * x6))
+y6b_obs <- y6b_true
+y6b_obs[y6b_true == 0] <- rbinom(sum(y6b_true == 0), 1, 0.10)
+y6b_obs[y6b_true == 1] <- 1 - rbinom(sum(y6b_true == 1), 1, 0.08)
+
+z6_star <- z6
+z6_star[z6 == 0] <- rbinom(sum(z6 == 0), 1, 0.10)
+z6_star[z6 == 1] <- 1 - rbinom(sum(z6 == 1), 1, 0.15)
+
+df6b <- data.frame(y = factor(y6b_obs), z = factor(z6_star), x = x6)
+
+fit6b <- simex(mc(y, Pi_y) ~ mc(z, Pi) + x, family = binomial(),
+               data = df6b, B = 200, seed = 42)
+summary(fit6b)
+```
+
+## Example 7: Berkson measurement error
+
+In the Berkson error model, the true value is a noisy version of the observed
+(assigned) value: $X = W + U$. This arises in occupational exposure assessment,
+where $W$ is the assigned group mean and $X$ is the individual's true exposure.
+
+```{r berkson}
+w <- rnorm(n)
+u <- rnorm(n, sd = 0.5)
+x_true_b <- w + u
+y7 <- 1 + 2 * x_true_b + rnorm(n, sd = 0.5)
+df7 <- data.frame(y = y7, x = w)
+
+fit7_class <- simex(y ~ me(x, 0.5), data = df7, B = 200, seed = 42)
+fit7_berk  <- simex(y ~ me(x, 0.5, type = "berkson"), data = df7,
+                    B = 200, seed = 42)
+
+cat("Classical SIMEX slope:", round(coef(fit7_class)["x"], 3), "\n")
+cat("Berkson SIMEX slope:  ", round(coef(fit7_berk)["x"], 3), "\n")
+```
+
+## Example 8: Non-zero mean measurement error
+
+When measurement error has a systematic component $U \sim N(\mu, \sigma^2)$
+with $\mu \neq 0$:
+
+```{r nonzero-mean}
+x_true_m <- rnorm(n)
+x_obs_m <- x_true_m + rnorm(n, mean = 0.3, sd = 0.5)
+y8 <- 1 + 2 * x_true_m + rnorm(n, sd = 0.5)
+df8 <- data.frame(y = y8, x = x_obs_m)
+
+fit8_std <- simex(y ~ me(x, 0.5), data = df8, B = 200, seed = 42)
+fit8_nzm <- simex(y ~ me(x, 0.5, mean = 0.3), data = df8, B = 200, seed = 42)
+
+cat("Standard SIMEX (ignoring mean):", round(coef(fit8_std)["x"], 3), "\n")
+cat("Non-zero mean SIMEX:           ", round(coef(fit8_nzm)["x"], 3), "\n")
+```
+
+## Example 9: Poisson regression with misclassification
+
+```{r poisson-mc}
+z9 <- rbinom(n, 1, 0.4)
+y9 <- rpois(n, exp(0.5 + 0.8 * z9))
+
+z9_star <- z9
+z9_star[z9 == 0] <- rbinom(sum(z9 == 0), 1, 0.10)
+z9_star[z9 == 1] <- 1 - rbinom(sum(z9 == 1), 1, 0.15)
+
+df9 <- data.frame(y = y9, z = factor(z9_star))
+
+fit9 <- simex(y ~ mc(z, Pi), family = poisson(), data = df9, seed = 42)
+summary(fit9)
+```
+
+## Example 10: Frequency weights
+
+The `weights` argument supports frequency (prior) weights:
+
+```{r weights}
+# Aggregated data with weights
+df10_agg <- data.frame(
+  y = c(2.5, 3.1, 4.2, 5.0),
+  x = c(1.0, 2.0, 3.0, 4.0),
+  freq = c(100, 150, 120, 130)
+)
+
+fit10 <- simex(y ~ me(x, 0.3), data = df10_agg, weights = df10_agg$freq,
+               B = 100, seed = 42)
+coef(fit10)
+```
+
+## Utility functions
+
+### Building misclassification matrices
+
+`build.mc.matrix()` finds the nearest valid misclassification matrix (one that
+can be raised to fractional powers without negative probabilities):
+
+```{r build-mc}
+Pi_empirical <- matrix(c(0.85, 0.10, 0.05,
+                          0.10, 0.80, 0.10,
+                          0.05, 0.10, 0.85), 3, 3, byrow = TRUE)
+check.mc.matrix(list(Pi_empirical))
+
+Pi_valid <- build.mc.matrix(Pi_empirical)
+check.mc.matrix(list(Pi_valid))
+```
+
+### Checking matrix validity
+
+```{r check-mc}
+P1 <- matrix(c(0.9, 0.1, 0.2, 0.8), 2, 2)
+P2 <- matrix(c(0.4, 0.6, 0.6, 0.4), 2, 2)  # too much error
+check.mc.matrix(list(P1, P2))
+```
+
+## Implementation details
+
+### C++ backend
+
+The simulation step runs entirely in C++ for all error types:
+
+- `simex_sim_cpp`: Continuous ME with IRLS fitting + model vcov accumulation
+- `mcsimex_sim_cpp`: Single-variable MC-SIMEX
+- `mcsimex_multi_sim_cpp`: Multi-variable MC-SIMEX with optional response mc
+
+The IRLS solver supports Gaussian (identity link), Poisson (log link), and
+Binomial (logit link) families. Matrix exponentiation for $\Pi^\lambda$ uses
+eigendecomposition.
+
+### Variance estimation
+
+- **ME-SIMEX**: Jackknife variance following Stefanski & Cook (1994). The
+  model-based variance $\bar{V}_{\text{model}}(\lambda)$ is the average of
+  $(X_{\text{sim}}'WX_{\text{sim}})^{-1}\phi$ across B refits, computed in C++.
+  $V_{\text{jk}}(\lambda) = \bar{V}_{\text{model}} - \text{Cov}(\hat\theta_b)$
+  is then extrapolated to $\lambda = -1$.
+
+- **MC-SIMEX standard**: Same jackknife approach with sandwich variance at the
+  mean estimate per lambda.
+
+- **MC-SIMEX improved**: Scaled model-based variance:
+  $V_{\text{corrected}} = c(\lambda)^2 \cdot V_{\text{model}}$.
+
+## References
+
+Cook, J.R. and Stefanski, L.A. (1994). Simulation-extrapolation estimation in
+parametric measurement error models. *Journal of the American Statistical
+Association*, 89(428), 1314-1328.
+
+Kuchenhoff, H., Mwalili, S.M. and Lesaffre, E. (2006). A general method for
+dealing with misclassification in regression: The misclassification SIMEX.
+*Biometrics*, 62(1), 85-96.
+
+Sevilimedu, V. and Yu, L. (2026). An improved misclassification simulation
+extrapolation (MC-SIMEX) algorithm. *Statistics in Medicine*, 45, e70418.

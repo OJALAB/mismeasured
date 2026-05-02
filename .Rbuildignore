@@ -6,3 +6,5 @@
 ^README\.Rmd$
 ^\.claude$
 ^\.DS_Store$
+^doc$
+^Meta$
