@@ -114,14 +114,16 @@ simex <- function(formula, family = gaussian(), data,
   } else {
     # mc terms
     n_mc <- length(parsed$mc_terms)
+    has_response_mc <- !is.null(parsed$response_mc)
+
     if (is.null(method)) {
-      method <- if (n_mc == 1L) "improved" else "standard"
+      method <- if (n_mc == 1L && !has_response_mc) "improved" else "standard"
     }
     method <- match.arg(method, c("standard", "improved"))
 
-    if (method == "improved" && n_mc > 1L)
-      stop("method = 'improved' is only supported for a single mc() term.",
-           call. = FALSE)
+    if (method == "improved" && (n_mc > 1L || has_response_mc))
+      stop("method = 'improved' is only supported for a single mc() covariate ",
+           "term without response misclassification.", call. = FALSE)
 
     # defaults depend on method
     if (is.null(lambda)) {
@@ -141,6 +143,7 @@ simex <- function(formula, family = gaussian(), data,
   result$error.type <- parsed$error_type
   result$me.terms <- parsed$me_terms
   result$mc.terms <- parsed$mc_terms
+  result$response.mc <- parsed$response_mc
 
   structure(result, class = "simex")
 }
@@ -279,6 +282,8 @@ simex <- function(formula, family = gaussian(), data,
   mc_terms <- parsed$mc_terms
   n_mc <- length(mc_terms)
   clean_formula <- parsed$clean_formula
+  response_mc <- parsed$response_mc
+  has_response_mc <- !is.null(response_mc)
 
   SIMEXvariables <- vapply(mc_terms, `[[`, character(1), "variable")
 
@@ -336,8 +341,24 @@ simex <- function(formula, family = gaussian(), data,
   fam <- get_link_funs(family)
 
   # --- Build design matrix and naive refit ---
-  if (n_mc == 1L) {
-    # Single-mc: manual design matrix (compatible with C++ path)
+  if (has_response_mc && n_mc == 0L) {
+    # Response-only mc: use naive GLM's design matrix
+    psi_naive <- unname(coef(naive_fit))
+    nms <- names(coef(naive_fit))
+    names(psi_naive) <- nms
+    p <- length(psi_naive)
+    xi_hat <- naive_fit$x
+    naive_refit <- naive_fit
+  } else if (has_response_mc && n_mc >= 1L) {
+    # Response mc + covariate mc(s): use naive GLM's design matrix
+    psi_naive <- unname(coef(naive_fit))
+    nms <- names(coef(naive_fit))
+    names(psi_naive) <- nms
+    p <- length(psi_naive)
+    xi_hat <- naive_fit$x
+    naive_refit <- naive_fit
+  } else if (n_mc == 1L) {
+    # Single-mc covariate: manual design matrix (compatible with C++ path)
     z_factor <- data[[SIMEXvariable]]
     z_levels <- levels(z_factor)
     z_hat <- as.integer(z_factor) - 1L
@@ -486,8 +507,49 @@ simex <- function(formula, family = gaussian(), data,
 
   set.seed(seed)
 
-  if (n_mc == 1L) {
-    # Single mc: C++ fast path
+  if (has_response_mc) {
+    # Response misclassification: R-level simulation
+    # Build full mc_list including response
+    resp_var <- response_mc$variable
+    all_mc_list <- mc_list
+    all_mc_list[[resp_var]] <- response_mc$mc_matrix
+    all_mc_vars <- c(SIMEXvariables, resp_var)
+
+    # Ensure response is factor and set colnames on all matrices
+    if (!is.factor(data[[resp_var]]))
+      data[[resp_var]] <- factor(data[[resp_var]])
+    for (sv in all_mc_vars) {
+      colnames(all_mc_list[[sv]]) <- levels(data[[sv]])
+    }
+
+    mc_data <- data[, all_mc_vars, drop = FALSE]
+
+    theta_list <- vector("list", n_lambda)
+    avg_estimates <- matrix(0, n_lambda, p)
+
+    for (l in seq_len(n_lambda)) {
+      theta_mat <- matrix(0, B, p)
+      for (b in seq_len(B)) {
+        sim_data <- data
+        mc_resampled <- misclass(mc_data, all_mc_list, k = lambda[l])
+        for (sv in all_mc_vars) {
+          sim_data[[sv]] <- mc_resampled[[sv]]
+        }
+        if (!is.null(weights)) {
+          sim_fit <- glm(clean_formula, family = family, data = sim_data,
+                         weights = .wt, x = FALSE, y = FALSE)
+        } else {
+          sim_fit <- glm(clean_formula, family = family, data = sim_data,
+                         x = FALSE, y = FALSE)
+        }
+        theta_mat[b, ] <- coef(sim_fit)
+      }
+      colnames(theta_mat) <- nms
+      theta_list[[l]] <- theta_mat
+      avg_estimates[l, ] <- colMeans(theta_mat)
+    }
+  } else if (n_mc == 1L) {
+    # Single mc covariate: C++ fast path
     sim_result <- mcsimex_sim_cpp(y, z_hat, x_mat, Pi, K, dist_code,
                                   lambda, B, wt, as.integer(seed))
 
@@ -501,7 +563,7 @@ simex <- function(formula, family = gaussian(), data,
       avg_estimates[l, ] <- colMeans(theta_mat)
     }
   } else {
-    # Multi-mc: C++ fast path
+    # Multi-mc covariates: C++ fast path
     Pi_list <- lapply(mc_list, unname)
     sim_result <- mcsimex_multi_sim_cpp(y, z_hats, Pi_list, K_vec, x_mat,
                                         dist_code, lambda, B, wt,

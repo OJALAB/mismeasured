@@ -238,3 +238,110 @@ test_that("multi-mc with three-level factor works", {
 
   expect_length(coef(fit), 4)
 })
+
+
+# =========================================================================
+# Response misclassification: mc(y, Pi) ~ ...
+# =========================================================================
+
+test_that("response mc corrects attenuation (logistic)", {
+  set.seed(42)
+  n <- 3000
+  x <- rnorm(n)
+  y_true <- rbinom(n, 1, plogis(-0.5 + 1.2 * x))
+  y_obs <- y_true
+  y_obs[y_true == 0] <- rbinom(sum(y_true == 0), 1, 0.15)
+  y_obs[y_true == 1] <- 1 - rbinom(sum(y_true == 1), 1, 0.1)
+  Pi_y <- matrix(c(0.85, 0.15, 0.1, 0.9), 2, 2)
+  df <- data.frame(y = factor(y_obs), x = x)
+
+  fit <- simex(mc(y, Pi_y) ~ x, family = binomial(), data = df,
+               method = "standard", B = 100, seed = 42)
+
+  expect_s3_class(fit, "simex")
+  expect_equal(fit$error.type, "mc")
+  expect_equal(fit$method, "standard")
+  expect_false(is.null(fit$response.mc))
+
+  naive_bias <- abs(fit$naive.coefficients["x"] - 1.2)
+  simex_bias <- abs(coef(fit)["x"] - 1.2)
+  expect_lt(simex_bias, naive_bias)
+})
+
+test_that("response mc + covariate mc works together", {
+  set.seed(42)
+  n <- 3000
+  x <- rnorm(n)
+  z <- rbinom(n, 1, 0.4)
+  y_true <- rbinom(n, 1, plogis(-0.5 + 1.2 * z + 0.5 * x))
+  y_obs <- y_true
+  y_obs[y_true == 0] <- rbinom(sum(y_true == 0), 1, 0.15)
+  y_obs[y_true == 1] <- 1 - rbinom(sum(y_true == 1), 1, 0.1)
+  Pi_y <- matrix(c(0.85, 0.15, 0.1, 0.9), 2, 2)
+  z_star <- z
+  z_star[z == 0] <- rbinom(sum(z == 0), 1, 0.1)
+  z_star[z == 1] <- 1 - rbinom(sum(z == 1), 1, 0.15)
+  Pi_z <- matrix(c(0.9, 0.1, 0.15, 0.85), 2, 2)
+  df <- data.frame(y = factor(y_obs), z = factor(z_star), x = x)
+
+  fit <- simex(mc(y, Pi_y) ~ mc(z, Pi_z) + x, family = binomial(), data = df,
+               method = "standard", B = 100, seed = 42)
+
+  expect_s3_class(fit, "simex")
+  expect_length(coef(fit), 3)  # intercept + z1 + x
+  expect_length(fit$mc.terms, 1)  # only RHS mc terms
+  expect_false(is.null(fit$response.mc))
+})
+
+test_that("response mc defaults to standard method", {
+  set.seed(42)
+  n <- 500
+  y <- factor(rbinom(n, 1, 0.5))
+  x <- rnorm(n)
+  Pi_y <- matrix(c(0.9, 0.1, 0.1, 0.9), 2, 2)
+  df <- data.frame(y = y, x = x)
+
+  fit <- simex(mc(y, Pi_y) ~ x, family = binomial(), data = df,
+               B = 20, seed = 42)
+  expect_equal(fit$method, "standard")
+})
+
+test_that("response mc errors with method='improved'", {
+  set.seed(42)
+  n <- 500
+  y <- factor(rbinom(n, 1, 0.5))
+  x <- rnorm(n)
+  Pi_y <- matrix(c(0.9, 0.1, 0.1, 0.9), 2, 2)
+  df <- data.frame(y = y, x = x)
+
+  expect_error(
+    simex(mc(y, Pi_y) ~ x, family = binomial(), data = df,
+          method = "improved", B = 20, seed = 42),
+    "single mc.*covariate"
+  )
+})
+
+test_that("S3 methods work for response mc", {
+  set.seed(42)
+  n <- 500
+  x <- rnorm(n)
+  y <- factor(rbinom(n, 1, plogis(0.5 * x)))
+  Pi_y <- matrix(c(0.9, 0.1, 0.1, 0.9), 2, 2)
+  df <- data.frame(y = y, x = x)
+
+  fit <- simex(mc(y, Pi_y) ~ x, family = binomial(), data = df,
+               method = "standard", B = 20, seed = 42)
+
+  expect_length(coef(fit), 2)
+  expect_true(is.matrix(vcov(fit)))
+  expect_equal(nobs(fit), n)
+
+  s <- summary(fit)
+  expect_s3_class(s, "summary.simex")
+
+  ci <- confint(fit)
+  expect_equal(nrow(ci), 2)
+
+  pred <- predict(fit, newdata = data.frame(x = c(0, 1)), type = "response")
+  expect_length(pred, 2)
+})

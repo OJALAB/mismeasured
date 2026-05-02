@@ -48,25 +48,12 @@ refit.simex <- function(object, extrapolation = "quadratic",
         object$vcov.model
       )
     } else {
-      # Standard MC-SIMEX
-      sv <- object$mc.terms[[1]]$variable
-      Pi <- object$mc.terms[[1]]$mc_matrix
-      K <- nrow(Pi)
+      # Standard MC-SIMEX — build xi_hat for variance estimation
       fam <- get_link_funs(object$family)
-      data <- object$data
-      z_hat <- as.integer(data[[sv]]) - 1L
-      clean_f <- object$clean.formula
-      other_terms <- setdiff(all.vars(clean_f)[-1], sv)
-      if (length(other_terms) > 0) {
-        x_mat <- model.matrix(reformulate(other_terms, intercept = TRUE),
-                              data = data)
-      } else {
-        x_mat <- matrix(1, nrow = object$n, ncol = 1)
-      }
-      xi_hat <- .build_xi_hat(z_hat, x_mat, K)
       y <- object$naive.model$y
       wt <- if (!is.null(object$naive.model$prior.weights))
         object$naive.model$prior.weights else rep(1.0, object$n)
+      xi_hat <- .refit_build_xi_hat(object)
 
       vcov_jk <- jackknife_variance_mcsimex(
         object$theta, object$naive.coefficients, object$naive.model,
@@ -83,18 +70,7 @@ refit.simex <- function(object, extrapolation = "quadratic",
     X <- object$naive.model$x
     eta <- as.numeric(X %*% object$coefficients)
   } else {
-    sv <- object$mc.terms[[1]]$variable
-    K <- nrow(object$mc.terms[[1]]$mc_matrix)
-    z_hat <- as.integer(object$data[[sv]]) - 1L
-    clean_f <- object$clean.formula
-    other_terms <- setdiff(all.vars(clean_f)[-1], sv)
-    if (length(other_terms) > 0) {
-      x_mat <- model.matrix(reformulate(other_terms, intercept = TRUE),
-                            data = object$data)
-    } else {
-      x_mat <- matrix(1, nrow = object$n, ncol = 1)
-    }
-    xi_hat <- .build_xi_hat(z_hat, x_mat, K)
+    xi_hat <- .refit_build_xi_hat(object)
     eta <- as.numeric(xi_hat %*% object$coefficients)
   }
   object$fitted.values <- object$family$linkinv(eta)
@@ -102,4 +78,32 @@ refit.simex <- function(object, extrapolation = "quadratic",
 
   object$call$extrapolation <- extrapolation
   object
+}
+
+
+#' Build xi_hat for MC-SIMEX refit, handling single-mc, multi-mc, and response-mc
+#' @keywords internal
+.refit_build_xi_hat <- function(object) {
+  n_mc <- length(object$mc.terms)
+  has_response_mc <- !is.null(object$response.mc)
+
+  if (has_response_mc || n_mc > 1L) {
+    # Response mc or multi-mc: use naive model's X
+    return(object$naive.model$x)
+  }
+
+  # Single mc covariate: manual design matrix
+  sv <- object$mc.terms[[1]]$variable
+  K <- nrow(object$mc.terms[[1]]$mc_matrix)
+  data <- object$data
+  z_hat <- as.integer(data[[sv]]) - 1L
+  clean_f <- object$clean.formula
+  other_terms <- setdiff(all.vars(clean_f)[-1], sv)
+  if (length(other_terms) > 0) {
+    x_mat <- model.matrix(reformulate(other_terms, intercept = TRUE),
+                          data = data)
+  } else {
+    x_mat <- matrix(1, nrow = object$n, ncol = 1)
+  }
+  .build_xi_hat(z_hat, x_mat, K)
 }

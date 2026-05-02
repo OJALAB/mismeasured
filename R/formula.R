@@ -100,8 +100,9 @@ parse_simex_formula <- function(formula, data, env) {
   lhs <- formula[[2]]
   rhs <- formula[[3]]
 
-  # --- Walk LHS for me() ---
+  # --- Walk LHS for me() or mc() ---
   response_me <- NULL
+  response_mc <- NULL
   if (is.call(lhs) && identical(lhs[[1]], as.name("me"))) {
     var_name <- deparse(lhs[[2]])
     sd_val <- .resolve_sd(lhs[[3]], var_name, data, env)
@@ -109,6 +110,27 @@ parse_simex_formula <- function(formula, data, env) {
     lhs <- lhs[[2]]  # strip me(), keep bare variable name
     stop("Response measurement error (me() on the left-hand side) is not yet supported.",
          call. = FALSE)
+  }
+  if (is.call(lhs) && identical(lhs[[1]], as.name("mc"))) {
+    var_name <- deparse(lhs[[2]])
+    mat_val <- .resolve_matrix(lhs[[3]], data, env)
+    # Validate response mc matrix
+    if (!is.factor(data[[var_name]])) {
+      warning("mc() response variable '", var_name,
+              "' is not a factor; coercing.", call. = FALSE)
+      data[[var_name]] <- factor(data[[var_name]])
+    }
+    K_resp <- nrow(mat_val)
+    n_levels_resp <- length(levels(data[[var_name]]))
+    if (K_resp != n_levels_resp)
+      stop("mc() response matrix has ", K_resp, " rows but variable '",
+           var_name, "' has ", n_levels_resp, " levels.", call. = FALSE)
+    cs <- colSums(mat_val)
+    if (any(abs(cs - 1) > 1e-6))
+      stop("Columns of mc() response matrix must sum to 1 (got: ",
+           paste(round(cs, 4), collapse = ", "), ").", call. = FALSE)
+    response_mc <- list(variable = var_name, mc_matrix = mat_val)
+    lhs <- lhs[[2]]  # strip mc(), keep bare variable name
   }
 
   # --- Walk RHS for me() and mc() ---
@@ -147,7 +169,7 @@ parse_simex_formula <- function(formula, data, env) {
 
   # --- Determine error type ---
   has_me <- length(me_terms) > 0
-  has_mc <- length(mc_terms) > 0
+  has_mc <- length(mc_terms) > 0 || !is.null(response_mc)
   if (has_me && has_mc) {
     stop("Mixed me() and mc() terms in the same formula are not yet supported.",
          call. = FALSE)
@@ -166,6 +188,7 @@ parse_simex_formula <- function(formula, data, env) {
     me_terms      = me_terms,
     mc_terms      = mc_terms,
     response_me   = response_me,
+    response_mc   = response_mc,
     error_type    = error_type
   )
 }
