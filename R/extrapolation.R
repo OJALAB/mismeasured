@@ -139,10 +139,17 @@ jackknife_variance_mcsimex <- function(theta_list, psi_naive, naive_fit,
 
 #' Jackknife variance estimation for SIMEX (continuous measurement error)
 #'
-#' Uses the naive model's vcov and simulation replicate covariance.
+#' Computes Var_model (mean of model-based vcov across B refits) minus Var_sim
+#' (empirical covariance of B coefficient estimates) at each lambda, then
+#' extrapolates to lambda = -1.
+#'
+#' This follows the Stefanski & Cook (1994) approach where Var_model at each
+#' lambda is the average of vcov(glm_b) across the B simulation replicates.
+#' The per-lambda model vcov averages are computed in C++ and passed in via
+#' \code{vcov_model_list}.
 #' @keywords internal
 jackknife_variance_simex <- function(theta_list, naive_fit, lambda,
-                                     jk_method) {
+                                     jk_method, vcov_model_list = NULL) {
   p <- length(coef(naive_fit))
   n_lambda <- length(lambda)
 
@@ -153,17 +160,12 @@ jackknife_variance_simex <- function(theta_list, naive_fit, lambda,
 
   for (l in seq_len(n_lambda)) {
     theta_mat <- theta_list[[l]]
-    B_l <- nrow(theta_mat)
 
     # Empirical covariance of B estimates
     Var_sim <- cov(theta_mat)
 
-    # Average model variance approximated by scaling naive vcov
-    # In the original simex: Var_model = average of vcov from each refit
-    # We approximate using the sandwich at the mean estimate
-    # For simplicity, use the naive vcov as the model variance component
-    # (this is the Stefanski & Cook 1995 approach)
-    Var_model <- Var_naive
+    # Average model-based variance across B refits (from C++)
+    Var_model <- vcov_model_list[[l]]
 
     Var_jk_list[[l]] <- Var_model - Var_sim
   }

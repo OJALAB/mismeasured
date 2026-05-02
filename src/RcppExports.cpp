@@ -52,7 +52,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // simex_sim_cpp
-Rcpp::NumericMatrix simex_sim_cpp(Rcpp::NumericVector y_r, Rcpp::NumericMatrix X_r, Rcpp::IntegerVector simex_cols_r, Rcpp::NumericMatrix me_r, int dist_code, Rcpp::NumericVector lambda_r, int B, Rcpp::NumericVector wt_r, unsigned int seed);
+Rcpp::List simex_sim_cpp(Rcpp::NumericVector y_r, Rcpp::NumericMatrix X_r, Rcpp::IntegerVector simex_cols_r, Rcpp::NumericMatrix me_r, int dist_code, Rcpp::NumericVector lambda_r, int B, Rcpp::NumericVector wt_r, unsigned int seed);
 RcppExport SEXP _mismeasured_simex_sim_cpp(SEXP y_rSEXP, SEXP X_rSEXP, SEXP simex_cols_rSEXP, SEXP me_rSEXP, SEXP dist_codeSEXP, SEXP lambda_rSEXP, SEXP BSEXP, SEXP wt_rSEXP, SEXP seedSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;

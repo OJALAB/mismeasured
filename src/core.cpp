@@ -353,8 +353,57 @@ Rcpp::NumericMatrix mcsimex_multi_sim_cpp(
 //   X_sim = X + sqrt(lambda) * N(0,1) * me  (only in simex columns)
 //   fit IRLS on (y, X_sim)
 
+// Compute GLM model-based vcov = (X'WX)^{-1} * phi at given beta
+// Uses the same link/variance functions as irls_fit
+MatrixXd glm_vcov(const VectorXd& beta, const MatrixXd& X,
+                  const VectorXd& y, int dist_code,
+                  const VectorXd& wt) {
+  int n = X.rows();
+  int p = X.cols();
+
+  double (*mu_fn)(double);
+  double (*mu_dot_fn)(double);
+  double (*var_fn)(double);
+
+  switch (dist_code) {
+    case 1: mu_fn = mu_gaussian; mu_dot_fn = mu_dot_gaussian;
+            var_fn = var_gaussian; break;
+    case 2: mu_fn = mu_poisson;  mu_dot_fn = mu_dot_poisson;
+            var_fn = var_poisson;  break;
+    case 3: mu_fn = mu_binomial; mu_dot_fn = mu_dot_binomial;
+            var_fn = var_binomial; break;
+    default: mu_fn = mu_gaussian; mu_dot_fn = mu_dot_gaussian;
+             var_fn = var_gaussian; break;
+  }
+
+  VectorXd eta = X * beta;
+  VectorXd w_irls(n);
+  double wt_sum = 0;
+  double pearson_sum = 0;
+
+  for (int i = 0; i < n; i++) {
+    double mu_i = mu_fn(eta(i));
+    double md = mu_dot_fn(eta(i));
+    double v = var_fn(mu_i);
+    w_irls(i) = wt(i) * md * md / std::max(v, 1e-10);
+    wt_sum += wt(i);
+
+    double resid = (y(i) - mu_i) / std::max(std::sqrt(v), 1e-10);
+    pearson_sum += wt(i) * resid * resid;
+  }
+
+  MatrixXd XtWX = (X.array().colwise() * w_irls.array()).matrix().transpose() * X;
+  MatrixXd XtWX_inv = XtWX.ldlt().solve(MatrixXd::Identity(p, p));
+
+  // Dispersion: 1 for Poisson/Binomial, Pearson estimate for Gaussian
+  double phi = (dist_code == 1) ? pearson_sum / (wt_sum - p) : 1.0;
+
+  return XtWX_inv * phi;
+}
+
+
 // [[Rcpp::export]]
-Rcpp::NumericMatrix simex_sim_cpp(
+Rcpp::List simex_sim_cpp(
     Rcpp::NumericVector y_r,
     Rcpp::NumericMatrix X_r,
     Rcpp::IntegerVector simex_cols_r,
@@ -384,11 +433,15 @@ Rcpp::NumericMatrix simex_sim_cpp(
   }
 
   Rcpp::NumericMatrix result(n_lambda * B, p);
+  // Accumulated model vcov per lambda: stored as n_lambda rows x p*p columns
+  Rcpp::NumericMatrix vcov_acc(n_lambda, p * p);
+
   std::mt19937 rng(seed);
   std::normal_distribution<double> rnorm(0.0, 1.0);
 
   for (int l = 0; l < n_lambda; l++) {
     double sqrt_lam = std::sqrt(lambda_r[l]);
+    MatrixXd vcov_sum = MatrixXd::Zero(p, p);
 
     for (int b = 0; b < B; b++) {
       // Copy model matrix and add noise to SIMEX columns
@@ -407,10 +460,22 @@ Rcpp::NumericMatrix simex_sim_cpp(
       for (int jj = 0; jj < p; jj++) {
         result(row, jj) = beta(jj);
       }
+
+      // Accumulate model vcov from this replicate
+      vcov_sum += glm_vcov(beta, X_sim, y, dist_code, wt);
+    }
+
+    // Store average vcov for this lambda
+    MatrixXd vcov_avg = vcov_sum / B;
+    for (int j = 0; j < p * p; j++) {
+      vcov_acc(l, j) = vcov_avg(j % p, j / p);
     }
 
     Rcpp::checkUserInterrupt();
   }
 
-  return result;
+  return Rcpp::List::create(
+    Rcpp::Named("theta") = result,
+    Rcpp::Named("vcov_model") = vcov_acc
+  );
 }

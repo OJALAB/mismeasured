@@ -44,7 +44,8 @@ refit.simex <- function(object, extrapolation = "quadratic",
 
     if (object$error.type == "me") {
       vcov_jk <- jackknife_variance_simex(
-        object$theta, object$naive.model, lambda[-1], jk_method
+        object$theta, object$naive.model, lambda[-1], jk_method,
+        object$vcov.model
       )
     } else {
       # Standard MC-SIMEX

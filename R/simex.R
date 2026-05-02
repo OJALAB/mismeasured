@@ -201,21 +201,29 @@ simex <- function(formula, family = gaussian(), data,
     simex_cols[j] <- idx - 1L
   }
 
-  # C++ simulation
+  # C++ simulation (returns list with theta matrix and per-lambda avg vcov)
   sim_result <- simex_sim_cpp(y, X, simex_cols, measurement_error,
                               dist_code, lambda, B, wt, as.integer(seed))
+  sim_theta <- sim_result$theta
+  sim_vcov_model <- sim_result$vcov_model
 
   # Reshape
   theta_list <- vector("list", n_lambda)
   avg_estimates <- matrix(0, n_lambda, p)
   for (l in seq_len(n_lambda)) {
     rows <- ((l - 1) * B + 1):(l * B)
-    theta_mat <- sim_result[rows, , drop = FALSE]
+    theta_mat <- sim_theta[rows, , drop = FALSE]
     colnames(theta_mat) <- p_names
     theta_list[[l]] <- theta_mat
     avg_estimates[l, ] <- colMeans(theta_mat)
   }
   names(theta_list) <- paste0("lambda_", lambda)
+
+  # Reshape per-lambda model vcov averages
+  vcov_model_list <- vector("list", n_lambda)
+  for (l in seq_len(n_lambda)) {
+    vcov_model_list[[l]] <- matrix(sim_vcov_model[l, ], p, p)
+  }
 
   all_lambda <- c(0, lambda)
   all_estimates <- rbind(psi_naive, avg_estimates)
@@ -229,7 +237,8 @@ simex <- function(formula, family = gaussian(), data,
   vcov_jk <- NULL
   if (!isFALSE(jackknife)) {
     jk_method <- if (is.character(jackknife)) jackknife else extrapolation
-    vcov_jk <- jackknife_variance_simex(theta_list, naive_fit, lambda, jk_method)
+    vcov_jk <- jackknife_variance_simex(theta_list, naive_fit, lambda,
+                                        jk_method, vcov_model_list)
     rownames(vcov_jk) <- colnames(vcov_jk) <- p_names
   }
 
@@ -247,6 +256,7 @@ simex <- function(formula, family = gaussian(), data,
     vcov                = vcov_jk,
     SIMEX.estimates     = all_estimates,
     theta               = theta_list,
+    vcov.model          = vcov_model_list,
     extrapolation       = extrap_result$model,
     lambda              = all_lambda,
     B                   = B,
