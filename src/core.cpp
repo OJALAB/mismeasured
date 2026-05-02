@@ -436,6 +436,12 @@ MatrixXd glm_vcov(const VectorXd& beta, const MatrixXd& X,
 }
 
 
+// error_type_r: per-variable error type (0 = classical, 1 = Berkson)
+// me_mean_r:    per-variable measurement error mean (0 for standard SIMEX)
+//
+// Classical: X_sim = X + sqrt(lambda) * (mean + N(0,1) * sd)
+// Berkson:   X_sim = X - sqrt(lambda) * (mean + N(0,1) * sd)
+
 // [[Rcpp::export]]
 Rcpp::List simex_sim_cpp(
     Rcpp::NumericVector y_r,
@@ -446,7 +452,9 @@ Rcpp::List simex_sim_cpp(
     Rcpp::NumericVector lambda_r,
     int B,
     Rcpp::NumericVector wt_r,
-    unsigned int seed) {
+    unsigned int seed,
+    Rcpp::IntegerVector error_type_r = Rcpp::IntegerVector(0),
+    Rcpp::NumericVector me_mean_r = Rcpp::NumericVector(0)) {
 
   int n = y_r.size();
   int p = X_r.ncol();
@@ -460,10 +468,14 @@ Rcpp::List simex_sim_cpp(
   // Map measurement error matrix
   Eigen::Map<MatrixXd> me(me_r.begin(), n, n_simex);
 
-  // Copy simex column indices
+  // Copy simex column indices and per-variable parameters
   std::vector<int> scols(n_simex);
+  std::vector<int> etypes(n_simex, 0);   // default: classical
+  std::vector<double> emeans(n_simex, 0.0); // default: zero mean
   for (int j = 0; j < n_simex; j++) {
     scols[j] = simex_cols_r[j];
+    if (error_type_r.size() > j) etypes[j] = error_type_r[j];
+    if (me_mean_r.size() > j) emeans[j] = me_mean_r[j];
   }
 
   Rcpp::NumericMatrix result(n_lambda * B, p);
@@ -483,8 +495,11 @@ Rcpp::List simex_sim_cpp(
 
       for (int j = 0; j < n_simex; j++) {
         int col = scols[j];
+        double sign = (etypes[j] == 1) ? -1.0 : 1.0; // Berkson: subtract
+        double mu_j = emeans[j];
         for (int i = 0; i < n; i++) {
-          X_sim(i, col) += sqrt_lam * rnorm(rng) * me(i, j);
+          double noise = mu_j + rnorm(rng) * me(i, j);
+          X_sim(i, col) += sign * sqrt_lam * noise;
         }
       }
 

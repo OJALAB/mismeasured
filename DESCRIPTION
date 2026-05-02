@@ -1,7 +1,7 @@
 Package: mismeasured
 Type: Package
 Title: SIMEX and MC-SIMEX Correction for Measurement Error and Misclassification
-Version: 0.1.0
+Version: 0.2.0
 Authors@R: c(
     person("Maciej", "Beresewicz", role = c("aut", "cre"),
            email = "maciej.beresewicz@ue.poznan.pl",

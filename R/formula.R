@@ -14,6 +14,12 @@
 #' @param sd measurement error standard deviation. Can be a scalar
 #'   (homoscedastic), a numeric vector of length n, or a bare column name
 #'   in the data (heteroscedastic).
+#' @param type type of measurement error: \code{"classical"} (default) for
+#'   the standard additive error model \eqn{W = X + U}, or \code{"berkson"}
+#'   for the Berkson error model \eqn{X = W + U} where the true value is
+#'   a noisy version of the observed.
+#' @param mean mean of the measurement error distribution (default 0).
+#'   Use for systematic (non-zero mean) measurement error.
 #'
 #' @return An object of class \code{"me_term"} (used internally by
 #'   \code{\link{simex}}; not intended to be called directly).
@@ -21,16 +27,21 @@
 #' @examples
 #' \dontrun{
 #' simex(y ~ me(x, 0.5) + w, data = df)
-#' simex(y ~ me(x, sd_x) + w, data = df)  # sd_x is a column
+#' simex(y ~ me(x, sd_x) + w, data = df)            # heteroscedastic
+#' simex(y ~ me(x, 0.5, type = "berkson") + w, data = df)  # Berkson error
+#' simex(y ~ me(x, 0.5, mean = 0.1) + w, data = df)       # non-zero mean
 #' }
 #'
 #' @seealso \code{\link{mc}}, \code{\link{simex}}
 #' @export
-me <- function(variable, sd) {
+me <- function(variable, sd, type = "classical", mean = 0) {
+  type <- match.arg(type, c("classical", "berkson"))
   structure(
     list(
       variable = deparse(substitute(variable)),
-      sd_expr  = substitute(sd)
+      sd_expr  = substitute(sd),
+      type     = type,
+      mean     = mean
     ),
     class = "me_term"
   )
@@ -229,8 +240,16 @@ parse_simex_formula <- function(formula, data, env) {
     var_name <- deparse(node[[2]])
     sd_val <- .resolve_sd(node[[3]], var_name, data, env)
 
+    # Extract optional type and mean arguments
+    me_call <- match.call(me, node)
+    me_type <- if (!is.null(me_call$type))
+      eval(me_call$type, envir = data, enclos = env) else "classical"
+    me_mean <- if (!is.null(me_call$mean))
+      eval(me_call$mean, envir = data, enclos = env) else 0
+
     .env_descriptors$items <- c(.env_descriptors$items, list(
-      list(type = "me", variable = var_name, sd = sd_val)
+      list(type = "me", variable = var_name, sd = sd_val,
+           error_type = me_type, mean = me_mean)
     ))
 
     return(node[[2]])  # replace me(x, sd) with x

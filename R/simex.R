@@ -185,8 +185,10 @@ simex <- function(formula, family = gaussian(), data,
   n_lambda <- length(lambda)
   n_simex <- length(SIMEXvariable)
 
-  # Build measurement error matrix from me_terms
+  # Build measurement error matrix and per-variable parameters from me_terms
   measurement_error <- matrix(NA_real_, nrow = n, ncol = n_simex)
+  me_mean <- numeric(n_simex)
+  me_error_type <- integer(n_simex)  # 0 = classical, 1 = berkson
   simex_cols <- integer(n_simex)
   for (j in seq_len(n_simex)) {
     sv <- SIMEXvariable[j]
@@ -195,6 +197,9 @@ simex <- function(formula, family = gaussian(), data,
     if (length(sd_val) != n)
       stop("me() sd for '", sv, "' must be scalar or length n.", call. = FALSE)
     measurement_error[, j] <- sd_val
+
+    me_mean[j] <- if (!is.null(me_terms[[j]]$mean)) me_terms[[j]]$mean else 0
+    me_error_type[j] <- if (identical(me_terms[[j]]$error_type, "berkson")) 1L else 0L
 
     idx <- which(p_names == sv)
     if (length(idx) != 1)
@@ -206,7 +211,8 @@ simex <- function(formula, family = gaussian(), data,
 
   # C++ simulation (returns list with theta matrix and per-lambda avg vcov)
   sim_result <- simex_sim_cpp(y, X, simex_cols, measurement_error,
-                              dist_code, lambda, B, wt, as.integer(seed))
+                              dist_code, lambda, B, wt, as.integer(seed),
+                              me_error_type, me_mean)
   sim_theta <- sim_result$theta
   sim_vcov_model <- sim_result$vcov_model
 

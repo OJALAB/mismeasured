@@ -55,8 +55,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // simex_sim_cpp
-Rcpp::List simex_sim_cpp(Rcpp::NumericVector y_r, Rcpp::NumericMatrix X_r, Rcpp::IntegerVector simex_cols_r, Rcpp::NumericMatrix me_r, int dist_code, Rcpp::NumericVector lambda_r, int B, Rcpp::NumericVector wt_r, unsigned int seed);
-RcppExport SEXP _mismeasured_simex_sim_cpp(SEXP y_rSEXP, SEXP X_rSEXP, SEXP simex_cols_rSEXP, SEXP me_rSEXP, SEXP dist_codeSEXP, SEXP lambda_rSEXP, SEXP BSEXP, SEXP wt_rSEXP, SEXP seedSEXP) {
+Rcpp::List simex_sim_cpp(Rcpp::NumericVector y_r, Rcpp::NumericMatrix X_r, Rcpp::IntegerVector simex_cols_r, Rcpp::NumericMatrix me_r, int dist_code, Rcpp::NumericVector lambda_r, int B, Rcpp::NumericVector wt_r, unsigned int seed, Rcpp::IntegerVector error_type_r, Rcpp::NumericVector me_mean_r);
+RcppExport SEXP _mismeasured_simex_sim_cpp(SEXP y_rSEXP, SEXP X_rSEXP, SEXP simex_cols_rSEXP, SEXP me_rSEXP, SEXP dist_codeSEXP, SEXP lambda_rSEXP, SEXP BSEXP, SEXP wt_rSEXP, SEXP seedSEXP, SEXP error_type_rSEXP, SEXP me_mean_rSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -69,7 +69,9 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type B(BSEXP);
     Rcpp::traits::input_parameter< Rcpp::NumericVector >::type wt_r(wt_rSEXP);
     Rcpp::traits::input_parameter< unsigned int >::type seed(seedSEXP);
-    rcpp_result_gen = Rcpp::wrap(simex_sim_cpp(y_r, X_r, simex_cols_r, me_r, dist_code, lambda_r, B, wt_r, seed));
+    Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type error_type_r(error_type_rSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type me_mean_r(me_mean_rSEXP);
+    rcpp_result_gen = Rcpp::wrap(simex_sim_cpp(y_r, X_r, simex_cols_r, me_r, dist_code, lambda_r, B, wt_r, seed, error_type_r, me_mean_r));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -77,7 +79,7 @@ END_RCPP
 static const R_CallMethodDef CallEntries[] = {
     {"_mismeasured_mcsimex_sim_cpp", (DL_FUNC) &_mismeasured_mcsimex_sim_cpp, 10},
     {"_mismeasured_mcsimex_multi_sim_cpp", (DL_FUNC) &_mismeasured_mcsimex_multi_sim_cpp, 13},
-    {"_mismeasured_simex_sim_cpp", (DL_FUNC) &_mismeasured_simex_sim_cpp, 9},
+    {"_mismeasured_simex_sim_cpp", (DL_FUNC) &_mismeasured_simex_sim_cpp, 11},
     {NULL, NULL, 0}
 };
 
