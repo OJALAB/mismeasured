@@ -1,3 +1,45 @@
+# mismeasured 0.2.1
+
+## Bug fixes
+
+* **MC design-matrix construction preserves formula semantics**: the MC-SIMEX
+  path previously used `all.vars()` + `reformulate()` to build the non-mc
+  covariate matrix, which silently dropped `I()` transformations, interactions,
+  offsets, and explicit intercept choices. For example, `y ~ mc(z, Pi) + I(x^2)`
+  was fitted as `y ~ z + x`. Now uses `model.matrix()` on the clean formula and
+  removes mc-variable columns via the `assign` attribute, preserving all formula
+  semantics. (#6)
+
+* **`predict.simex()` factor level mismatch**: predicting with `newdata`
+  containing only a subset of mc factor levels (e.g., only level `"1"`) could
+  misassign the baseline, producing wrong predictions. Now enforces training
+  factor levels stored on the fitted object. The multi-mc predict path also
+  switched from `model.matrix()` (wrong column order) to the same manual dummy
+  construction used during fitting. (#6)
+
+* **`refit()` design-matrix mismatch for multi-MC models**: `refit()` used
+  `naive.model$x` for multi-mc and response+mc fits, but that matrix has
+  different column ordering than the package's manual `[dummies | x_mat]`
+  layout. Fitted values and variance estimates could be computed against the
+  wrong columns. Now uses stored `xi.hat` directly. (#6)
+
+* **`RcppExports.R` invalid defaults**: `compileAttributes()` had generated
+  `integerVector(0)` and `numericVector(0)` (non-existent R functions) as
+  defaults for optional C++ parameters, causing `could not find function` errors
+  when calling `mcsimex_multi_sim_cpp` or `simex_sim_cpp` with defaults.
+  Fixed to `integer(0)` and `numeric(0)`.
+
+## Improvements
+
+* **MC matrix validation**: misclassification matrices now reject entries
+  outside `[0, 1]` (previously only checked column sums). (#6)
+
+## Packaging
+
+* Removed tracked object files (`src/*.o`) from git.
+* Added `theory/`, `src/symbols.rds`, `.DS_Store` to `.Rbuildignore`/`.gitignore`.
+* Lowered `CXX_STD` from `CXX17` to `CXX11` for broader platform portability.
+
 # mismeasured 0.2.0
 
 ## Documentation

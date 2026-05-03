@@ -172,6 +172,8 @@ parse_simex_formula <- function(formula, data, env) {
     if (K != n_levels)
       stop("mc() matrix has ", K, " rows but variable '", mt$variable,
            "' has ", n_levels, " levels.", call. = FALSE)
+    if (any(mt$mc_matrix < 0) || any(mt$mc_matrix > 1))
+      stop("All entries of mc() matrix must be in [0, 1].", call. = FALSE)
     cs <- colSums(mt$mc_matrix)
     if (any(abs(cs - 1) > 1e-6))
       stop("Columns of mc() matrix must sum to 1 (got: ",

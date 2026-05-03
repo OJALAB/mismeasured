@@ -84,26 +84,10 @@ refit.simex <- function(object, extrapolation = "quadratic",
 #' Build xi_hat for MC-SIMEX refit, handling single-mc, multi-mc, and response-mc
 #' @keywords internal
 .refit_build_xi_hat <- function(object) {
-  n_mc <- length(object$mc.terms)
-  has_response_mc <- !is.null(object$response.mc)
+  # Use stored xi.hat if available (always set since v0.3.0)
+  if (!is.null(object$xi.hat))
+    return(object$xi.hat)
 
-  if (has_response_mc || n_mc > 1L) {
-    # Response mc or multi-mc: use naive model's X
-    return(object$naive.model$x)
-  }
-
-  # Single mc covariate: manual design matrix
-  sv <- object$mc.terms[[1]]$variable
-  K <- nrow(object$mc.terms[[1]]$mc_matrix)
-  data <- object$data
-  z_hat <- as.integer(data[[sv]]) - 1L
-  clean_f <- object$clean.formula
-  other_terms <- setdiff(all.vars(clean_f)[-1], sv)
-  if (length(other_terms) > 0) {
-    x_mat <- model.matrix(reformulate(other_terms, intercept = TRUE),
-                          data = data)
-  } else {
-    x_mat <- matrix(1, nrow = object$n, ncol = 1)
-  }
-  .build_xi_hat(z_hat, x_mat, K)
+  # Fallback for response-only mc (xi_hat = naive model's X)
+  object$naive.model$x
 }

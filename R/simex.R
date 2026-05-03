@@ -357,7 +357,6 @@ simex <- function(formula, family = gaussian(), data,
     naive_refit <- naive_fit
   } else if (has_response_mc && n_mc >= 1L) {
     # Response mc + covariate mc(s): build covariate design matrix for C++
-    # Also prepare covariate mc data structures for simulation
     z_hats <- list()
     z_levels_list <- list()
     K_vec <- integer(n_mc)
@@ -369,14 +368,8 @@ simex <- function(formula, family = gaussian(), data,
       K_vec[j] <- length(levels(z_factor_j))
     }
 
-    other_terms <- setdiff(all.vars(clean_formula)[-1], SIMEXvariables)
-    if (length(other_terms) > 0) {
-      other_formula <- reformulate(other_terms, intercept = TRUE)
-      x_mat <- model.matrix(other_formula, data = data)
-    } else {
-      x_mat <- matrix(1, nrow = n, ncol = 1)
-      colnames(x_mat) <- "(Intercept)"
-    }
+    xm <- .build_x_mat(clean_formula, SIMEXvariables, data)
+    x_mat <- xm$x_mat
 
     xi_hat <- .build_multi_xi_hat(z_hats, K_vec, x_mat)
     p <- ncol(xi_hat)
@@ -391,16 +384,11 @@ simex <- function(formula, family = gaussian(), data,
     # Single-mc covariate: manual design matrix (compatible with C++ path)
     z_factor <- data[[SIMEXvariable]]
     z_levels <- levels(z_factor)
+    z_levels_list <- setNames(list(z_levels), SIMEXvariable)
     z_hat <- as.integer(z_factor) - 1L
 
-    other_terms <- setdiff(all.vars(clean_formula)[-1], SIMEXvariable)
-    if (length(other_terms) > 0) {
-      other_formula <- reformulate(other_terms, intercept = TRUE)
-      x_mat <- model.matrix(other_formula, data = data)
-    } else {
-      x_mat <- matrix(1, nrow = n, ncol = 1)
-      colnames(x_mat) <- "(Intercept)"
-    }
+    xm <- .build_x_mat(clean_formula, SIMEXvariable, data)
+    x_mat <- xm$x_mat
 
     xi_hat <- .build_xi_hat(z_hat, x_mat, K)
     p <- ncol(xi_hat)
@@ -413,7 +401,6 @@ simex <- function(formula, family = gaussian(), data,
     names(psi_naive) <- nms
   } else {
     # Multi-mc: build design matrix manually [dummies_z1 | dummies_z2 | ... | x]
-    # Extract z_hat vectors and levels for each mc variable
     z_hats <- list()
     z_levels_list <- list()
     K_vec <- integer(n_mc)
@@ -425,16 +412,9 @@ simex <- function(formula, family = gaussian(), data,
       K_vec[j] <- length(levels(z_factor_j))
     }
 
-    other_terms <- setdiff(all.vars(clean_formula)[-1], SIMEXvariables)
-    if (length(other_terms) > 0) {
-      other_formula <- reformulate(other_terms, intercept = TRUE)
-      x_mat <- model.matrix(other_formula, data = data)
-    } else {
-      x_mat <- matrix(1, nrow = n, ncol = 1)
-      colnames(x_mat) <- "(Intercept)"
-    }
+    xm <- .build_x_mat(clean_formula, SIMEXvariables, data)
+    x_mat <- xm$x_mat
 
-    # Build xi_hat = [dummies_z1 | dummies_z2 | ... | x_mat]
     xi_hat <- .build_multi_xi_hat(z_hats, K_vec, x_mat)
     p <- ncol(xi_hat)
     nms <- .make_multi_param_names(z_levels_list, K_vec, x_mat)
@@ -527,7 +507,10 @@ simex <- function(formula, family = gaussian(), data,
       c.lambda            = setNames(c_lam_vec, paste0("lambda_", lambda)),
       pi.x                = pi_x,
       SIMEXvariable       = SIMEXvariables,
-      mc.matrix           = mc_list
+      mc.matrix           = mc_list,
+      xi.hat              = xi_hat,
+      x.mat               = x_mat,
+      z.levels            = z_levels_list
     ))
   }
 
@@ -643,7 +626,10 @@ simex <- function(formula, family = gaussian(), data,
     extrapolation.method = extrapolation,
     method              = "standard",
     SIMEXvariable       = SIMEXvariables,
-    mc.matrix           = mc_list
+    mc.matrix           = mc_list,
+    xi.hat              = xi_hat,
+    x.mat               = if (exists("x_mat")) x_mat else NULL,
+    z.levels            = if (exists("z_levels_list")) z_levels_list else NULL
   )
 }
 
@@ -813,34 +799,36 @@ predict.simex <- function(object, newdata = NULL, type = "response", ...) {
     return(object$fitted.values)
   }
 
-  if (object$error.type == "mc") {
-    mc_vars <- object$SIMEXvariable
-    if (length(mc_vars) == 1L) {
-      # Single mc: manual design matrix (backward compatible)
-      sv <- mc_vars[1]
-      if (!is.factor(newdata[[sv]]))
-        newdata[[sv]] <- factor(newdata[[sv]])
+  mc_vars <- object$SIMEXvariable
+  if (object$error.type == "mc" && length(mc_vars) >= 1L) {
+    z_levels <- object$z.levels
 
+    # Enforce training factor levels for all mc variables
+    for (sv in mc_vars) {
+      if (!is.null(z_levels) && sv %in% names(z_levels)) {
+        newdata[[sv]] <- factor(newdata[[sv]], levels = z_levels[[sv]])
+      } else if (!is.factor(newdata[[sv]])) {
+        newdata[[sv]] <- factor(newdata[[sv]])
+      }
+    }
+
+    if (length(mc_vars) == 1L) {
+      sv <- mc_vars[1]
       z_new <- as.integer(newdata[[sv]]) - 1L
       K <- nrow(object$mc.matrix[[sv]])
-      clean_f <- object$clean.formula
-      other_terms <- setdiff(all.vars(clean_f)[-1], sv)
-      if (length(other_terms) > 0) {
-        x_new <- model.matrix(reformulate(other_terms, intercept = TRUE),
-                              data = newdata)
-      } else {
-        x_new <- matrix(1, nrow = nrow(newdata), ncol = 1)
-      }
-      X_new <- .build_xi_hat(z_new, x_new, K)
+      xm <- .build_x_mat(object$clean.formula, sv, newdata)
+      X_new <- .build_xi_hat(z_new, xm$x_mat, K)
     } else {
-      # Multi-mc: use R's formula interface
-      for (sv in mc_vars) {
-        if (!is.factor(newdata[[sv]]))
-          newdata[[sv]] <- factor(newdata[[sv]])
+      # Multi-mc: use same manual design matrix construction as fitting
+      z_hats_new <- list()
+      K_vec <- integer(length(mc_vars))
+      for (j in seq_along(mc_vars)) {
+        sv <- mc_vars[j]
+        z_hats_new[[j]] <- as.integer(newdata[[sv]]) - 1L
+        K_vec[j] <- nrow(object$mc.matrix[[sv]])
       }
-      tt <- delete.response(terms(object$clean.formula))
-      mf <- model.frame(tt, data = newdata)
-      X_new <- model.matrix(tt, mf)
+      xm <- .build_x_mat(object$clean.formula, mc_vars, newdata)
+      X_new <- .build_multi_xi_hat(z_hats_new, K_vec, xm$x_mat)
     }
   } else {
     # ME predict: use model.matrix from clean formula

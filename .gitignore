@@ -2,4 +2,9 @@ simex/
 theory/
 src/*.so
 src/*.dll
+src/*.o
+src/symbols.rds
 README.html
+/doc/
+/Meta/
+.DS_Store
