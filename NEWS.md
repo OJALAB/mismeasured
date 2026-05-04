@@ -1,3 +1,15 @@
+# mismeasured 0.3.0
+
+## New features
+
+* **K-level improved MC-SIMEX**: `method = "improved"` now supports a single
+  K-level misclassified covariate with a fixed, known misclassification matrix.
+  The implementation estimates latent category probabilities from observed
+  category frequencies, builds the K-level dummy-coefficient correction matrix,
+  and applies the corresponding intercept adjustment. Binary fits keep the
+  existing `c.lambda` output; K-level fits expose `pi.vec` and
+  `correction.matrix`.
+
 # mismeasured 0.2.1
 
 ## Bug fixes

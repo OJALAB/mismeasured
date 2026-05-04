@@ -24,6 +24,40 @@ test_that("simex with mc() improved (default) corrects attenuation (linear)", {
   expect_lt(simex_bias, naive_bias)
 })
 
+test_that("simex with K-level mc() improved corrects dummy attenuation", {
+  set.seed(42)
+  n <- 6000
+  levs <- c("A", "B", "C")
+  x_true <- sample(0:2, n, replace = TRUE, prob = c(0.45, 0.35, 0.20))
+  y <- 1 + 1.5 * (x_true == 1) - 1.0 * (x_true == 2) + rnorm(n, sd = 0.8)
+
+  Pi <- matrix(c(
+    0.82, 0.10, 0.08,
+    0.10, 0.80, 0.10,
+    0.08, 0.10, 0.82
+  ), 3, 3)
+
+  z_star <- integer(n)
+  for (k in 0:2) {
+    idx <- which(x_true == k)
+    z_star[idx] <- sample(0:2, length(idx), replace = TRUE,
+                          prob = Pi[, k + 1L])
+  }
+  df <- data.frame(y = y, z = factor(levs[z_star + 1L], levels = levs))
+
+  fit <- simex(y ~ mc(z, Pi), data = df, lambda = 0, jackknife = FALSE)
+
+  expect_s3_class(fit, "simex")
+  expect_equal(fit$method, "improved")
+  expect_length(fit$pi.vec, 3)
+  expect_equal(dim(fit$correction.matrix$lambda_0), c(2L, 2L))
+
+  truth <- c(B = 1.5, C = -1.0)
+  naive_bias <- abs(fit$naive.coefficients[names(truth)] - truth)
+  simex_bias <- abs(coef(fit)[names(truth)] - truth)
+  expect_lt(max(simex_bias), max(naive_bias))
+})
+
 test_that("simex with mc() standard method works", {
   set.seed(42)
   n <- 1000
@@ -55,6 +89,24 @@ test_that("lambda='optimal' works for improved mc()", {
   fit <- simex(y ~ mc(z, Pi), data = df, lambda = "optimal", B = 50, seed = 42)
   expect_equal(fit$method, "improved")
   expect_true(!is.null(fit$c.lambda))
+})
+
+test_that("lambda='optimal' errors for K-level improved mc()", {
+  set.seed(42)
+  n <- 200
+  z <- factor(sample(c("A", "B", "C"), n, replace = TRUE))
+  y <- rnorm(n)
+  Pi <- matrix(c(
+    0.8, 0.1, 0.1,
+    0.1, 0.8, 0.1,
+    0.1, 0.1, 0.8
+  ), 3, 3)
+  df <- data.frame(y = y, z = z)
+
+  expect_error(
+    simex(y ~ mc(z, Pi), data = df, lambda = "optimal"),
+    "binary"
+  )
 })
 
 test_that("S3 methods work for mc()-based simex", {

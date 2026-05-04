@@ -154,9 +154,11 @@ cat("MC-SIMEX z effect:", round(coef(fit3)[1], 3), "\n")
 
 ## Example 4: Improved MC-SIMEX (exact correction)
 
-The improved method (Sevilimedu & Yu, 2026) computes an exact correction factor
-instead of extrapolation. It requires only B = 1 replicate and is the default
-for single binary misclassified covariates.
+The improved method (Sevilimedu & Yu, 2026) computes an exact fixed-matrix
+correction instead of extrapolation. It requires only B = 1 replicate and is
+the default for a single misclassified covariate. For binary covariates, the
+scalar correction factor is reported as `c.lambda`; for K-level factors, the
+dummy-coefficient correction matrix is stored in `correction.matrix`.
 
 ```{r mc-improved}
 fit4 <- simex(y ~ mc(z, Pi), data = df3, seed = 42)  # default: method = "improved"

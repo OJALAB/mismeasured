@@ -27,7 +27,7 @@ The `mismeasured` package implements the Simulation-Extrapolation (SIMEX) and Mi
 
 - A **unified `simex()` function** with brms-style formula terms: `me()` for continuous measurement error and `mc()` for discrete misclassification
 - **C++ simulation engine** via Rcpp/RcppEigen (100-300x faster than pure-R implementations)
-- **Standard and improved MC-SIMEX** (Sevilimedu & Yu, 2026) with exact correction factors
+- **Standard and improved MC-SIMEX** (Sevilimedu & Yu, 2026) with exact fixed-matrix correction
 - Standard S3 methods: `summary()`, `plot()`, `predict()`, `confint()`, `refit()`, etc.
 
 ## Quick start

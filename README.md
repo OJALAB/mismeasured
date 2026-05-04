@@ -24,7 +24,7 @@ It provides:
 - **C++ simulation engine** via Rcpp/RcppEigen (100-300x faster than
   pure-R implementations)
 - **Standard and improved MC-SIMEX** (Sevilimedu & Yu, 2026) with exact
-  correction factors
+  fixed-matrix correction
 - Standard S3 methods: `summary()`, `plot()`, `predict()`, `confint()`,
   `refit()`, etc.
 

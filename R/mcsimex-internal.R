@@ -121,6 +121,36 @@
   max(1e-6, min(1 - 1e-6, pi_x))
 }
 
+#' Estimate latent category probabilities from observed categories and Pi
+#' @keywords internal
+.estimate_pi_vec <- function(z_hat, Pi, wt = NULL, eps = 1e-6) {
+  K <- nrow(Pi)
+  if (is.null(wt)) wt <- rep(1, length(z_hat))
+  wt <- as.numeric(wt)
+  N <- sum(wt)
+  if (!is.finite(N) || N <= 0)
+    stop("weights must have positive total mass.", call. = FALSE)
+
+  p_obs <- numeric(K)
+  for (k in seq_len(K)) {
+    p_obs[k] <- sum(wt[z_hat == (k - 1L)]) / N
+  }
+
+  pi_vec <- tryCatch(
+    solve(Pi, p_obs),
+    error = function(e) {
+      stop("Misclassification matrix is singular; latent prevalences ",
+           "are not identifiable.", call. = FALSE)
+    }
+  )
+  if (any(!is.finite(pi_vec)))
+    stop("Could not estimate finite latent category probabilities.",
+         call. = FALSE)
+
+  pi_vec <- pmax(pi_vec, eps)
+  pi_vec / sum(pi_vec)
+}
+
 #' Compute matrix power via eigendecomposition (R version)
 #' @keywords internal
 .mat_power_r <- function(Pi, power) {
@@ -162,6 +192,93 @@
     if (abs(denom) < 1e-10) return(0)
     (1 - pi_11_lam) * pi_x / denom
   })
+}
+
+#' Compute K-level correction components for improved MC-SIMEX
+#' @keywords internal
+.compute_k_correction <- function(Pi, pi_vec, lambda) {
+  K <- nrow(Pi)
+  s <- K - 1L
+
+  lapply(lambda, function(lam) {
+    M <- .mat_power_r(Pi, 1 + lam)
+    q <- as.numeric(M %*% pi_vec)
+
+    if (any(q <= 0) || any(!is.finite(q)))
+      stop("Observed category probabilities implied by the correction ",
+           "matrix must be positive.", call. = FALSE)
+
+    pi_plus <- pi_vec[-1]
+    q_plus <- q[-1]
+    Sigma_RR <- diag(q_plus, nrow = s) - tcrossprod(q_plus)
+    Sigma_RD <- M[-1, -1, drop = FALSE] %*% diag(pi_plus, nrow = s) -
+      tcrossprod(q_plus, pi_plus)
+
+    C <- tryCatch(
+      solve(Sigma_RD, Sigma_RR),
+      error = function(e) {
+        stop("K-level improved MC-SIMEX correction is not identifiable; ",
+             "Sigma_RD is singular.", call. = FALSE)
+      }
+    )
+
+    alpha <- pi_plus * M[1, -1] / q[1]
+    list(
+      C = C,
+      alpha = alpha,
+      M = M,
+      q = q,
+      Sigma_RR = Sigma_RR,
+      Sigma_RD = Sigma_RD
+    )
+  })
+}
+
+#' Apply K-level improved correction to coefficient rows
+#' @keywords internal
+.apply_k_improved_correction <- function(theta_mat, C, alpha,
+                                         intercept_idx = integer(0)) {
+  theta_mat <- as.matrix(theta_mat)
+  s <- nrow(C)
+  corrected <- theta_mat
+  beta_z <- theta_mat[, seq_len(s), drop = FALSE] %*% t(C)
+  corrected[, seq_len(s)] <- beta_z
+
+  if (length(intercept_idx) == 1L) {
+    corrected[, intercept_idx] <- theta_mat[, intercept_idx] -
+      as.numeric(beta_z %*% alpha)
+  }
+
+  corrected
+}
+
+#' Linear transformation matrix for fixed-Pi improved MC-SIMEX
+#' @keywords internal
+.k_improved_transform <- function(p, C, alpha, intercept_idx = integer(0)) {
+  s <- nrow(C)
+  T <- diag(p)
+  T[seq_len(s), seq_len(s)] <- C
+
+  if (length(intercept_idx) == 1L) {
+    T[intercept_idx, seq_len(s)] <- -as.numeric(alpha %*% C)
+    T[intercept_idx, intercept_idx] <- 1
+  }
+
+  T
+}
+
+#' Variance estimation for fixed-Pi K-level improved MC-SIMEX
+#' @keywords internal
+.variance_k_improved <- function(theta_list, naive_refit, transform,
+                                 lambda, B, p) {
+  if (length(lambda) * B == 1L) {
+    V <- vcov(naive_refit)
+    V <- unname(V)
+    return(transform %*% V %*% t(transform))
+  }
+
+  all_corrected <- do.call(rbind, theta_list)
+  cov(all_corrected) / (length(lambda) * B)
 }
 
 #' Find optimal lambda that minimizes |c_lambda|

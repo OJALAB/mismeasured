@@ -38,8 +38,9 @@
 #'     and coefficients are extrapolated to lambda = -1.
 #'   \item \strong{Discrete misclassification} (\code{mc()} terms): Uses the
 #'     MC-SIMEX algorithm. With \code{method = "improved"} (default), the exact
-#'     correction factor of Sevilimedu and Yu (2026) is applied, requiring only
-#'     B = 1 replicate. With \code{method = "standard"}, the original
+#'     fixed-matrix correction of Sevilimedu and Yu (2026) and its K-level
+#'     dummy-vector extension are applied for one misclassified covariate,
+#'     requiring only B = 1 replicate. With \code{method = "standard"}, the original
 #'     Kuchenhoff et al. (2006) extrapolation-based approach is used.
 #' }
 #'
@@ -313,13 +314,12 @@ simex <- function(formula, family = gaussian(), data,
     SIMEXvariable <- SIMEXvariables[1]
   }
 
-  # Improved method requires single binary mc variable
+  # Improved method currently handles one mc covariate. The correction itself
+  # supports K-level factors; response and multi-covariate extensions still use
+  # standard MC-SIMEX.
   if (method == "improved") {
     if (n_mc > 1L)
       stop("method = 'improved' is only supported for a single mc() term.",
-           call. = FALSE)
-    if (nrow(Pi) != 2L)
-      stop("method = 'improved' requires a binary misclassified covariate (K = 2).",
            call. = FALSE)
   }
 
@@ -428,20 +428,30 @@ simex <- function(formula, family = gaussian(), data,
 
   # --- IMPROVED MC-SIMEX (single mc only) ---
   if (method == "improved") {
-    pi_x <- .estimate_pi_x(z_hat, Pi)
+    pi_vec <- .estimate_pi_vec(z_hat, Pi, wt)
+    pi_x <- if (K == 2L) pi_vec[2] else NULL
 
     if (optimal_lambda) {
+      if (K != 2L)
+        stop("lambda = 'optimal' is currently only supported for binary ",
+             "improved MC-SIMEX.", call. = FALSE)
       lambda <- .find_optimal_lambda(Pi, pi_x)
     }
     lambda <- sort(as.numeric(lambda))
     n_lambda <- length(lambda)
 
-    c_lam_vec <- .compute_c_lambda(Pi, pi_x, lambda)
-    intercept_correction <- .compute_intercept_correction(Pi, pi_x, lambda)
+    correction_components <- .compute_k_correction(Pi, pi_vec, lambda)
+    c_lam_vec <- if (K == 2L) {
+      vapply(correction_components, function(cc) cc$C[1, 1], numeric(1))
+    } else {
+      NULL
+    }
 
     sim_result <- mcsimex_sim_cpp(y, z_hat, x_mat, Pi, K, dist_code,
                                   lambda, B, wt, as.integer(seed))
     s <- K - 1L
+    intercept_idx <- which(nms == "(Intercept)")
+    if (length(intercept_idx) != 1L) intercept_idx <- integer(0)
     theta_list <- vector("list", n_lambda)
     corrected_all <- matrix(0, nrow = 0, ncol = p)
 
@@ -449,16 +459,13 @@ simex <- function(formula, family = gaussian(), data,
       rows <- ((l - 1) * B + 1):(l * B)
       theta_mat <- sim_result[rows, , drop = FALSE]
       colnames(theta_mat) <- nms
-      theta_corrected <- theta_mat
-      for (k in seq_len(s)) {
-        theta_corrected[, k] <- c_lam_vec[l] * theta_mat[, k]
-      }
-      icol <- s + 1
-      for (b_idx in seq_len(nrow(theta_corrected))) {
-        beta_x_corrected <- theta_corrected[b_idx, 1]
-        theta_corrected[b_idx, icol] <- theta_mat[b_idx, icol] -
-          beta_x_corrected * intercept_correction[l]
-      }
+      theta_corrected <- .apply_k_improved_correction(
+        theta_mat,
+        correction_components[[l]]$C,
+        correction_components[[l]]$alpha,
+        intercept_idx
+      )
+      colnames(theta_corrected) <- nms
       theta_list[[l]] <- theta_corrected
       corrected_all <- rbind(corrected_all, theta_corrected)
     }
@@ -478,8 +485,14 @@ simex <- function(formula, family = gaussian(), data,
 
     vcov_imp <- NULL
     if (!isFALSE(jackknife)) {
-      vcov_imp <- .variance_improved(theta_list, corrected_coefs, c_lam_vec,
-                                     n_lambda, B, p, naive_refit, xi_hat, y, wt, fam)
+      transform <- .k_improved_transform(
+        p,
+        correction_components[[1]]$C,
+        correction_components[[1]]$alpha,
+        intercept_idx
+      )
+      vcov_imp <- .variance_k_improved(theta_list, naive_refit, transform,
+                                       lambda, B, p)
       rownames(vcov_imp) <- colnames(vcov_imp) <- nms
     }
 
@@ -504,8 +517,12 @@ simex <- function(formula, family = gaussian(), data,
       naive.model         = naive_fit,
       extrapolation.method = "exact (improved)",
       method              = "improved",
-      c.lambda            = setNames(c_lam_vec, paste0("lambda_", lambda)),
+      c.lambda            = if (!is.null(c_lam_vec))
+        setNames(c_lam_vec, paste0("lambda_", lambda)) else NULL,
       pi.x                = pi_x,
+      pi.vec              = pi_vec,
+      correction.matrix   = setNames(lapply(correction_components, `[[`, "C"),
+                                     paste0("lambda_", lambda)),
       SIMEXvariable       = SIMEXvariables,
       mc.matrix           = mc_list,
       xi.hat              = xi_hat,
@@ -676,6 +693,7 @@ summary.simex <- function(object, ...) {
   ans$df.residual <- rdf
   ans$c.lambda <- object$c.lambda
   ans$pi.x <- object$pi.x
+  ans$pi.vec <- object$pi.vec
 
   if (!is.null(object$vcov)) {
     se <- sqrt(pmax(diag(object$vcov), 0))
@@ -720,6 +738,9 @@ print.summary.simex <- function(x,
 
   if (!is.null(x$pi.x))
     cat("Estimated P(X=1):", round(x$pi.x, 4), "\n")
+  else if (!is.null(x$pi.vec))
+    cat("Estimated latent probabilities:",
+        paste(round(x$pi.vec, 4), collapse = ", "), "\n")
   if (!is.null(x$c.lambda))
     cat("Correction factor(s):", paste(round(x$c.lambda, 4), collapse = ", "), "\n")
 

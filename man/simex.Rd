@@ -63,8 +63,9 @@ The function auto-detects the error type from the formula:
     and coefficients are extrapolated to lambda = -1.
   \item \strong{Discrete misclassification} (\code{mc()} terms): Uses the
     MC-SIMEX algorithm. With \code{method = "improved"} (default), the exact
-    correction factor of Sevilimedu and Yu (2026) is applied, requiring only
-    B = 1 replicate. With \code{method = "standard"}, the original
+    fixed-matrix correction of Sevilimedu and Yu (2026) and its K-level
+    dummy-vector extension are applied for one misclassified covariate,
+    requiring only B = 1 replicate. With \code{method = "standard"}, the original
     Kuchenhoff et al. (2006) extrapolation-based approach is used.
 }
 }
