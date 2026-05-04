@@ -5,7 +5,7 @@ importFrom(stats, coef, vcov, residuals, fitted, predict, family, formula,
            model.matrix, model.frame, model.response, model.weights,
            glm, lm, cov, printCoefmat, pnorm, pt, qnorm, nls,
            gaussian, poisson, binomial, terms, update, delete.response,
-           na.omit, .getXlevels, model.offset, weights, df.residual,
+           na.omit, na.pass, .getXlevels, model.offset, weights, df.residual,
            deviance, AIC, logLik, nobs, confint.default, setNames,
            quantile, reformulate, as.formula)
 importFrom(graphics, plot, points, lines, par, abline)

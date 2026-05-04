@@ -10,3 +10,5 @@
 ^Meta$
 ^theory$
 ^src/symbols\.rds$
+^\.github$
+^CLAUDE\.md$

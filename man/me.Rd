@@ -4,7 +4,7 @@
 \alias{me}
 \title{Specify a variable measured with error}
 \usage{
-me(variable, sd)
+me(variable, sd, type = "classical", mean = 0)
 }
 \arguments{
 \item{variable}{bare name of the variable in the data.}
@@ -12,6 +12,14 @@ me(variable, sd)
 \item{sd}{measurement error standard deviation. Can be a scalar
 (homoscedastic), a numeric vector of length n, or a bare column name
 in the data (heteroscedastic).}
+
+\item{type}{type of measurement error: \code{"classical"} (default) for
+the standard additive error model \eqn{W = X + U}, or \code{"berkson"}
+for the Berkson error model \eqn{X = W + U} where the true value is
+a noisy version of the observed.}
+
+\item{mean}{mean of the measurement error distribution (default 0).
+Use for systematic (non-zero mean) measurement error.}
 }
 \value{
 An object of class \code{"me_term"} (used internally by
@@ -24,7 +32,9 @@ as measured with additive Gaussian error.
 \examples{
 \dontrun{
 simex(y ~ me(x, 0.5) + w, data = df)
-simex(y ~ me(x, sd_x) + w, data = df)  # sd_x is a column
+simex(y ~ me(x, sd_x) + w, data = df)            # heteroscedastic
+simex(y ~ me(x, 0.5, type = "berkson") + w, data = df)  # Berkson error
+simex(y ~ me(x, 0.5, mean = 0.1) + w, data = df)       # non-zero mean
 }
 
 }

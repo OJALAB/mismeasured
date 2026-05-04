@@ -4,9 +4,23 @@
 \alias{jackknife_variance_simex}
 \title{Jackknife variance estimation for SIMEX (continuous measurement error)}
 \usage{
-jackknife_variance_simex(theta_list, naive_fit, lambda, jk_method)
+jackknife_variance_simex(
+  theta_list,
+  naive_fit,
+  lambda,
+  jk_method,
+  vcov_model_list = NULL
+)
 }
 \description{
-Uses the naive model's vcov and simulation replicate covariance.
+Computes Var_model (mean of model-based vcov across B refits) minus Var_sim
+(empirical covariance of B coefficient estimates) at each lambda, then
+extrapolates to lambda = -1.
+}
+\details{
+This follows the Stefanski & Cook (1994) approach where Var_model at each
+lambda is the average of vcov(glm_b) across the B simulation replicates.
+The per-lambda model vcov averages are computed in C++ and passed in via
+\code{vcov_model_list}.
 }
 \keyword{internal}

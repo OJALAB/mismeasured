@@ -2,11 +2,11 @@
 % Please edit documentation in R/mcsimex-internal.R
 \name{.make_param_names}
 \alias{.make_param_names}
-\title{Generate parameter names for the SIMEX model}
+\title{Generate parameter names for the SIMEX model (single mc variable)}
 \usage{
 .make_param_names(z_levels, x_mat, K)
 }
 \description{
-Generate parameter names for the SIMEX model
+Generate parameter names for the SIMEX model (single mc variable)
 }
 \keyword{internal}
