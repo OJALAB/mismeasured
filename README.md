@@ -1,8 +1,14 @@
 
 # mismeasured
 
-High-performance SIMEX and MC-SIMEX correction for measurement error and
-misclassification in generalized linear models.
+<!-- badges: start -->
+
+[![R-CMD-check](https://github.com/OJALAB/mismeasured/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/OJALAB/mismeasured/actions/workflows/R-CMD-check.yaml)
+[![Codecov](https://codecov.io/gh/OJALAB/mismeasured/graph/badge.svg)](https://codecov.io/gh/OJALAB/mismeasured)
+<!-- badges: end -->
+
+Bias correction for generalized linear models with measurement error and
+misclassification.
 
 ## Installation
 
@@ -13,24 +19,36 @@ remotes::install_github("OJALAB/mismeasured")
 
 ## Overview
 
-The `mismeasured` package implements the Simulation-Extrapolation
-(SIMEX) and Misclassification SIMEX (MC-SIMEX) algorithms for correcting
-bias due to measurement error or misclassification in regression models.
-It provides:
+The `mismeasured` package provides two complementary approaches for
+correcting bias in GLMs when covariates are measured with error or
+subject to misclassification:
 
-- A **unified `simex()` function** with brms-style formula terms: `me()`
-  for continuous measurement error and `mc()` for discrete
-  misclassification
-- **C++ simulation engine** via Rcpp/RcppEigen (100-300x faster than
-  pure-R implementations)
-- **Standard and improved MC-SIMEX** (Sevilimedu & Yu, 2026) with exact
+**`simex()`** — Simulation-Extrapolation (SIMEX / MC-SIMEX) with a
+formula interface:
+
+- `me()` terms for continuous measurement error, `mc()` terms for
+  discrete misclassification
+- C++ simulation engine via Rcpp/RcppEigen (100–300x faster than pure-R
+  implementations)
+- Standard and improved MC-SIMEX (Sevilimedu & Yu, 2026) with exact
   fixed-matrix correction
-- Standard S3 methods: `summary()`, `plot()`, `predict()`, `confint()`,
-  `refit()`, etc.
+
+**`mcglm()`** — Analytical bias correction for GLMs with misclassified
+covariates (Battaglia, Christensen, Hansen & Sacher, 2025):
+
+- **Naive** — uncorrected GLM on the proxy covariate
+- **BCA** — additive bias correction
+- **BCM** — multiplicative bias correction (iterated BCM converges to
+  CS)
+- **CS** — corrected-score estimator
+- **One-step** — joint mixture-likelihood via automatic differentiation
+  (RTMB)
+- Supports binary and multicategory misclassified covariates,
+  Poisson/Binomial/Gaussian families, and multinomial response models
 
 ## Quick start
 
-### Continuous measurement error
+### Continuous measurement error (SIMEX)
 
 When a covariate is measured with additive Gaussian error, wrap it with
 `me(variable, sd)`:
@@ -67,13 +85,13 @@ summary(fit)
 #> 
 #> SIMEX corrected coefficients:
 #>             Estimate Std. Error t value Pr(>|t|)    
-#> (Intercept)  0.98947    0.03033   32.62   <2e-16 ***
-#> x            1.90933    0.02703   70.63   <2e-16 ***
+#> (Intercept)  0.98947    0.02423   40.83   <2e-16 ***
+#> x            1.90933    0.02367   80.66   <2e-16 ***
 #> ---
 #> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 ```
 
-### Misclassification
+### Misclassification (MC-SIMEX)
 
 When a discrete covariate is subject to misclassification, wrap it with
 `mc(variable, matrix)`:
@@ -116,49 +134,45 @@ summary(fit_mc)
 #> 
 #> MC-SIMEX corrected coefficients:
 #>             Estimate Std. Error t value Pr(>|t|)    
-#> 1            0.88919    0.05797  15.340   <2e-16 ***
-#> (Intercept)  0.46438    0.04795   9.686   <2e-16 ***
-#> x            0.30831    0.02953  10.440   <2e-16 ***
+#> 1            0.88919    0.05082   17.50   <2e-16 ***
+#> (Intercept)  0.46438    0.02977   15.60   <2e-16 ***
+#> x            0.30831    0.01416   21.77   <2e-16 ***
 #> ---
 #> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 ```
 
-Use `method = "standard"` for the classic extrapolation-based MC-SIMEX:
+### Bias-corrected GLM (mcglm)
+
+For analytical bias corrections when misclassification rates are known:
 
 ``` r
-fit_std <- simex(y ~ mc(z, Pi) + x, family = poisson(), data = df2,
-                 method = "standard", B = 200)
-summary(fit_std)
+set.seed(42)
+n <- 5000
+x <- cbind(1, rnorm(n))
+z <- rbinom(n, 1, 0.4)
+eta <- 0.8 * z - 0.5 * x[, 1] + 0.7 * x[, 2]
+y <- rpois(n, exp(eta))
+
+# Introduce misclassification
+p01 <- 0.10; p10 <- 0.15
+z_hat <- z
+z_hat[z == 0] <- rbinom(sum(z == 0), 1, p01)
+z_hat[z == 1] <- 1 - rbinom(sum(z == 1), 1, p10)
+
+fit <- mcglm(y, z_hat, x, family = "poisson",
+             method = c("naive", "bca", "bcm", "cs"),
+             p01 = p01, p10 = p10, pi_z = 0.4)
+fit
+#> Bias-corrected GLM with misclassified covariate
+#>   n = 5000, p = 3, K = 2
 #> 
-#> Call:
-#> simex(formula = y ~ mc(z, Pi) + x, family = poisson(), data = df2, 
-#>     method = "standard", B = 200)
-#> 
-#> Family: poisson 
-#> MC-SIMEX variable: z 
-#> Method: standard 
-#> Extrapolation: quadratic 
-#> Lambda grid: 0, 0.5, 1, 1.5, 2 
-#> B = 200 , n = 2000 
-#> 
-#> Residuals:
-#>     Min      1Q  Median      3Q     Max 
-#> -6.9372 -1.1856 -0.1909  0.9679  8.4095 
-#> 
-#> Naive coefficients:
-#>           1 (Intercept)           x 
-#>      0.6257      0.5556      0.3022 
-#> 
-#> MC-SIMEX corrected coefficients:
-#>             Estimate Std. Error t value Pr(>|t|)    
-#> 1            0.82262    0.04271   19.26   <2e-16 ***
-#> (Intercept)  0.44074    0.03189   13.82   <2e-16 ***
-#> x            0.29552    0.01787   16.53   <2e-16 ***
-#> ---
-#> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+#>          NAIVE     BCA     BCM      CS
+#> gamma   0.5916  0.7392  0.7884  0.7909
+#> alpha0 -0.4003 -0.4806 -0.5074 -0.5136
+#> alpha1  0.7076  0.7069  0.7067  0.7067
 ```
 
-## Formula syntax
+## Formula syntax (simex)
 
 | Term | Meaning | Example |
 |----|----|----|
@@ -168,10 +182,13 @@ summary(fit_std)
 
 ## References
 
+- Battaglia, L., Christensen, T., Hansen, S. and Sacher, S. (2025).
+  Inference for regression with variables generated by AI or machine
+  learning. *arXiv preprint arXiv:2402.15585*.
 - Cook, J.R. and Stefanski, L.A. (1994). Simulation-extrapolation
   estimation in parametric measurement error models. *JASA*, 89,
   1314–1328.
-- Kuchenhoff, H., Mwalili, S.M. and Lesaffre, E. (2006). A general
+- Kuechenhoff, H., Mwalili, S.M. and Lesaffre, E. (2006). A general
   method for dealing with misclassification in regression: The
   misclassification SIMEX. *Biometrics*, 62(1), 85–96.
 - Sevilimedu, V. and Yu, L. (2026). An improved misclassification

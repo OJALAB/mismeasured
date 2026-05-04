@@ -1,39 +1,45 @@
 Package: mismeasured
 Type: Package
-Title: SIMEX and MC-SIMEX Correction for Measurement Error and Misclassification
-Version: 0.3.0
+Title: Bias Correction for GLMs with Measurement Error and Misclassification
+Version: 0.4.0
 Authors@R: c(
     person("Maciej", "Beresewicz", role = c("aut", "cre"),
            email = "maciej.beresewicz@ue.poznan.pl",
            comment = c(ORCID = "0000-0002-8281-4301")),
-    person("Helmut", "Kuechenhoff", role = "ctb"))
-Description: High-performance Simulation-Extrapolation (SIMEX) and Misclassification
-    SIMEX (MC-SIMEX) for correcting measurement error and misclassification bias in
-    generalized linear models. Uses a formula interface with 'me()' and 'mc()' terms
-    inspired by 'brms' to specify error-prone variables inline. The simulation step
-    uses compiled C++ code via 'Rcpp' and 'RcppEigen' for fast IRLS fitting (~100-300x
-    speedup). Implements both the standard MC-SIMEX (Kuechenhoff et al., 2006,
-    <doi:10.1111/j.1541-0420.2005.00396.x>) and the improved exact-correction method
-    (Sevilimedu and Yu, 2026, <doi:10.1002/sim.70418>). Based on Cook and Stefanski
-    (1994) <doi:10.1080/01621459.1994.10476871>.
+    person("Michal", "Warmuz", role = "aut"))
+Description: Correction methods for generalized linear models with measurement error
+    and misclassification. Provides two main interfaces: 'simex()' for
+    Simulation-Extrapolation (SIMEX) and MC-SIMEX with a formula interface using
+    'me()' and 'mc()' terms, and 'mcglm()' for analytical bias-correction methods
+    (BCA, BCM, corrected score) and one-step joint mixture-likelihood estimation
+    following Battaglia, Christensen, Hansen and Sacher (2025,
+    <doi:10.48550/arXiv.2402.15585>). Supports binary and multicategory misclassified
+    covariates, Poisson, Binomial, and Gaussian families, as well as multinomial
+    response models. The simulation step uses compiled C++ code via 'Rcpp' and
+    'RcppEigen' for fast IRLS fitting. Implements both the standard MC-SIMEX
+    (Kuechenhoff et al., 2006, <doi:10.1111/j.1541-0420.2005.00396.x>) and the
+    improved exact-correction method (Sevilimedu and Yu, 2026,
+    <doi:10.1002/sim.70418>). Based on Cook and Stefanski (1994)
+    <doi:10.1080/01621459.1994.10476871>.
 License: GPL (>= 3)
 Depends: R (>= 3.5.0)
 Imports:
     Rcpp (>= 1.0.0),
     stats,
     graphics,
-    MASS
+    MASS,
+    nleqslv
 LinkingTo:
     Rcpp,
     RcppEigen
 Suggests:
     testthat (>= 3.0.0),
     knitr,
-    rmarkdown
+    rmarkdown,
+    RTMB,
+    nnet,
+    numDeriv
 VignetteBuilder: knitr
 Config/testthat/edition: 3
 Encoding: UTF-8
 RoxygenNote: 7.3.3
-Author: Maciej Beresewicz [aut, cre] (<https://orcid.org/0000-0002-8281-4301>),
-    Helmut Kuechenhoff [ctb]
-Maintainer: Maciej Beresewicz <maciej.beresewicz@ue.poznan.pl>
