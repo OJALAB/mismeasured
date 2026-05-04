@@ -30,7 +30,7 @@
 #' @keywords internal
 .mcglm_fit_onestep_bin <- function(y, z_hat, x, family,
                                    p01 = NULL, p10 = NULL, pi_z = NULL,
-                                   weights = "fixed", homoskedastic = TRUE,
+                                   fix_omega = FALSE, homoskedastic = TRUE,
                                    optim_control = list(), wt = NULL) {
   if (!requireNamespace("RTMB", quietly = TRUE))
     stop("Package 'RTMB' is required for the one-step method. ",
@@ -48,7 +48,7 @@
     stop("Unsupported family for one-step: ", fam$family$family)
   )
 
-  weights_fixed <- as.integer(weights == "fixed")
+  weights_fixed <- as.integer(fix_omega)
   if (weights_fixed) {
     stopifnot(!is.null(p01), !is.null(p10), !is.null(pi_z))
     omega_data <- .mcglm_compute_omega_bin(p01, p10, pi_z)
@@ -106,7 +106,7 @@
 #' @keywords internal
 .mcglm_fit_onestep_multi <- function(y, z_hat, x, K, family,
                                      Pi = NULL, pi_z = NULL,
-                                     weights = "fixed", homoskedastic = TRUE,
+                                     fix_omega = FALSE, homoskedastic = TRUE,
                                      optim_control = list(), wt = NULL) {
   if (!requireNamespace("RTMB", quietly = TRUE))
     stop("Package 'RTMB' is required for the one-step method. ",
@@ -123,7 +123,7 @@
     stop("Unsupported family for one-step: ", fam$family$family)
   )
 
-  weights_fixed <- as.integer(weights == "fixed")
+  weights_fixed <- as.integer(fix_omega)
   if (weights_fixed) {
     stopifnot(!is.null(Pi), !is.null(pi_z))
     omega_data <- .mcglm_compute_omega_multi(Pi, pi_z, K)
@@ -186,7 +186,7 @@
 .mcglm_fit_onestep_multinomial <- function(y, z_hat, x, J, K,
                                            p01 = NULL, p10 = NULL, pi_z = NULL,
                                            Pi = NULL,
-                                           weights = "fixed",
+                                           fix_omega = FALSE,
                                            optim_control = list(), wt = NULL) {
   if (!requireNamespace("RTMB", quietly = TRUE))
     stop("Package 'RTMB' is required for the one-step method. ",
@@ -200,7 +200,7 @@
 
   is_binary_z <- (K == 2L)
 
-  weights_fixed <- as.integer(weights == "fixed")
+  weights_fixed <- as.integer(fix_omega)
   if (weights_fixed) {
     if (is_binary_z) {
       stopifnot(!is.null(p01), !is.null(p10), !is.null(pi_z))

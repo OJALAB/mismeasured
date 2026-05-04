@@ -24,20 +24,20 @@
 
 #' Additive bias correction (BCA) for binary misclassification
 #' @keywords internal
-.mcglm_fit_bca_bin <- function(psi_naive, y, xi_hat, x, family, p01, p10, pi_z,
+.mcglm_fit_bca_bin <- function(psi_naive, y, xi_hat, x, family, c1, c2,
                                iterate = FALSE, max_iter = 50, tol = 1e-8,
                                wt = NULL) {
   fam <- .mcglm_get_link_funs(family)
   I_hat_inv <- solve(.mcglm_compute_Ihat(psi_naive, xi_hat, fam$mu_dot,
                                           wt = wt))
 
-  m_hat <- .mcglm_compute_mhat_bin(psi_naive, x, fam$mu, p01, p10, pi_z,
+  m_hat <- .mcglm_compute_mhat_bin(psi_naive, x, fam$mu, c1, c2,
                                     wt = wt)
   psi   <- psi_naive - I_hat_inv %*% m_hat
   if (!iterate) return(as.numeric(psi))
 
   for (iter in seq_len(max_iter)) {
-    m_hat   <- .mcglm_compute_mhat_bin(psi, x, fam$mu, p01, p10, pi_z,
+    m_hat   <- .mcglm_compute_mhat_bin(psi, x, fam$mu, c1, c2,
                                         wt = wt)
     psi_new <- psi_naive - I_hat_inv %*% m_hat
     if (max(abs(psi_new - psi)) < tol) break
@@ -48,7 +48,7 @@
 
 #' Multiplicative bias correction (BCM) for binary misclassification
 #' @keywords internal
-.mcglm_fit_bcm_bin <- function(psi_naive, y, xi_hat, x, family, p01, p10, pi_z,
+.mcglm_fit_bcm_bin <- function(psi_naive, y, xi_hat, x, family, c1, c2,
                                iterate = FALSE, max_iter = 50, tol = 1e-8,
                                wt = NULL) {
   fam <- .mcglm_get_link_funs(family)
@@ -64,12 +64,12 @@
     } else {
       U_hat <- colSums(wt * xi_hat * resid) / N
     }
-    m_hat <- .mcglm_compute_mhat_bin(psi, x, fam$mu, p01, p10, pi_z, wt = wt)
+    m_hat <- .mcglm_compute_mhat_bin(psi, x, fam$mu, c1, c2, wt = wt)
     Phi   <- U_hat - m_hat
 
     I_hat <- .mcglm_compute_Ihat(psi, xi_hat, fam$mu_dot, wt = wt)
-    M_hat <- .mcglm_compute_Mhat_bin(psi, x, fam$mu, fam$mu_dot, p01, p10,
-                                      pi_z, wt = wt)
+    M_hat <- .mcglm_compute_Mhat_bin(psi, x, fam$mu, fam$mu_dot, c1, c2,
+                                      wt = wt)
     step  <- solve(I_hat + M_hat, Phi)
 
     psi_new <- psi + step
@@ -81,7 +81,7 @@
 
 #' Corrected-score estimator for binary misclassification
 #' @keywords internal
-.mcglm_fit_cs_bin <- function(psi_init, y, xi_hat, x, family, p01, p10, pi_z,
+.mcglm_fit_cs_bin <- function(psi_init, y, xi_hat, x, family, c1, c2,
                               wt = NULL) {
   if (!requireNamespace("nleqslv", quietly = TRUE))
     stop("Package 'nleqslv' is required for the corrected-score method. ",
@@ -99,14 +99,14 @@
     } else {
       score <- colSums(wt * xi_hat * resid) / N
     }
-    m_hat <- .mcglm_compute_mhat_bin(psi, x, fam$mu, p01, p10, pi_z, wt = wt)
+    m_hat <- .mcglm_compute_mhat_bin(psi, x, fam$mu, c1, c2, wt = wt)
     score - m_hat
   }
 
   phi_jac <- function(psi) {
     I_hat <- .mcglm_compute_Ihat(psi, xi_hat, fam$mu_dot, wt = wt)
-    M_hat <- .mcglm_compute_Mhat_bin(psi, x, fam$mu, fam$mu_dot, p01, p10,
-                                      pi_z, wt = wt)
+    M_hat <- .mcglm_compute_Mhat_bin(psi, x, fam$mu, fam$mu_dot, c1, c2,
+                                      wt = wt)
     -(I_hat + M_hat)
   }
 

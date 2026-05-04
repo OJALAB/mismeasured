@@ -26,10 +26,18 @@
 #'   this is extracted from the \code{mc()} term. Columns must sum to 1:
 #'   \code{Pi[j, l] = P(Z_hat = j-1 | Z = l-1)}.
 #' @param K Number of categories. Auto-detected if \code{NULL}.
+#' @param c1 Pre-computed misclassification constant \eqn{c_1 = p_{01}(1-\pi_z)}.
+#'   For binary case; computed automatically from \code{p01} and \code{pi_z}
+#'   if not supplied directly.
+#' @param c2 Pre-computed misclassification constant
+#'   \eqn{c_2 = p_{01}(1-\pi_z) - p_{10}\pi_z}.
+#'   For binary case; computed automatically from \code{p01}, \code{p10},
+#'   and \code{pi_z} if not supplied directly.
 #' @param iterate Logical. If \code{TRUE}, iterate BCA/BCM until convergence.
-#' @param weights Character: \code{"fixed"} (default) or \code{"estimated"}
-#'   (only for onestep).
-#' @param freq_weights Optional frequency weights vector (length n, positive).
+#' @param fix_omega Logical. If \code{TRUE}, fix the mixture weights (omega) at
+#'   the values implied by the supplied misclassification parameters (onestep
+#'   only). Default \code{FALSE} estimates omega jointly.
+#' @param weights Optional frequency weights vector (length n, positive).
 #' @param J Number of response categories for multinomial. Auto-detected.
 #' @param homoskedastic Logical. For Gaussian one-step, assume common variance.
 #' @param optim_control List of control parameters for \code{nlminb} (onestep).
@@ -44,7 +52,7 @@
 #'     \item{family}{The GLM family.}
 #'     \item{K}{Number of categories.}
 #'     \item{n, p}{Sample size and number of parameters.}
-#'     \item{freq_weights}{Frequency weights used (NULL if unweighted).}
+#'     \item{weights}{Frequency weights used (NULL if unweighted).}
 #'     \item{vcov_onestep}{Variance-covariance matrix (if onestep used).}
 #'     \item{loglik_onestep}{Log-likelihood at one-step estimate.}
 #'   }
@@ -67,8 +75,7 @@
 #' y <- rpois(n, exp(0.8 * z + -0.5 + 0.7 * x1))
 #' df <- data.frame(y = y, z = factor(z_hat), x1 = x1)
 #'
-#' fit <- mcglm(y ~ mc(z, Pi) + x1, data = df, family = "poisson",
-#'              pi_z = 0.4)
+#' fit <- mcglm(y ~ mc(z, Pi) + x1, data = df, family = "poisson")
 #' fit
 #'
 #' # --- Matrix interface ---
@@ -81,9 +88,10 @@ mcglm <- function(formula, data = NULL, family = "poisson",
                   method = c("naive", "bca", "bcm", "cs"),
                   p01 = NULL, p10 = NULL, pi_z = NULL,
                   Pi = NULL, K = NULL,
+                  c1 = NULL, c2 = NULL,
                   iterate = FALSE,
-                  weights = "fixed",
-                  freq_weights = NULL,
+                  fix_omega = FALSE,
+                  weights = NULL,
                   J = NULL,
                   homoskedastic = TRUE,
                   optim_control = list(),
@@ -96,7 +104,7 @@ mcglm <- function(formula, data = NULL, family = "poisson",
     y     <- parsed$y
     z_hat <- parsed$z_hat
     x     <- parsed$x
-    if (is.null(Pi)) Pi <- parsed$Pi
+    if (is.null(Pi) && !is.null(parsed$Pi)) Pi <- parsed$Pi
     if (is.null(K))  K  <- parsed$K
   } else {
     # Matrix interface: first arg is y
@@ -114,11 +122,17 @@ mcglm <- function(formula, data = NULL, family = "poisson",
     pi_z <- .mcglm_estimate_pi_z(z_hat, Pi)
   }
 
+  # --- Derive c1/c2 from (p01, p10, pi_z) if not supplied directly ---
+  if (is.null(c1) && !is.null(p01) && !is.null(pi_z))
+    c1 <- p01 * (1 - pi_z)
+  if (is.null(c2) && !is.null(p01) && !is.null(p10) && !is.null(pi_z))
+    c2 <- p01 * (1 - pi_z) - p10 * pi_z
+
   # --- Core fitting ---
   .mcglm_fit(y = y, z_hat = z_hat, x = x, family = family,
              method = method, p01 = p01, p10 = p10, pi_z = pi_z,
-             Pi = Pi, K = K, iterate = iterate, weights = weights,
-             freq_weights = freq_weights, J = J,
+             Pi = Pi, K = K, c1 = c1, c2 = c2, iterate = iterate,
+             fix_omega = fix_omega, weights = weights, J = J,
              homoskedastic = homoskedastic, optim_control = optim_control)
 }
 
@@ -153,9 +167,12 @@ mcglm <- function(formula, data = NULL, family = "poisson",
       }
       if (op == "mc") {
         var_name <- deparse(node[[2]])
-        mat_expr <- node[[3]]
-        mat_val <- eval(mat_expr, data, env)
-        mc_info <<- list(variable = var_name, Pi = as.matrix(mat_val))
+        if (length(node) >= 3L) {
+          mat_val <- eval(node[[3]], data, env)
+          mc_info <<- list(variable = var_name, Pi = as.matrix(mat_val))
+        } else {
+          mc_info <<- list(variable = var_name, Pi = NULL)
+        }
         return(invisible(NULL))
       }
     }
@@ -175,7 +192,6 @@ mcglm <- function(formula, data = NULL, family = "poisson",
     stop("mc() variable '", mc_info$variable, "' not found in data.")
 
   Pi <- mc_info$Pi
-  K  <- nrow(Pi)
 
   # Convert z to 0-based integer
   if (is.factor(z_var)) {
@@ -184,13 +200,18 @@ mcglm <- function(formula, data = NULL, family = "poisson",
     z_hat <- as.integer(z_var)
   }
 
-  # Validate Pi
-  if (ncol(Pi) != K)
-    stop("Pi must be a square K x K matrix (got ", nrow(Pi), " x ", ncol(Pi), ").")
-  cs <- colSums(Pi)
-  if (any(abs(cs - 1) > 1e-6))
-    stop("Columns of Pi must sum to 1 (got: ",
-         paste(round(cs, 4), collapse = ", "), ").")
+  # Determine K
+  K <- if (!is.null(Pi)) nrow(Pi) else length(unique(z_hat))
+
+  # Validate Pi when provided
+  if (!is.null(Pi)) {
+    if (ncol(Pi) != K)
+      stop("Pi must be a square K x K matrix (got ", nrow(Pi), " x ", ncol(Pi), ").")
+    cs <- colSums(Pi)
+    if (any(abs(cs - 1) > 1e-6))
+      stop("Columns of Pi must sum to 1 (got: ",
+           paste(round(cs, 4), collapse = ", "), ").")
+  }
 
   # Build x matrix from remaining terms
   if (length(other_terms) == 0) {
@@ -212,9 +233,10 @@ mcglm <- function(formula, data = NULL, family = "poisson",
                        method = c("naive", "bca", "bcm", "cs"),
                        p01 = NULL, p10 = NULL, pi_z = NULL,
                        Pi = NULL, K = NULL,
+                       c1 = NULL, c2 = NULL,
                        iterate = FALSE,
-                       weights = "fixed",
-                       freq_weights = NULL,
+                       fix_omega = FALSE,
+                       weights = NULL,
                        J = NULL,
                        homoskedastic = TRUE,
                        optim_control = list()) {
@@ -231,12 +253,12 @@ mcglm <- function(formula, data = NULL, family = "poisson",
 
   # --- validate frequency weights ---
   wt <- NULL
-  if (!is.null(freq_weights)) {
-    wt <- as.numeric(freq_weights)
+  if (!is.null(weights)) {
+    wt <- as.numeric(weights)
     if (length(wt) != n)
-      stop("freq_weights must have length n (", n, "), got ", length(wt))
+      stop("weights must have length n (", n, "), got ", length(wt))
     if (any(wt <= 0))
-      stop("freq_weights must be positive")
+      stop("weights must be positive")
   }
 
   # --- multinomial family ---
@@ -267,14 +289,24 @@ mcglm <- function(formula, data = NULL, family = "poisson",
   needs_correction <- any(method %in% c("bca", "bcm", "cs", "onestep"))
   if (needs_correction) {
     if (is_binary) {
-      if (is.null(p01) || is.null(p10) || is.null(pi_z))
-        stop("For binary corrections, supply p01, p10, and pi_z.")
+      needs_bca_bcm_cs <- any(method %in% c("bca", "bcm", "cs"))
+      needs_onestep    <- "onestep" %in% method
+      if (needs_bca_bcm_cs && (is.null(c1) || is.null(c2)))
+        stop("For binary bca/bcm/cs, supply c1 and c2 (or Pi, or p01/p10/pi_z).")
+      if (needs_onestep && fix_omega && (is.null(p01) || is.null(p10) || is.null(pi_z)))
+        stop("For onestep with fix_omega=TRUE, supply p01, p10, and pi_z.")
     } else {
-      if (is.null(Pi) || is.null(pi_z))
-        stop("For multicategory corrections, supply Pi and pi_z.")
-      Pi   <- as.matrix(Pi)
-      pi_z <- as.numeric(pi_z)
-      stopifnot(nrow(Pi) == K, ncol(Pi) == K, length(pi_z) == K)
+      needs_bca_bcm_cs <- any(method %in% c("bca", "bcm", "cs"))
+      needs_onestep    <- "onestep" %in% method
+      if (needs_bca_bcm_cs) {
+        if (is.null(Pi) || is.null(pi_z))
+          stop("For multicategory bca/bcm/cs, supply Pi and pi_z.")
+        Pi   <- as.matrix(Pi)
+        pi_z <- as.numeric(pi_z)
+        stopifnot(nrow(Pi) == K, ncol(Pi) == K, length(pi_z) == K)
+      }
+      if (needs_onestep && fix_omega && (is.null(Pi) || is.null(pi_z)))
+        stop("For multicategory onestep with fix_omega=TRUE, supply Pi and pi_z.")
     }
   }
 
@@ -298,7 +330,7 @@ mcglm <- function(formula, data = NULL, family = "poisson",
     if ("onestep" %in% method) {
       os <- .mcglm_fit_onestep_multinomial(y, z_hat, x, J, K,
                                            p01 = p01, p10 = p10, pi_z = pi_z,
-                                           Pi = Pi, weights = weights,
+                                           Pi = Pi, fix_omega = fix_omega,
                                            optim_control = optim_control,
                                            wt = wt)
       results$onestep <- os$coefficients
@@ -314,18 +346,18 @@ mcglm <- function(formula, data = NULL, family = "poisson",
     naive_glm_fit <- naive$glm_fit
 
     if ("bca" %in% method)
-      results$bca <- .mcglm_fit_bca_bin(psi, y, xi_hat, x, family, p01, p10,
-                                         pi_z, iterate = iterate, wt = wt)
+      results$bca <- .mcglm_fit_bca_bin(psi, y, xi_hat, x, family, c1, c2,
+                                         iterate = iterate, wt = wt)
     if ("bcm" %in% method)
-      results$bcm <- .mcglm_fit_bcm_bin(psi, y, xi_hat, x, family, p01, p10,
-                                         pi_z, iterate = iterate, wt = wt)
+      results$bcm <- .mcglm_fit_bcm_bin(psi, y, xi_hat, x, family, c1, c2,
+                                         iterate = iterate, wt = wt)
     if ("cs"  %in% method)
-      results$cs  <- .mcglm_fit_cs_bin(psi, y, xi_hat, x, family, p01, p10,
-                                        pi_z, wt = wt)
+      results$cs  <- .mcglm_fit_cs_bin(psi, y, xi_hat, x, family, c1, c2,
+                                        wt = wt)
 
     if ("onestep" %in% method) {
       os <- .mcglm_fit_onestep_bin(y, z_hat, x, family, p01, p10, pi_z,
-                                   weights = weights,
+                                   fix_omega = fix_omega,
                                    homoskedastic = homoskedastic,
                                    optim_control = optim_control, wt = wt)
       results$onestep <- os$coefficients
@@ -352,7 +384,7 @@ mcglm <- function(formula, data = NULL, family = "poisson",
 
     if ("onestep" %in% method) {
       os <- .mcglm_fit_onestep_multi(y, z_hat, x, K, family, Pi, pi_z,
-                                     weights = weights,
+                                     fix_omega = fix_omega,
                                      homoskedastic = homoskedastic,
                                      optim_control = optim_control, wt = wt)
       results$onestep <- os$coefficients
@@ -395,7 +427,7 @@ mcglm <- function(formula, data = NULL, family = "poisson",
     K            = K,
     n            = n,
     p            = p_total,
-    freq_weights = wt
+    weights      = wt
   )
   if (is_multinomial) out$J <- J
 

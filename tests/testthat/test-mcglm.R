@@ -306,7 +306,7 @@ test_that("unit freq_weights match unweighted fit", {
   fit2 <- mcglm(y, z_hat = z_hat, x = x, family = "poisson",
                 method = c("naive", "bca"),
                 p01 = 0.1, p10 = 0.1, pi_z = 0.5,
-                freq_weights = rep(1, n))
+                weights = rep(1, n))
 
   expect_equal(fit1$coefficients$naive, fit2$coefficients$naive, tolerance = 1e-8)
   expect_equal(fit1$coefficients$bca, fit2$coefficients$bca, tolerance = 1e-8)
@@ -330,7 +330,8 @@ test_that("mcglm onestep works when RTMB available", {
 
   fit <- mcglm(y, z_hat = z_hat, x = x, family = "poisson",
                method = c("naive", "onestep"),
-               p01 = p01, p10 = p10, pi_z = 0.4)
+               p01 = p01, p10 = p10, pi_z = 0.4,
+               fix_omega = TRUE)
 
   expect_named(fit$coefficients, c("naive", "onestep"))
   expect_true(all(is.finite(fit$coefficients$onestep)))

@@ -50,9 +50,11 @@
     A_hat <- crossprod(xi_hat * (wt * w), xi_hat) / N
   }
   A_inv <- solve(A_hat)
-  M_hat <- .mcglm_compute_Mhat_bin(psi_naive, x, fam$mu, fam$mu_dot, p01, p10,
-                                    pi_z, wt = wt)
-  m_mat <- .mcglm_compute_m_bin(psi_naive, x, fam$mu, p01, p10, pi_z)
+  c1_loc <- p01 * (1 - pi_z)
+  c2_loc <- p01 * (1 - pi_z) - p10 * pi_z
+  M_hat <- .mcglm_compute_Mhat_bin(psi_naive, x, fam$mu, fam$mu_dot, c1_loc,
+                                    c2_loc, wt = wt)
+  m_mat <- .mcglm_compute_m_bin(psi_naive, x, fam$mu, c1_loc, c2_loc)
   if (is.null(wt)) {
     m_bar <- colMeans(m_mat)
   } else {
@@ -97,7 +99,9 @@
 
   eta_tilde <- as.numeric(xi_hat %*% psi)
   resid     <- y - fam$mu(eta_tilde)
-  m_mat     <- .mcglm_compute_m_bin(psi, x, fam$mu, p01, p10, pi_z)
+  c1_loc <- p01 * (1 - pi_z)
+  c2_loc <- p01 * (1 - pi_z) - p10 * pi_z
+  m_mat     <- .mcglm_compute_m_bin(psi, x, fam$mu, c1_loc, c2_loc)
 
   phi_mat <- xi_hat * resid - m_mat
 
@@ -108,7 +112,7 @@
   }
 
   I_hat <- .mcglm_compute_Ihat(psi, xi_hat, fam$mu_dot, wt = wt)
-  M_hat <- .mcglm_compute_Mhat_bin(psi, x, fam$mu, fam$mu_dot, p01, p10, pi_z,
+  M_hat <- .mcglm_compute_Mhat_bin(psi, x, fam$mu, fam$mu_dot, c1_loc, c2_loc,
                                     wt = wt)
   J     <- -(I_hat + M_hat)
   J_inv <- solve(J)

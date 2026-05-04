@@ -58,12 +58,10 @@
 
 #' Compute per-observation drift m_hat(psi) for binary misclassification
 #' @keywords internal
-.mcglm_compute_m_bin <- function(psi, x, mu_fun, p01, p10, pi_z) {
+.mcglm_compute_m_bin <- function(psi, x, mu_fun, c1, c2) {
   n <- nrow(x)
   p <- length(psi)
   delta <- .mcglm_compute_delta(psi, x, mu_fun)
-  c1 <- p01 * (1 - pi_z)
-  c2 <- p01 * (1 - pi_z) - p10 * pi_z
   m <- matrix(0, n, p)
   m[, 1]  <- -c1 * delta
   m[, -1] <- -c2 * delta * x
@@ -72,8 +70,8 @@
 
 #' Compute m_hat(psi) = weighted mean of m_i
 #' @keywords internal
-.mcglm_compute_mhat_bin <- function(psi, x, mu_fun, p01, p10, pi_z, wt = NULL) {
-  m <- .mcglm_compute_m_bin(psi, x, mu_fun, p01, p10, pi_z)
+.mcglm_compute_mhat_bin <- function(psi, x, mu_fun, c1, c2, wt = NULL) {
+  m <- .mcglm_compute_m_bin(psi, x, mu_fun, c1, c2)
   if (is.null(wt)) return(colMeans(m))
   colSums(wt * m) / sum(wt)
 }
@@ -93,7 +91,7 @@
 
 #' Analytical Jacobian M_hat for binary misclassification
 #' @keywords internal
-.mcglm_compute_Mhat_bin <- function(psi, x, mu_fun, mu_dot_fun, p01, p10, pi_z,
+.mcglm_compute_Mhat_bin <- function(psi, x, mu_fun, mu_dot_fun, c1, c2,
                                     wt = NULL) {
   gamma <- psi[1]
   alpha <- psi[-1]
@@ -106,9 +104,6 @@
   mu_dot1 <- mu_dot_fun(gamma + eta0)
   mu_dot0 <- mu_dot_fun(eta0)
   d_mu_dot <- mu_dot1 - mu_dot0
-
-  c1 <- p01 * (1 - pi_z)
-  c2 <- p01 * (1 - pi_z) - p10 * pi_z
 
   M <- matrix(0, p, p)
 
