@@ -66,15 +66,11 @@
 
     nll <- 0
     for (i in seq_len(n)) {
-      w1 <- omega[omega_idx[i, 1]]
-      acc <- log(w1 + 1e-300) + log_f_cols[[1]][i]
+      acc <- log(omega[omega_idx[i, 1]] + 1e-300) + log_f_cols[[1]][i]
 
       for (l_r in 2:K) {
-        wl <- omega[omega_idx[i, l_r]]
-        if (wl > 1e-20) {
-          term <- log(wl) + log_f_cols[[l_r]][i]
-          acc <- acc + log(1 + exp(term - acc))
-        }
+        term <- log(omega[omega_idx[i, l_r]] + 1e-300) + log_f_cols[[l_r]][i]
+        acc <- acc + log(1 + exp(term - acc))
       }
       nll <- nll - wt[i] * acc
     }
@@ -152,21 +148,16 @@
       log_prob_1 <- eta_yi_1 - lse_1
       acc <- log(w1 + 1e-300) + log_prob_1
 
-      if (K > 1) {
-        for (l_r in 2:K) {
-          wl <- omega[omega_idx[i, l_r]]
-          if (wl > 1e-20) {
-            eta_yi_l <- eta_cols[[yi]][[l_r]][i]
-            lse_l <- eta_cols[[1]][[l_r]][i]
-            for (jj in 2:J) {
-              eta_jj <- eta_cols[[jj]][[l_r]][i]
-              lse_l <- lse_l + log(1 + exp(eta_jj - lse_l))
-            }
-            log_prob_l <- eta_yi_l - lse_l
-            term <- log(wl) + log_prob_l
-            acc <- acc + log(1 + exp(term - acc))
-          }
+      for (l_r in 2:K) {
+        eta_yi_l <- eta_cols[[yi]][[l_r]][i]
+        lse_l <- eta_cols[[1]][[l_r]][i]
+        for (jj in 2:J) {
+          eta_jj <- eta_cols[[jj]][[l_r]][i]
+          lse_l <- lse_l + log(1 + exp(eta_jj - lse_l))
         }
+        log_prob_l <- eta_yi_l - lse_l
+        term <- log(omega[omega_idx[i, l_r]] + 1e-300) + log_prob_l
+        acc <- acc + log(1 + exp(term - acc))
       }
 
       nll <- nll - wt[i] * acc
