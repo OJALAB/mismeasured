@@ -5,9 +5,8 @@
 \title{Bias-Corrected GLM Estimation with Misclassified Covariates}
 \usage{
 mcglm(
-  y,
-  z_hat,
-  x,
+  formula,
+  data = NULL,
   family = "poisson",
   method = c("naive", "bca", "bcm", "cs"),
   p01 = NULL,
@@ -20,67 +19,57 @@ mcglm(
   freq_weights = NULL,
   J = NULL,
   homoskedastic = TRUE,
-  optim_control = list()
+  optim_control = list(),
+  z_hat = NULL,
+  x = NULL
 )
 }
 \arguments{
-\item{y}{Numeric vector of responses (length n).}
+\item{formula}{Either a formula of the form \code{y ~ mc(z, Pi) + x1 + x2}
+(where \code{mc()} marks the misclassified covariate with its
+misclassification matrix), or a numeric response vector (for the
+matrix interface).}
 
-\item{z_hat}{Integer vector of observed (proxy) covariate values. For the
-binary case, values in \{0, 1\}. For multicategory, values in
-\{0, 1, ..., K-1\} with baseline category 0.}
-
-\item{x}{Numeric matrix of correctly observed covariates (n x r).
-An intercept column should be included if desired.}
+\item{data}{A data frame (required when using the formula interface).}
 
 \item{family}{A \code{\link[stats]{family}} object or one of
 \code{"poisson"}, \code{"binomial"}, \code{"gaussian"},
-\code{"multinomial"}. For \code{"multinomial"}, only
-\code{method = "onestep"} (and \code{"naive"}) are supported.}
+\code{"multinomial"}.}
 
 \item{method}{Character vector of methods to compute. Any subset of
-\code{c("naive", "bca", "bcm", "cs", "onestep")}. Default is the four
-correction-based methods; specify \code{"onestep"} to include the
-joint mixture-likelihood estimator via RTMB.}
+\code{c("naive", "bca", "bcm", "cs", "onestep")}.}
 
-\item{p01}{False-positive rate P(Z_hat = 1 | Z = 0). Required for binary
-misclassification when \code{method} includes \code{"bca"}, \code{"bcm"},
-or \code{"cs"}.}
+\item{p01}{False-positive rate P(Z_hat = 1 | Z = 0). For binary case;
+if \code{Pi} is provided, extracted automatically.}
 
-\item{p10}{False-negative rate P(Z_hat = 0 | Z = 1). Required for binary
-misclassification when using corrections.}
+\item{p10}{False-negative rate P(Z_hat = 0 | Z = 1). For binary case;
+if \code{Pi} is provided, extracted automatically.}
 
-\item{pi_z}{For binary case: scalar prevalence P(Z = 1). For multicategory:
-K-vector of class prevalences.}
+\item{pi_z}{Prevalence P(Z = 1) (binary) or K-vector of class prevalences
+(multicategory). Required for correction methods.}
 
-\item{Pi}{K x K misclassification matrix for the multicategory case. Columns
-correspond to true categories, rows to proxy categories:
+\item{Pi}{K x K misclassification matrix. When using the formula interface,
+this is extracted from the \code{mc()} term. Columns must sum to 1:
 \code{Pi[j, l] = P(Z_hat = j-1 | Z = l-1)}.}
 
-\item{K}{Number of categories for multicategory case. If \code{NULL}
-(default), automatically determined.}
+\item{K}{Number of categories. Auto-detected if \code{NULL}.}
 
-\item{iterate}{Logical. If \code{TRUE}, BCA/BCM corrections are iterated
-until convergence. Iterated BCM converges to the corrected-score (CS)
-estimator. Default is \code{FALSE} (one-step correction).}
+\item{iterate}{Logical. If \code{TRUE}, iterate BCA/BCM until convergence.}
 
-\item{weights}{Character: \code{"fixed"} (default) uses known misclassification
-rates; \code{"estimated"} estimates mixture weights via softmax (only for
-\code{method = "onestep"}).}
+\item{weights}{Character: \code{"fixed"} (default) or \code{"estimated"}
+(only for onestep).}
 
-\item{freq_weights}{Optional numeric vector of frequency weights (length n).
-Each observation contributes as if it were \code{freq_weights[i]} identical
-copies. Must be positive. Default is \code{NULL} (unit weights).}
+\item{freq_weights}{Optional frequency weights vector (length n, positive).}
 
-\item{J}{Number of response categories for the multinomial model. If
-\code{NULL} (default), automatically determined from \code{y} when
-\code{family = "multinomial"}.}
+\item{J}{Number of response categories for multinomial. Auto-detected.}
 
-\item{homoskedastic}{Logical. For Gaussian one-step estimation, whether to
-assume a common error variance. Default is \code{TRUE}.}
+\item{homoskedastic}{Logical. For Gaussian one-step, assume common variance.}
 
-\item{optim_control}{List of control parameters passed to \code{nlminb}
-(only for \code{method = "onestep"}).}
+\item{optim_control}{List of control parameters for \code{nlminb} (onestep).}
+
+\item{z_hat}{Integer vector of observed proxy covariate (matrix interface).}
+
+\item{x}{Covariate matrix including intercept (matrix interface).}
 }
 \value{
 An object of class \code{"mcglm"}, a list with components:
@@ -104,22 +93,26 @@ naive, BCA (additive bias correction), BCM (multiplicative bias correction),
 CS (corrected score), and one-step (joint mixture-likelihood via RTMB).
 }
 \examples{
+# --- Formula interface ---
 set.seed(42)
-n <- 5000
-x <- cbind(1, rnorm(n))
+n <- 2000
+Pi <- matrix(c(0.9, 0.1, 0.15, 0.85), 2, 2)
 z <- rbinom(n, 1, 0.4)
-eta <- 0.8 * z - 0.5 * x[, 1] + 0.7 * x[, 2]
-y <- rpois(n, exp(eta))
-
-# introduce misclassification
-p01 <- 0.10; p10 <- 0.15
 z_hat <- z
-z_hat[z == 0] <- rbinom(sum(z == 0), 1, p01)
-z_hat[z == 1] <- 1 - rbinom(sum(z == 1), 1, p10)
+z_hat[z == 0] <- rbinom(sum(z == 0), 1, 0.10)
+z_hat[z == 1] <- 1 - rbinom(sum(z == 1), 1, 0.15)
+x1 <- rnorm(n)
+y <- rpois(n, exp(0.8 * z + -0.5 + 0.7 * x1))
+df <- data.frame(y = y, z = factor(z_hat), x1 = x1)
 
-fit <- mcglm(y, z_hat, x, family = "poisson",
-             p01 = p01, p10 = p10, pi_z = 0.4)
+fit <- mcglm(y ~ mc(z, Pi) + x1, data = df, family = "poisson",
+             pi_z = 0.4)
 fit
+
+# --- Matrix interface ---
+x_mat <- cbind(1, x1)
+fit2 <- mcglm(y, z_hat = as.integer(z_hat), x = x_mat,
+              family = "poisson", p01 = 0.10, p10 = 0.15, pi_z = 0.4)
 
 }
 \references{

@@ -3,6 +3,29 @@
 # Used by mcglm() estimators
 # ---------------------------------------------------------------------------
 
+#' Estimate pi_z (true prevalence) from observed proxy and Pi
+#'
+#' Uses Bayesian inversion: if pi_obs = Pi %*% pi_z, then
+#' pi_z = solve(Pi) %*% pi_obs. Clamps to [0.01, 0.99] for stability.
+#' @param z_hat Integer vector of observed proxy values (0-based).
+#' @param Pi K x K misclassification matrix.
+#' @return Numeric vector of length K (estimated true prevalences).
+#' @keywords internal
+.mcglm_estimate_pi_z <- function(z_hat, Pi) {
+  K <- nrow(Pi)
+  # Observed proportions
+  tab <- tabulate(z_hat + 1L, nbins = K)
+  pi_obs <- tab / sum(tab)
+  # Invert: pi_z = Pi^{-1} %*% pi_obs
+  pi_z <- as.numeric(solve(Pi) %*% pi_obs)
+  # Clamp to valid range
+
+  pi_z <- pmax(pi_z, 0.01)
+  pi_z <- pi_z / sum(pi_z)
+  if (K == 2L) return(pi_z[2])  # scalar for binary case
+  pi_z
+}
+
 #' Build xi_hat design matrix for mcglm
 #'
 #' For binary Z: xi_hat = cbind(z_hat, x).

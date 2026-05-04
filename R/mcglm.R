@@ -6,48 +6,35 @@
 #' naive, BCA (additive bias correction), BCM (multiplicative bias correction),
 #' CS (corrected score), and one-step (joint mixture-likelihood via RTMB).
 #'
-#' @param y Numeric vector of responses (length n).
-#' @param z_hat Integer vector of observed (proxy) covariate values. For the
-#'   binary case, values in \{0, 1\}. For multicategory, values in
-#'   \{0, 1, ..., K-1\} with baseline category 0.
-#' @param x Numeric matrix of correctly observed covariates (n x r).
-#'   An intercept column should be included if desired.
+#' @param formula Either a formula of the form \code{y ~ mc(z, Pi) + x1 + x2}
+#'   (where \code{mc()} marks the misclassified covariate with its
+#'   misclassification matrix), or a numeric response vector (for the
+#'   matrix interface).
+#' @param data A data frame (required when using the formula interface).
 #' @param family A \code{\link[stats]{family}} object or one of
 #'   \code{"poisson"}, \code{"binomial"}, \code{"gaussian"},
-#'   \code{"multinomial"}. For \code{"multinomial"}, only
-#'   \code{method = "onestep"} (and \code{"naive"}) are supported.
+#'   \code{"multinomial"}.
 #' @param method Character vector of methods to compute. Any subset of
-#'   \code{c("naive", "bca", "bcm", "cs", "onestep")}. Default is the four
-#'   correction-based methods; specify \code{"onestep"} to include the
-#'   joint mixture-likelihood estimator via RTMB.
-#' @param p01 False-positive rate P(Z_hat = 1 | Z = 0). Required for binary
-#'   misclassification when \code{method} includes \code{"bca"}, \code{"bcm"},
-#'   or \code{"cs"}.
-#' @param p10 False-negative rate P(Z_hat = 0 | Z = 1). Required for binary
-#'   misclassification when using corrections.
-#' @param pi_z For binary case: scalar prevalence P(Z = 1). For multicategory:
-#'   K-vector of class prevalences.
-#' @param Pi K x K misclassification matrix for the multicategory case. Columns
-#'   correspond to true categories, rows to proxy categories:
+#'   \code{c("naive", "bca", "bcm", "cs", "onestep")}.
+#' @param p01 False-positive rate P(Z_hat = 1 | Z = 0). For binary case;
+#'   if \code{Pi} is provided, extracted automatically.
+#' @param p10 False-negative rate P(Z_hat = 0 | Z = 1). For binary case;
+#'   if \code{Pi} is provided, extracted automatically.
+#' @param pi_z Prevalence P(Z = 1) (binary) or K-vector of class prevalences
+#'   (multicategory). Required for correction methods.
+#' @param Pi K x K misclassification matrix. When using the formula interface,
+#'   this is extracted from the \code{mc()} term. Columns must sum to 1:
 #'   \code{Pi[j, l] = P(Z_hat = j-1 | Z = l-1)}.
-#' @param K Number of categories for multicategory case. If \code{NULL}
-#'   (default), automatically determined.
-#' @param iterate Logical. If \code{TRUE}, BCA/BCM corrections are iterated
-#'   until convergence. Iterated BCM converges to the corrected-score (CS)
-#'   estimator. Default is \code{FALSE} (one-step correction).
-#' @param weights Character: \code{"fixed"} (default) uses known misclassification
-#'   rates; \code{"estimated"} estimates mixture weights via softmax (only for
-#'   \code{method = "onestep"}).
-#' @param freq_weights Optional numeric vector of frequency weights (length n).
-#'   Each observation contributes as if it were \code{freq_weights[i]} identical
-#'   copies. Must be positive. Default is \code{NULL} (unit weights).
-#' @param J Number of response categories for the multinomial model. If
-#'   \code{NULL} (default), automatically determined from \code{y} when
-#'   \code{family = "multinomial"}.
-#' @param homoskedastic Logical. For Gaussian one-step estimation, whether to
-#'   assume a common error variance. Default is \code{TRUE}.
-#' @param optim_control List of control parameters passed to \code{nlminb}
-#'   (only for \code{method = "onestep"}).
+#' @param K Number of categories. Auto-detected if \code{NULL}.
+#' @param iterate Logical. If \code{TRUE}, iterate BCA/BCM until convergence.
+#' @param weights Character: \code{"fixed"} (default) or \code{"estimated"}
+#'   (only for onestep).
+#' @param freq_weights Optional frequency weights vector (length n, positive).
+#' @param J Number of response categories for multinomial. Auto-detected.
+#' @param homoskedastic Logical. For Gaussian one-step, assume common variance.
+#' @param optim_control List of control parameters for \code{nlminb} (onestep).
+#' @param z_hat Integer vector of observed proxy covariate (matrix interface).
+#' @param x Covariate matrix including intercept (matrix interface).
 #'
 #' @return An object of class \code{"mcglm"}, a list with components:
 #'   \describe{
@@ -68,25 +55,29 @@
 #' learning. \emph{arXiv preprint arXiv:2402.15585}.
 #'
 #' @examples
+#' # --- Formula interface ---
 #' set.seed(42)
-#' n <- 5000
-#' x <- cbind(1, rnorm(n))
+#' n <- 2000
+#' Pi <- matrix(c(0.9, 0.1, 0.15, 0.85), 2, 2)
 #' z <- rbinom(n, 1, 0.4)
-#' eta <- 0.8 * z - 0.5 * x[, 1] + 0.7 * x[, 2]
-#' y <- rpois(n, exp(eta))
-#'
-#' # introduce misclassification
-#' p01 <- 0.10; p10 <- 0.15
 #' z_hat <- z
-#' z_hat[z == 0] <- rbinom(sum(z == 0), 1, p01)
-#' z_hat[z == 1] <- 1 - rbinom(sum(z == 1), 1, p10)
+#' z_hat[z == 0] <- rbinom(sum(z == 0), 1, 0.10)
+#' z_hat[z == 1] <- 1 - rbinom(sum(z == 1), 1, 0.15)
+#' x1 <- rnorm(n)
+#' y <- rpois(n, exp(0.8 * z + -0.5 + 0.7 * x1))
+#' df <- data.frame(y = y, z = factor(z_hat), x1 = x1)
 #'
-#' fit <- mcglm(y, z_hat, x, family = "poisson",
-#'              p01 = p01, p10 = p10, pi_z = 0.4)
+#' fit <- mcglm(y ~ mc(z, Pi) + x1, data = df, family = "poisson",
+#'              pi_z = 0.4)
 #' fit
 #'
+#' # --- Matrix interface ---
+#' x_mat <- cbind(1, x1)
+#' fit2 <- mcglm(y, z_hat = as.integer(z_hat), x = x_mat,
+#'               family = "poisson", p01 = 0.10, p10 = 0.15, pi_z = 0.4)
+#'
 #' @export
-mcglm <- function(y, z_hat, x, family = "poisson",
+mcglm <- function(formula, data = NULL, family = "poisson",
                   method = c("naive", "bca", "bcm", "cs"),
                   p01 = NULL, p10 = NULL, pi_z = NULL,
                   Pi = NULL, K = NULL,
@@ -95,7 +86,138 @@ mcglm <- function(y, z_hat, x, family = "poisson",
                   freq_weights = NULL,
                   J = NULL,
                   homoskedastic = TRUE,
-                  optim_control = list()) {
+                  optim_control = list(),
+                  z_hat = NULL, x = NULL) {
+
+  # --- Dispatch: formula vs matrix interface ---
+  if (inherits(formula, "formula")) {
+    caller_env <- parent.frame()
+    parsed <- .mcglm_parse_formula(formula, data, caller_env)
+    y     <- parsed$y
+    z_hat <- parsed$z_hat
+    x     <- parsed$x
+    if (is.null(Pi)) Pi <- parsed$Pi
+    if (is.null(K))  K  <- parsed$K
+  } else {
+    # Matrix interface: first arg is y
+    y <- formula
+  }
+
+  # --- Derive p01/p10 from 2x2 Pi ---
+  if (!is.null(Pi) && nrow(Pi) == 2L) {
+    if (is.null(p01)) p01 <- Pi[2, 1]
+    if (is.null(p10)) p10 <- Pi[1, 2]
+  }
+
+  # --- Estimate pi_z from observed data + Pi if not supplied ---
+  if (is.null(pi_z) && !is.null(Pi) && !is.null(z_hat)) {
+    pi_z <- .mcglm_estimate_pi_z(z_hat, Pi)
+  }
+
+  # --- Core fitting ---
+  .mcglm_fit(y = y, z_hat = z_hat, x = x, family = family,
+             method = method, p01 = p01, p10 = p10, pi_z = pi_z,
+             Pi = Pi, K = K, iterate = iterate, weights = weights,
+             freq_weights = freq_weights, J = J,
+             homoskedastic = homoskedastic, optim_control = optim_control)
+}
+
+
+#' Parse mcglm formula extracting mc() term
+#' @keywords internal
+.mcglm_parse_formula <- function(formula, data, env) {
+  if (is.null(data))
+    stop("'data' argument is required when using the formula interface.")
+
+  lhs <- formula[[2]]
+  rhs <- formula[[3]]
+
+  # Extract response
+  y_name <- deparse(lhs)
+  y <- data[[y_name]]
+  if (is.null(y))
+    stop("Response variable '", y_name, "' not found in data.")
+
+
+  # Walk RHS to find mc() term and other covariates
+  mc_info <- NULL
+  other_terms <- character(0)
+
+  .walk_mcglm_rhs <- function(node) {
+    if (is.call(node)) {
+      op <- deparse(node[[1]])
+      if (op == "+") {
+        .walk_mcglm_rhs(node[[2]])
+        .walk_mcglm_rhs(node[[3]])
+        return(invisible(NULL))
+      }
+      if (op == "mc") {
+        var_name <- deparse(node[[2]])
+        mat_expr <- node[[3]]
+        mat_val <- eval(mat_expr, data, env)
+        mc_info <<- list(variable = var_name, Pi = as.matrix(mat_val))
+        return(invisible(NULL))
+      }
+    }
+    # Everything else is a regular term
+    other_terms <<- c(other_terms, deparse(node))
+    invisible(NULL)
+  }
+
+  .walk_mcglm_rhs(rhs)
+
+  if (is.null(mc_info))
+    stop("Formula must contain exactly one mc() term, e.g., y ~ mc(z, Pi) + x")
+
+  # Get z_hat from data
+  z_var <- data[[mc_info$variable]]
+  if (is.null(z_var))
+    stop("mc() variable '", mc_info$variable, "' not found in data.")
+
+  Pi <- mc_info$Pi
+  K  <- nrow(Pi)
+
+  # Convert z to 0-based integer
+  if (is.factor(z_var)) {
+    z_hat <- as.integer(z_var) - 1L
+  } else {
+    z_hat <- as.integer(z_var)
+  }
+
+  # Validate Pi
+  if (ncol(Pi) != K)
+    stop("Pi must be a square K x K matrix (got ", nrow(Pi), " x ", ncol(Pi), ").")
+  cs <- colSums(Pi)
+  if (any(abs(cs - 1) > 1e-6))
+    stop("Columns of Pi must sum to 1 (got: ",
+         paste(round(cs, 4), collapse = ", "), ").")
+
+  # Build x matrix from remaining terms
+  if (length(other_terms) == 0) {
+    # No other covariates: just intercept
+    x <- matrix(1, nrow = nrow(data), ncol = 1)
+  } else {
+    rhs_formula <- as.formula(paste("~", paste(other_terms, collapse = " + ")),
+                              env = env)
+    x <- model.matrix(rhs_formula, data = data)
+  }
+
+  list(y = as.numeric(y), z_hat = z_hat, x = x, Pi = Pi, K = K)
+}
+
+
+#' Core mcglm fitting (internal, called by mcglm after dispatch)
+#' @keywords internal
+.mcglm_fit <- function(y, z_hat, x, family = "poisson",
+                       method = c("naive", "bca", "bcm", "cs"),
+                       p01 = NULL, p10 = NULL, pi_z = NULL,
+                       Pi = NULL, K = NULL,
+                       iterate = FALSE,
+                       weights = "fixed",
+                       freq_weights = NULL,
+                       J = NULL,
+                       homoskedastic = TRUE,
+                       optim_control = list()) {
 
   # --- input validation ---
   y     <- as.numeric(y)
@@ -168,7 +290,6 @@ mcglm <- function(y, z_hat, x, family = "poisson",
   naive_glm_fit  <- NULL
 
   if (is_multinomial) {
-    # ---- multinomial path ----
     naive_mn <- .mcglm_fit_naive_multinomial(y, z_hat, x, J, K, wt = wt)
     psi      <- naive_mn$coefficients
     results$naive <- psi
@@ -186,7 +307,6 @@ mcglm <- function(y, z_hat, x, family = "poisson",
     }
 
   } else if (is_binary) {
-    # ---- binary GLM path ----
     naive <- .mcglm_fit_naive_bin(y, xi_hat, family, wt = wt)
     psi   <- naive$coefficients
     results$naive <- psi
@@ -214,7 +334,6 @@ mcglm <- function(y, z_hat, x, family = "poisson",
     }
 
   } else {
-    # ---- multicategory GLM path ----
     naive <- .mcglm_fit_naive_multi(y, xi_hat, family, wt = wt)
     psi   <- naive$coefficients
     results$naive <- psi
@@ -263,7 +382,6 @@ mcglm <- function(y, z_hat, x, family = "poisson",
     nms <- c(paste0("gamma", seq_len(K - 1)),
              paste0("alpha", seq_len(ncol(x)) - 1))
   }
-  # Name results that don't yet have names
   results <- lapply(results, function(v) {
     if (is.null(names(v))) names(v) <- nms
     v
@@ -325,7 +443,6 @@ summary.mcglm <- function(object, ...) {
   cat("Coefficients:\n")
   print(round(coefs, 6))
 
-  # bias relative to naive
   if (length(object$coefficients) > 1) {
     cat("\nBias correction (difference from naive):\n")
     naive <- object$coefficients$naive

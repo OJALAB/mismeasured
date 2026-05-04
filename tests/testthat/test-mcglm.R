@@ -6,14 +6,14 @@
 
 test_that("mcglm errors on mismatched dimensions", {
   expect_error(
-    mcglm(y = 1:10, z_hat = 1:5, x = matrix(1, 10, 1), family = "poisson",
+    mcglm( 1:10, z_hat = 1:5, x = matrix(1, 10, 1), family = "poisson",
           method = "naive")
   )
 })
 
 test_that("mcglm errors when correction params missing", {
   expect_error(
-    mcglm(y = rpois(10, 1), z_hat = rbinom(10, 1, 0.5),
+    mcglm( rpois(10, 1), z_hat = rbinom(10, 1, 0.5),
           x = cbind(1, rnorm(10)), family = "poisson",
           method = c("naive", "bca")),
     "supply"
@@ -33,7 +33,7 @@ test_that("mcglm binary returns correct structure", {
   z_hat[z == 0] <- rbinom(sum(z == 0), 1, 0.10)
   z_hat[z == 1] <- 1 - rbinom(sum(z == 1), 1, 0.15)
 
-  fit <- mcglm(y, z_hat, x, family = "poisson",
+  fit <- mcglm(y, z_hat = z_hat, x = x, family = "poisson",
                method = c("naive", "bca", "bcm", "cs"),
                p01 = 0.10, p10 = 0.15, pi_z = 0.4)
 
@@ -56,7 +56,7 @@ test_that("mcglm auto-detects binary case", {
   z_hat <- rbinom(n, 1, 0.5)
   y <- rpois(n, exp(0.5 * z_hat + x %*% c(-0.3, 0.4)))
 
-  fit <- mcglm(y, z_hat, x, family = "poisson", method = "naive")
+  fit <- mcglm(y, z_hat = z_hat, x = x, family = "poisson", method = "naive")
   expect_equal(fit$K, 2L)
 })
 
@@ -80,7 +80,7 @@ test_that("mcglm multicategory returns correct structure", {
   eta <- as.numeric(x %*% alpha) + gamma[z + 1]
   y <- rpois(n, exp(eta))
 
-  fit <- mcglm(y, z_hat, x, family = "poisson",
+  fit <- mcglm(y, z_hat = z_hat, x = x, family = "poisson",
                method = c("naive", "bca", "bcm", "cs"),
                Pi = Pi, pi_z = pi_z)
 
@@ -99,7 +99,7 @@ test_that("mcglm accepts subset of methods", {
   z_hat <- rbinom(n, 1, 0.5)
   y <- rpois(n, exp(0.5 * z_hat + x %*% c(-0.3, 0.4)))
 
-  fit <- mcglm(y, z_hat, x, family = "poisson",
+  fit <- mcglm(y, z_hat = z_hat, x = x, family = "poisson",
                method = c("naive", "cs"),
                p01 = 0.1, p10 = 0.1, pi_z = 0.5)
 
@@ -115,7 +115,7 @@ test_that("print.mcglm runs without error", {
   z_hat <- rbinom(n, 1, 0.5)
   y <- rpois(n, exp(0.3 * z_hat + x %*% c(-0.2, 0.4)))
 
-  fit <- mcglm(y, z_hat, x, family = "poisson",
+  fit <- mcglm(y, z_hat = z_hat, x = x, family = "poisson",
                method = c("naive", "bca"),
                p01 = 0.1, p10 = 0.1, pi_z = 0.5)
 
@@ -129,7 +129,7 @@ test_that("summary.mcglm runs without error", {
   z_hat <- rbinom(n, 1, 0.5)
   y <- rpois(n, exp(0.3 * z_hat + x %*% c(-0.2, 0.4)))
 
-  fit <- mcglm(y, z_hat, x, family = "poisson",
+  fit <- mcglm(y, z_hat = z_hat, x = x, family = "poisson",
                method = c("naive", "bca"),
                p01 = 0.1, p10 = 0.1, pi_z = 0.5)
 
@@ -143,7 +143,7 @@ test_that("coef.mcglm returns all or selected method", {
   z_hat <- rbinom(n, 1, 0.5)
   y <- rpois(n, exp(0.3 * z_hat + x %*% c(-0.2, 0.4)))
 
-  fit <- mcglm(y, z_hat, x, family = "poisson",
+  fit <- mcglm(y, z_hat = z_hat, x = x, family = "poisson",
                method = c("naive", "bca", "bcm"),
                p01 = 0.1, p10 = 0.1, pi_z = 0.5)
 
@@ -169,11 +169,11 @@ test_that("iterate flag changes BCA/BCM results", {
   z_hat[z == 0] <- rbinom(sum(z == 0), 1, 0.10)
   z_hat[z == 1] <- 1 - rbinom(sum(z == 1), 1, 0.15)
 
-  fit1 <- mcglm(y, z_hat, x, family = "poisson",
+  fit1 <- mcglm(y, z_hat = z_hat, x = x, family = "poisson",
                 method = c("naive", "bca", "bcm"),
                 p01 = 0.10, p10 = 0.15, pi_z = 0.4,
                 iterate = FALSE)
-  fit2 <- mcglm(y, z_hat, x, family = "poisson",
+  fit2 <- mcglm(y, z_hat = z_hat, x = x, family = "poisson",
                 method = c("naive", "bca", "bcm"),
                 p01 = 0.10, p10 = 0.15, pi_z = 0.4,
                 iterate = TRUE)
@@ -191,7 +191,7 @@ test_that("binary parameter names are gamma, alpha0, alpha1, ...", {
   z_hat <- rbinom(n, 1, 0.5)
   y <- rpois(n, exp(0.3 * z_hat + x %*% c(-0.2, 0.4, 0.1)))
 
-  fit <- mcglm(y, z_hat, x, family = "poisson", method = "naive")
+  fit <- mcglm(y, z_hat = z_hat, x = x, family = "poisson", method = "naive")
   expect_equal(names(fit$coefficients$naive),
                c("gamma", "alpha0", "alpha1", "alpha2"))
 })
@@ -208,7 +208,7 @@ test_that("multicategory parameter names are gamma1, gamma2, ..., alpha0, ...", 
   diag(Pi) <- 0.85
   pi_z <- rep(1 / K, K)
 
-  fit <- mcglm(y, z_hat, x, family = "poisson",
+  fit <- mcglm(y, z_hat = z_hat, x = x, family = "poisson",
                method = "naive", Pi = Pi, pi_z = pi_z)
   expect_equal(names(fit$coefficients$naive),
                c("gamma1", "gamma2", "gamma3", "alpha0", "alpha1"))
@@ -229,7 +229,7 @@ test_that("BCA/BCM/CS reduce bias for binary Poisson", {
   z_hat[z == 0] <- rbinom(sum(z == 0), 1, p01)
   z_hat[z == 1] <- 1 - rbinom(sum(z == 1), 1, p10)
 
-  fit <- mcglm(y, z_hat, x, family = "poisson",
+  fit <- mcglm(y, z_hat = z_hat, x = x, family = "poisson",
                method = c("naive", "bca", "bcm", "cs"),
                p01 = p01, p10 = p10, pi_z = 0.4)
 
@@ -255,7 +255,7 @@ test_that("mcglm works with binomial family", {
   z_hat[z == 0] <- rbinom(sum(z == 0), 1, p01)
   z_hat[z == 1] <- 1 - rbinom(sum(z == 1), 1, p10)
 
-  fit <- mcglm(y, z_hat, x, family = "binomial",
+  fit <- mcglm(y, z_hat = z_hat, x = x, family = "binomial",
                method = c("naive", "bca", "bcm", "cs"),
                p01 = p01, p10 = p10, pi_z = 0.4)
 
@@ -280,7 +280,7 @@ test_that("mcglm works with gaussian family", {
   z_hat[z == 0] <- rbinom(sum(z == 0), 1, p01)
   z_hat[z == 1] <- 1 - rbinom(sum(z == 1), 1, p10)
 
-  fit <- mcglm(y, z_hat, x, family = "gaussian",
+  fit <- mcglm(y, z_hat = z_hat, x = x, family = "gaussian",
                method = c("naive", "bca", "bcm", "cs"),
                p01 = p01, p10 = p10, pi_z = 0.4)
 
@@ -300,10 +300,10 @@ test_that("unit freq_weights match unweighted fit", {
   z_hat <- rbinom(n, 1, 0.5)
   y <- rpois(n, exp(0.5 * z_hat + x %*% c(-0.3, 0.4)))
 
-  fit1 <- mcglm(y, z_hat, x, family = "poisson",
+  fit1 <- mcglm(y, z_hat = z_hat, x = x, family = "poisson",
                 method = c("naive", "bca"),
                 p01 = 0.1, p10 = 0.1, pi_z = 0.5)
-  fit2 <- mcglm(y, z_hat, x, family = "poisson",
+  fit2 <- mcglm(y, z_hat = z_hat, x = x, family = "poisson",
                 method = c("naive", "bca"),
                 p01 = 0.1, p10 = 0.1, pi_z = 0.5,
                 freq_weights = rep(1, n))
@@ -328,7 +328,7 @@ test_that("mcglm onestep works when RTMB available", {
   z_hat[z == 0] <- rbinom(sum(z == 0), 1, p01)
   z_hat[z == 1] <- 1 - rbinom(sum(z == 1), 1, p10)
 
-  fit <- mcglm(y, z_hat, x, family = "poisson",
+  fit <- mcglm(y, z_hat = z_hat, x = x, family = "poisson",
                method = c("naive", "onestep"),
                p01 = p01, p10 = p10, pi_z = 0.4)
 
