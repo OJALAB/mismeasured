@@ -148,28 +148,29 @@ For analytical bias corrections when misclassification rates are known:
 ``` r
 set.seed(42)
 n <- 5000
-x <- cbind(1, rnorm(n))
-z <- rbinom(n, 1, 0.4)
-eta <- 0.8 * z - 0.5 * x[, 1] + 0.7 * x[, 2]
-y <- rpois(n, exp(eta))
+z_true <- rbinom(n, 1, 0.4)
+x1 <- rnorm(n)
+y <- rpois(n, exp(0.8 * z_true - 0.5 + 0.7 * x1))
 
 # Introduce misclassification
 p01 <- 0.10; p10 <- 0.15
-z_hat <- z
-z_hat[z == 0] <- rbinom(sum(z == 0), 1, p01)
-z_hat[z == 1] <- 1 - rbinom(sum(z == 1), 1, p10)
+z_hat <- z_true
+z_hat[z_true == 0] <- rbinom(sum(z_true == 0), 1, p01)
+z_hat[z_true == 1] <- 1 - rbinom(sum(z_true == 1), 1, p10)
 
-fit <- mcglm(y, z_hat, x, family = "poisson",
-             method = c("naive", "bca", "bcm", "cs"),
-             p01 = p01, p10 = p10, pi_z = 0.4)
+Pi <- matrix(c(1 - p01, p01, p10, 1 - p10), 2, 2)
+df3 <- data.frame(y = y, z = factor(z_hat), x1 = x1)
+
+fit <- mcglm(y ~ mc(z, Pi) + x1, data = df3, family = "poisson",
+             method = c("naive", "bca", "bcm", "cs"), pi_z = 0.4)
 fit
 #> Bias-corrected GLM with misclassified covariate
 #>   n = 5000, p = 3, K = 2
 #> 
 #>          NAIVE     BCA     BCM      CS
-#> gamma   0.5916  0.7392  0.7884  0.7909
-#> alpha0 -0.4003 -0.4806 -0.5074 -0.5136
-#> alpha1  0.7076  0.7069  0.7067  0.7067
+#> gamma   0.6272  0.7843  0.8367  0.8400
+#> alpha0 -0.4113 -0.4988 -0.5280 -0.5353
+#> alpha1  0.7134  0.7136  0.7137  0.7137
 ```
 
 ## Formula syntax (simex)

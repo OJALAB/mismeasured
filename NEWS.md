@@ -1,3 +1,34 @@
+# mismeasured 0.5.0
+
+## Bug fixes
+
+* **`RcppExports.R` invalid defaults**: `compileAttributes()` generated
+  `integerVector(0)`, `numericVector(0)`, and `matrix(0, 0)` as default
+  argument values in the R wrappers for `mcsimex_multi_sim_cpp` and
+  `simex_sim_cpp`. These are not valid R expressions, causing runtime errors
+  when the functions were called with default arguments. Fixed to `integer(0)`,
+  `numeric(0)`, and `matrix(0, nrow = 0, ncol = 0)`.
+
+## Documentation
+
+* Updated README to use the `mcglm()` formula interface
+  (`y ~ mc(z, Pi) + x1`) instead of the matrix interface.
+
+# mismeasured 0.4.0
+
+## New features
+
+* **`mcglm()` for bias-corrected GLMs**: added `mcglm()` implementing
+  analytical bias correction for GLMs with misclassified covariates following
+  Battaglia, Christensen, Hansen and Sacher (2025). Supports five estimation
+  methods (naive, BCA, BCM, corrected score, one-step), binary and multicategory
+  misclassified covariates, Poisson/Binomial/Gaussian families, and multinomial
+  response models.
+
+* **Formula interface for `mcglm()`**: `y ~ mc(z, Pi) + x1 + x2` syntax with
+  automatic extraction of the misclassification matrix and optional auto-estimation
+  of true prevalence `pi_z` from observed data and Pi.
+
 # mismeasured 0.3.0
 
 ## New features
@@ -34,12 +65,6 @@
   different column ordering than the package's manual `[dummies | x_mat]`
   layout. Fitted values and variance estimates could be computed against the
   wrong columns. Now uses stored `xi.hat` directly. (#6)
-
-* **`RcppExports.R` invalid defaults**: `compileAttributes()` had generated
-  `integerVector(0)` and `numericVector(0)` (non-existent R functions) as
-  defaults for optional C++ parameters, causing `could not find function` errors
-  when calling `mcsimex_multi_sim_cpp` or `simex_sim_cpp` with defaults.
-  Fixed to `integer(0)` and `numeric(0)`.
 
 ## Improvements
 
