@@ -9,6 +9,10 @@
 ^doc$
 ^Meta$
 ^theory$
+^simulations$
 ^src/symbols\.rds$
 ^\.github$
 ^CLAUDE\.md$
+^\.\.Rcheck$
+^mismeasured\.Rcheck$
+^mismeasured_.*\.tar\.gz$
