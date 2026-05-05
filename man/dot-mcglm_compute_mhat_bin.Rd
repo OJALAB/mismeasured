@@ -4,7 +4,7 @@
 \alias{.mcglm_compute_Mhat_bin}
 \title{Analytical Jacobian M_hat for binary misclassification}
 \usage{
-.mcglm_compute_Mhat_bin(psi, x, mu_fun, mu_dot_fun, p01, p10, pi_z, wt = NULL)
+.mcglm_compute_Mhat_bin(psi, x, mu_fun, mu_dot_fun, c1, c2, wt = NULL)
 }
 \description{
 Analytical Jacobian M_hat for binary misclassification

@@ -37,6 +37,12 @@
 #' @param fix_omega Logical. If \code{TRUE}, fix the mixture weights (omega) at
 #'   the values implied by the supplied misclassification parameters (onestep
 #'   only). Default \code{FALSE} estimates omega jointly.
+#' @param vcov_corrected Logical. If \code{TRUE}, the BCA/BCM variance
+#'   estimators account for the additional uncertainty due to estimating the
+#'   drift correction term (joint score-and-drift sandwich). If \code{FALSE}
+#'   (default), the asymptotic variance \eqn{A^{-1} C A^{-1}} from
+#'   Theorem 5 of Battaglia et al. (2025) is used (drifting-regime sandwich
+#'   evaluated at the corrected estimate).
 #' @param weights Optional frequency weights vector (length n, positive).
 #' @param J Number of response categories for multinomial. Auto-detected.
 #' @param homoskedastic Logical. For Gaussian one-step, assume common variance.
@@ -47,14 +53,17 @@
 #' @return An object of class \code{"mcglm"}, a list with components:
 #'   \describe{
 #'     \item{coefficients}{Named list of coefficient vectors, one per method.}
+#'     \item{vcov}{Named list of asymptotic variance-covariance matrices,
+#'       one per method (sandwich estimators from the paper's theorems).}
+#'     \item{se}{Named list of standard errors per method.}
 #'     \item{naive_fit}{The \code{glm} object from the naive fit.}
 #'     \item{method}{Methods used.}
 #'     \item{family}{The GLM family.}
 #'     \item{K}{Number of categories.}
 #'     \item{n, p}{Sample size and number of parameters.}
 #'     \item{weights}{Frequency weights used (NULL if unweighted).}
-#'     \item{vcov_onestep}{Variance-covariance matrix (if onestep used).}
 #'     \item{loglik_onestep}{Log-likelihood at one-step estimate.}
+#'     \item{call, formula}{The matched call and (if used) formula.}
 #'   }
 #'
 #' @references
@@ -91,14 +100,19 @@ mcglm <- function(formula, data = NULL, family = "poisson",
                   c1 = NULL, c2 = NULL,
                   iterate = FALSE,
                   fix_omega = FALSE,
+                  vcov_corrected = FALSE,
                   weights = NULL,
                   J = NULL,
                   homoskedastic = TRUE,
                   optim_control = list(),
                   z_hat = NULL, x = NULL) {
 
+  cl <- match.call()
+  formula_obj <- NULL
+
   # --- Dispatch: formula vs matrix interface ---
   if (inherits(formula, "formula")) {
+    formula_obj <- formula
     caller_env <- parent.frame()
     parsed <- .mcglm_parse_formula(formula, data, caller_env)
     y     <- parsed$y
@@ -129,11 +143,17 @@ mcglm <- function(formula, data = NULL, family = "poisson",
     c2 <- p01 * (1 - pi_z) - p10 * pi_z
 
   # --- Core fitting ---
-  .mcglm_fit(y = y, z_hat = z_hat, x = x, family = family,
-             method = method, p01 = p01, p10 = p10, pi_z = pi_z,
-             Pi = Pi, K = K, c1 = c1, c2 = c2, iterate = iterate,
-             fix_omega = fix_omega, weights = weights, J = J,
-             homoskedastic = homoskedastic, optim_control = optim_control)
+  out <- .mcglm_fit(y = y, z_hat = z_hat, x = x, family = family,
+                    method = method, p01 = p01, p10 = p10, pi_z = pi_z,
+                    Pi = Pi, K = K, c1 = c1, c2 = c2, iterate = iterate,
+                    fix_omega = fix_omega,
+                    vcov_corrected = vcov_corrected,
+                    weights = weights, J = J,
+                    homoskedastic = homoskedastic,
+                    optim_control = optim_control)
+  out$call    <- cl
+  out$formula <- formula_obj
+  out
 }
 
 
@@ -236,6 +256,7 @@ mcglm <- function(formula, data = NULL, family = "poisson",
                        c1 = NULL, c2 = NULL,
                        iterate = FALSE,
                        fix_omega = FALSE,
+                       vcov_corrected = FALSE,
                        weights = NULL,
                        J = NULL,
                        homoskedastic = TRUE,
@@ -415,24 +436,94 @@ mcglm <- function(formula, data = NULL, family = "poisson",
              paste0("alpha", seq_len(ncol(x)) - 1))
   }
   results <- lapply(results, function(v) {
-    if (is.null(names(v))) names(v) <- nms
+    v <- as.numeric(v)
+    names(v) <- nms
     v
+  })
+
+  # --- per-method asymptotic variance ---
+  vcov_list <- list()
+  if (!is_multinomial) {
+    for (nm in names(results)) {
+      psi_nm <- unname(results[[nm]])
+      V <- tryCatch(
+        if (nm == "naive") {
+          if (is_binary)
+            .mcglm_vcov_naive(psi_nm, y, xi_hat, family, wt = wt)
+          else
+            .mcglm_vcov_naive_multi(psi_nm, y, xi_hat, z_hat, x, K, family,
+                                    wt = wt)
+        } else if (nm %in% c("bca", "bcm")) {
+          have_probs <- !is.null(p01) && !is.null(p10) && !is.null(pi_z)
+          if (is_binary) {
+            .mcglm_vcov_bc_bin(psi_nm, y, xi_hat, x, family,
+                               p01 = p01, p10 = p10, pi_z = pi_z,
+                               psi_naive = unname(results$naive),
+                               type = nm,
+                               corrected = vcov_corrected && have_probs,
+                               wt = wt)
+          } else {
+            have_multi <- !is.null(Pi) && !is.null(pi_z)
+            .mcglm_vcov_bc_multi(psi_nm, y, xi_hat, z_hat, x, K, family,
+                                 Pi = Pi, pi_z = pi_z,
+                                 psi_naive = unname(results$naive),
+                                 type = nm,
+                                 corrected = vcov_corrected && have_multi,
+                                 wt = wt)
+          }
+        } else if (nm == "cs") {
+          if (is_binary)
+            .mcglm_vcov_cs_bin(psi_nm, y, xi_hat, x, family, p01, p10, pi_z,
+                               wt = wt)
+          else
+            .mcglm_vcov_cs_multi(psi_nm, y, xi_hat, z_hat, x, K, family,
+                                 Pi, pi_z, wt = wt)
+        } else if (nm == "onestep") {
+          onestep_vcov
+        },
+        error = function(e) {
+          warning("Variance computation failed for method '", nm, "': ",
+                  conditionMessage(e))
+          NULL
+        }
+      )
+      if (!is.null(V)) {
+        dimnames(V) <- list(nms, nms)
+      }
+      vcov_list[[nm]] <- V
+    }
+  } else if (!is.null(onestep_vcov)) {
+    vcov_list$onestep <- onestep_vcov
+  }
+
+  se_list <- lapply(vcov_list, function(V) {
+    if (is.null(V)) return(NULL)
+    s <- sqrt(pmax(diag(V), 0))
+    names(s) <- rownames(V)
+    s
   })
 
   out <- list(
     coefficients = results,
+    vcov         = vcov_list,
+    se           = se_list,
     naive_fit    = naive_glm_fit,
     method       = method,
     family       = family,
     K            = K,
     n            = n,
     p            = p_total,
-    weights      = wt
+    weights      = wt,
+    y            = y,
+    z_hat        = z_hat,
+    x            = x,
+    is_multinomial = is_multinomial
   )
-  if (is_multinomial) out$J <- J
+  if (!is_multinomial) out$xi_hat <- xi_hat
+  if (is_multinomial)  out$J     <- J
 
   if (!is.null(onestep_vcov)) {
-    out$vcov_onestep   <- onestep_vcov
+    out$vcov_onestep   <- onestep_vcov  # kept for backwards compatibility
     out$loglik_onestep <- onestep_loglik
   }
 
@@ -440,49 +531,386 @@ mcglm <- function(formula, data = NULL, family = "poisson",
 }
 
 
-#' @export
-print.mcglm <- function(x, digits = 4, ...) {
-  cat("Bias-corrected GLM with misclassified covariate\n")
-  cat(sprintf("  n = %d, p = %d, K = %d\n\n", x$n, x$p, x$K))
+#' Default method for an \code{mcglm} object
+#' @keywords internal
+.mcglm_default_method <- function(object) {
+  if (!is.null(object$method) && length(object$method))
+    return(object$method[length(object$method)])
+  names(object$coefficients)[1]
+}
 
+.mcglm_family_string <- function(object) {
+  if (is.character(object$family)) return(object$family)
+  if (inherits(object$family, "family")) return(object$family$family)
+  as.character(object$family)
+}
+
+
+#' Print method for \code{mcglm} fits
+#'
+#' Mirrors the layout of \code{print.glm}: shows the call, the family,
+#' a coefficient table (one column per estimation method), the residual
+#' degrees of freedom and (when available) the deviance and AIC of the
+#' naive GLM fit.
+#' @param x An object of class \code{"mcglm"}.
+#' @param digits Number of digits to display.
+#' @param ... Unused.
+#' @export
+print.mcglm <- function(x, digits = max(3L, getOption("digits") - 3L), ...) {
+  cat("\nCall:\n")
+  if (!is.null(x$call)) print(x$call) else cat("mcglm(...)\n")
+  cat("\nFamily: ", .mcglm_family_string(x),
+      "  |  n = ", x$n, ", K = ", x$K,
+      ", p = ", x$p, "\n", sep = "")
+  cat("Methods: ", paste(x$method, collapse = ", "), "\n\n", sep = "")
+
+  cat("Coefficients:\n")
   coefs <- do.call(cbind, x$coefficients)
   colnames(coefs) <- toupper(names(x$coefficients))
-  print(round(coefs, digits))
+  print.default(format(coefs, digits = digits), print.gap = 2L,
+                quote = FALSE)
+
+  if (!is.null(x$naive_fit)) {
+    rdf <- x$naive_fit$df.residual
+    cat("\nDegrees of Freedom:", x$naive_fit$df.null, "Total (i.e. Null); ",
+        rdf, "Residual\n")
+    cat("Null Deviance:    ",
+        format(signif(x$naive_fit$null.deviance, digits)), "\n")
+    cat("Residual Deviance:",
+        format(signif(x$naive_fit$deviance, digits)),
+        " | AIC (naive):", format(signif(stats::AIC(x$naive_fit), digits)),
+        "\n")
+  }
+  if (!is.null(x$loglik_onestep)) {
+    cat("logLik (onestep): ", format(signif(x$loglik_onestep, digits)), "\n")
+  }
   invisible(x)
 }
 
+
+#' Extract coefficients from an \code{mcglm} fit
+#'
+#' @param object An \code{mcglm} object.
+#' @param method Optional character: which estimator to extract
+#'   (\code{"naive"}, \code{"bca"}, \code{"bcm"}, \code{"cs"},
+#'   \code{"onestep"}). If \code{NULL}, returns a named list of all
+#'   coefficient vectors.
+#' @param ... Unused.
 #' @export
 coef.mcglm <- function(object, method = NULL, ...) {
   if (is.null(method)) return(object$coefficients)
+  if (!method %in% names(object$coefficients))
+    stop("Method '", method, "' was not fit. Available: ",
+         paste(names(object$coefficients), collapse = ", "))
   object$coefficients[[method]]
 }
 
+
+#' Variance-covariance matrix of an \code{mcglm} fit
+#'
+#' @param object An \code{mcglm} object.
+#' @param method Optional character: which estimator to use. Defaults to the
+#'   last method fit (e.g. \code{"onestep"} when present, else the most
+#'   refined correction available).
+#' @param ... Unused.
+#' @return A \eqn{p \times p} sandwich variance-covariance matrix.
 #' @export
-vcov.mcglm <- function(object, ...) {
-  object$vcov_onestep
+vcov.mcglm <- function(object, method = NULL, ...) {
+  if (is.null(object$vcov)) {
+    # backwards-compat (older fits stored only vcov_onestep)
+    return(object$vcov_onestep)
+  }
+  if (is.null(method)) method <- .mcglm_default_method(object)
+  if (!method %in% names(object$vcov))
+    stop("No variance available for method '", method, "'.")
+  object$vcov[[method]]
 }
 
+
+#' Summary of an \code{mcglm} fit
+#'
+#' Returns a Wald-style coefficient table (estimate, standard error,
+#' z-value, p-value) for each fitted method, using the asymptotic
+#' sandwich variance derived in Battaglia et al. (2025).
+#' @param object An \code{mcglm} object.
+#' @param ... Unused.
 #' @export
 summary.mcglm <- function(object, ...) {
-  cat("Bias-corrected GLM with misclassified covariate\n")
-  cat(sprintf("  Family: %s\n", if (is.character(object$family))
-    object$family else object$family$family))
-  cat(sprintf("  n = %d, p = %d, K = %d\n", object$n, object$p, object$K))
-  cat(sprintf("  Methods: %s\n\n", paste(object$method, collapse = ", ")))
+  fam_str <- .mcglm_family_string(object)
+  ans <- list(
+    call    = object$call,
+    family  = fam_str,
+    n       = object$n,
+    p       = object$p,
+    K       = object$K,
+    method  = object$method,
+    coefficients = list(),
+    deviance     = if (!is.null(object$naive_fit)) object$naive_fit$deviance,
+    df.residual  = if (!is.null(object$naive_fit)) object$naive_fit$df.residual,
+    aic_naive    = if (!is.null(object$naive_fit)) stats::AIC(object$naive_fit),
+    loglik_onestep = object$loglik_onestep
+  )
+  for (nm in names(object$coefficients)) {
+    est <- object$coefficients[[nm]]
+    V   <- if (!is.null(object$vcov)) object$vcov[[nm]] else NULL
+    if (!is.null(V)) {
+      se <- sqrt(pmax(diag(V), 0))
+      z  <- est / se
+      pv <- 2 * stats::pnorm(-abs(z))
+      tab <- cbind(Estimate = est,
+                   `Std. Error` = se,
+                   `z value` = z,
+                   `Pr(>|z|)` = pv)
+    } else {
+      tab <- cbind(Estimate = est)
+    }
+    ans$coefficients[[nm]] <- tab
+  }
+  class(ans) <- "summary.mcglm"
+  ans
+}
 
-  coefs <- do.call(cbind, object$coefficients)
-  colnames(coefs) <- toupper(names(object$coefficients))
-  cat("Coefficients:\n")
-  print(round(coefs, 6))
 
-  if (length(object$coefficients) > 1) {
-    cat("\nBias correction (difference from naive):\n")
-    naive <- object$coefficients$naive
-    diffs <- sapply(object$coefficients[-1], function(v) v - naive)
-    if (!is.matrix(diffs)) diffs <- matrix(diffs, nrow = 1)
-    rownames(diffs) <- names(naive)
-    print(round(diffs, 6))
+#' @export
+print.summary.mcglm <- function(x,
+                                digits = max(3L, getOption("digits") - 3L),
+                                signif.stars = getOption("show.signif.stars"),
+                                ...) {
+  cat("\nCall:\n")
+  if (!is.null(x$call)) print(x$call) else cat("mcglm(...)\n")
+  cat("\nFamily: ", x$family,
+      "  |  n = ", x$n, ", K = ", x$K, ", p = ", x$p, "\n", sep = "")
+  cat("Methods: ", paste(x$method, collapse = ", "), "\n", sep = "")
+
+  for (nm in x$method) {
+    cat("\n--- ", toupper(nm), " ---\n", sep = "")
+    tab <- x$coefficients[[nm]]
+    if (is.null(tab)) next
+    has_p <- ncol(tab) >= 4L
+    stats::printCoefmat(tab, digits = digits,
+                        has.Pvalue = has_p, P.values = has_p,
+                        signif.stars = signif.stars && has_p,
+                        cs.ind = if (has_p) 1:2 else 1L,
+                        tst.ind = if (has_p) 3L else integer(0),
+                        na.print = "NA")
   }
 
-  invisible(object)
+  if (!is.null(x$deviance)) {
+    cat("\nResidual deviance (naive): ",
+        format(signif(x$deviance, digits)),
+        "  on ", x$df.residual, " degrees of freedom\n", sep = "")
+    cat("AIC (naive): ", format(signif(x$aic_naive, digits)), "\n", sep = "")
+  }
+  if (!is.null(x$loglik_onestep)) {
+    cat("logLik (onestep): ", format(signif(x$loglik_onestep, digits)), "\n",
+        sep = "")
+  }
+  if (length(x$coefficients) > 1L) {
+    cat("\nBias correction (difference from naive):\n")
+    naive <- x$coefficients[["naive"]][, "Estimate"]
+    others <- setdiff(names(x$coefficients), "naive")
+    diffs <- sapply(others, function(o)
+      x$coefficients[[o]][, "Estimate"] - naive)
+    if (!is.matrix(diffs)) diffs <- matrix(diffs, nrow = 1L,
+                                           dimnames = list(names(naive), others))
+    print.default(format(diffs, digits = digits), print.gap = 2L,
+                  quote = FALSE)
+  }
+  invisible(x)
+}
+
+
+#' Standard errors of coefficient estimates
+#'
+#' @param object An \code{mcglm} object.
+#' @param method Optional method name.
+#' @return Named numeric vector of standard errors.
+#' @export
+se.mcglm <- function(object, method = NULL) {
+  if (is.null(object$se)) return(sqrt(diag(vcov(object, method = method))))
+  if (is.null(method)) method <- .mcglm_default_method(object)
+  object$se[[method]]
+}
+
+
+#' Wald confidence intervals for an \code{mcglm} fit
+#'
+#' @param object An \code{mcglm} object.
+#' @param parm Optional names or indices of parameters to return.
+#' @param level Coverage level.
+#' @param method Optional estimation method (defaults to the last one fit,
+#'   e.g. \code{"onestep"} if present).
+#' @param ... Unused.
+#' @export
+confint.mcglm <- function(object, parm, level = 0.95, method = NULL, ...) {
+  if (is.null(method)) method <- .mcglm_default_method(object)
+  est <- coef(object, method = method)
+  V   <- vcov(object, method = method)
+  if (is.null(V))
+    stop("No variance available for method '", method, "'.")
+  se   <- sqrt(pmax(diag(V), 0))
+  alpha <- (1 - level) / 2
+  q    <- stats::qnorm(1 - alpha)
+  ci   <- cbind(est - q * se, est + q * se)
+  pct  <- paste0(format(c(alpha, 1 - alpha) * 100,
+                        trim = TRUE, scientific = FALSE,
+                        digits = 3), " %")
+  colnames(ci) <- pct
+  rownames(ci) <- names(est)
+  if (!missing(parm)) ci <- ci[parm, , drop = FALSE]
+  ci
+}
+
+
+#' Fitted values for an \code{mcglm} fit
+#'
+#' @param object An \code{mcglm} object.
+#' @param method Estimation method.
+#' @param ... Unused.
+#' @export
+fitted.mcglm <- function(object, method = NULL, ...) {
+  if (isTRUE(object$is_multinomial))
+    stop("fitted() not yet implemented for multinomial mcglm fits.")
+  if (is.null(method)) method <- .mcglm_default_method(object)
+  psi <- coef(object, method = method)
+  fam <- .mcglm_get_link_funs(object$family)
+  eta <- as.numeric(object$xi_hat %*% unname(psi))
+  setNames(fam$mu(eta), seq_along(eta))
+}
+
+
+#' Linear-predictor or response predictions
+#'
+#' Currently supports in-sample prediction only.
+#' @param object An \code{mcglm} object.
+#' @param newdata Currently unused. Predictions are computed at the in-sample
+#'   proxy design \eqn{\hat\xi_i}.
+#' @param type One of \code{"link"}, \code{"response"}.
+#' @param method Estimation method.
+#' @param ... Unused.
+#' @export
+predict.mcglm <- function(object, newdata = NULL,
+                          type = c("link", "response"),
+                          method = NULL, ...) {
+  type <- match.arg(type)
+  if (!is.null(newdata))
+    stop("predict() with 'newdata' not yet supported for mcglm fits.")
+  if (isTRUE(object$is_multinomial))
+    stop("predict() not yet implemented for multinomial mcglm fits.")
+  if (is.null(method)) method <- .mcglm_default_method(object)
+  psi <- coef(object, method = method)
+  eta <- as.numeric(object$xi_hat %*% unname(psi))
+  if (type == "link") return(eta)
+  fam <- .mcglm_get_link_funs(object$family)
+  fam$mu(eta)
+}
+
+
+#' Residuals for an \code{mcglm} fit
+#'
+#' @param object An \code{mcglm} object.
+#' @param method Estimation method.
+#' @param type One of \code{"response"}, \code{"pearson"}, \code{"deviance"}.
+#' @param ... Unused.
+#' @export
+residuals.mcglm <- function(object, method = NULL,
+                            type = c("response", "pearson", "deviance"),
+                            ...) {
+  type <- match.arg(type)
+  if (isTRUE(object$is_multinomial))
+    stop("residuals() not yet implemented for multinomial mcglm fits.")
+  if (is.null(method)) method <- .mcglm_default_method(object)
+  fam_funs <- .mcglm_get_link_funs(object$family)
+  fam      <- fam_funs$family
+  mu_val   <- fitted(object, method = method)
+  r        <- object$y - mu_val
+  if (type == "response") return(r)
+  if (type == "pearson") return(r / sqrt(fam$variance(mu_val)))
+  wt <- if (is.null(object$weights)) rep.int(1, length(r)) else object$weights
+  d  <- fam$dev.resids(object$y, mu_val, wt = wt)
+  sign(r) * sqrt(d)
+}
+
+
+#' Number of observations
+#' @param object An \code{mcglm} object.
+#' @param ... Unused.
+#' @export
+nobs.mcglm <- function(object, ...) object$n
+
+
+#' Family of an \code{mcglm} fit
+#' @param object An \code{mcglm} object.
+#' @param ... Unused.
+#' @export
+family.mcglm <- function(object, ...) {
+  .mcglm_get_link_funs(object$family)$family
+}
+
+
+#' Formula of an \code{mcglm} fit (NULL for matrix interface)
+#' @param x An \code{mcglm} object.
+#' @param ... Unused.
+#' @export
+formula.mcglm <- function(x, ...) x$formula
+
+
+#' Proxy design matrix used by \code{mcglm}
+#'
+#' Returns the assembled \eqn{\hat\xi_i = (\hat d_i, x_i)} design matrix
+#' (proxy-encoded misclassified covariate plus other covariates).
+#' @param object An \code{mcglm} object.
+#' @param ... Unused.
+#' @export
+model.matrix.mcglm <- function(object, ...) object$xi_hat
+
+
+#' Log-likelihood of an \code{mcglm} fit
+#'
+#' Returns the naive-GLM log-likelihood for \code{method = "naive"} (the
+#' only estimator with a closed-form likelihood for proxy data) or the
+#' integrated mixture log-likelihood for \code{method = "onestep"}. Other
+#' methods do not correspond to a likelihood; an error is thrown.
+#' @param object An \code{mcglm} object.
+#' @param method Estimation method.
+#' @param ... Unused.
+#' @export
+logLik.mcglm <- function(object, method = NULL, ...) {
+  if (is.null(method))
+    method <- if ("onestep" %in% object$method) "onestep" else "naive"
+  if (method == "onestep" && !is.null(object$loglik_onestep)) {
+    val <- object$loglik_onestep
+    df  <- length(coef(object, method = "onestep"))
+    attr(val, "df")   <- df
+    attr(val, "nobs") <- object$n
+    class(val) <- "logLik"
+    return(val)
+  }
+  if (method == "naive" && !is.null(object$naive_fit)) {
+    return(stats::logLik(object$naive_fit))
+  }
+  stop("logLik not defined for method '", method, "'. ",
+       "Available: ", paste(intersect(c("naive", "onestep"), object$method),
+                            collapse = ", "))
+}
+
+
+#' AIC of an \code{mcglm} fit
+#' @param object An \code{mcglm} object.
+#' @param ... Additional arguments (ignored).
+#' @param k Penalty per parameter (default 2).
+#' @export
+AIC.mcglm <- function(object, ..., k = 2) {
+  ll <- logLik(object)
+  -2 * as.numeric(ll) + k * attr(ll, "df")
+}
+
+
+#' BIC of an \code{mcglm} fit
+#' @param object An \code{mcglm} object.
+#' @param ... Additional arguments (ignored).
+#' @export
+BIC.mcglm <- function(object, ...) {
+  ll <- logLik(object)
+  -2 * as.numeric(ll) + log(attr(ll, "nobs")) * attr(ll, "df")
 }

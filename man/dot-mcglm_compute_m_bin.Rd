@@ -4,7 +4,7 @@
 \alias{.mcglm_compute_m_bin}
 \title{Compute per-observation drift m_hat(psi) for binary misclassification}
 \usage{
-.mcglm_compute_m_bin(psi, x, mu_fun, p01, p10, pi_z)
+.mcglm_compute_m_bin(psi, x, mu_fun, c1, c2)
 }
 \description{
 Compute per-observation drift m_hat(psi) for binary misclassification

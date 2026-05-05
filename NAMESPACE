@@ -6,7 +6,7 @@ importFrom(stats, coef, vcov, residuals, fitted, predict, family, formula,
            glm, lm, cov, printCoefmat, pnorm, pt, qnorm, nls,
            gaussian, poisson, binomial, terms, update, delete.response,
            na.omit, na.pass, .getXlevels, model.offset, weights, df.residual,
-           deviance, AIC, logLik, nobs, confint.default, setNames,
+           deviance, AIC, BIC, logLik, nobs, confint.default, setNames,
            quantile, reformulate, as.formula)
 importFrom(graphics, plot, points, lines, par, abline)
 importFrom(MASS, ginv)
@@ -39,5 +39,18 @@ S3method(formula, simex)
 
 S3method(print, mcglm)
 S3method(summary, mcglm)
+S3method(print, summary.mcglm)
 S3method(coef, mcglm)
 S3method(vcov, mcglm)
+S3method(confint, mcglm)
+S3method(fitted, mcglm)
+S3method(predict, mcglm)
+S3method(residuals, mcglm)
+S3method(logLik, mcglm)
+S3method(AIC, mcglm)
+S3method(BIC, mcglm)
+S3method(nobs, mcglm)
+S3method(family, mcglm)
+S3method(formula, mcglm)
+S3method(model.matrix, mcglm)
+export(se.mcglm)

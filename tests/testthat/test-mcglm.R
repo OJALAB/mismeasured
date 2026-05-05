@@ -119,7 +119,7 @@ test_that("print.mcglm runs without error", {
                method = c("naive", "bca"),
                p01 = 0.1, p10 = 0.1, pi_z = 0.5)
 
-  expect_output(print(fit), "Bias-corrected GLM")
+  expect_output(print(fit), "Coefficients")
 })
 
 test_that("summary.mcglm runs without error", {
@@ -133,7 +133,7 @@ test_that("summary.mcglm runs without error", {
                method = c("naive", "bca"),
                p01 = 0.1, p10 = 0.1, pi_z = 0.5)
 
-  expect_output(summary(fit), "Bias correction")
+  expect_output(print(summary(fit)), "Bias correction")
 })
 
 test_that("coef.mcglm returns all or selected method", {
@@ -314,6 +314,152 @@ test_that("unit freq_weights match unweighted fit", {
 
 # --- One-step estimator (if RTMB available) ---
 
+# --- Inference & glm-style methods ---
+
+test_that("mcglm stores per-method vcov and SE", {
+  set.seed(20)
+  n <- 800
+  x <- cbind(1, rnorm(n))
+  z <- rbinom(n, 1, 0.4)
+  y <- rpois(n, exp(0.8 * z - 0.5 * x[, 1] + 0.7 * x[, 2]))
+  z_hat <- z
+  z_hat[z == 0] <- rbinom(sum(z == 0), 1, 0.10)
+  z_hat[z == 1] <- 1 - rbinom(sum(z == 1), 1, 0.15)
+
+  fit <- mcglm(y, z_hat = z_hat, x = x, family = "poisson",
+               method = c("naive", "bca", "bcm", "cs"),
+               p01 = 0.10, p10 = 0.15, pi_z = 0.4)
+
+  for (nm in c("naive", "bca", "bcm", "cs")) {
+    V <- vcov(fit, method = nm)
+    expect_true(is.matrix(V), info = nm)
+    expect_equal(dim(V), c(3L, 3L), info = nm)
+    expect_true(all(is.finite(V)), info = nm)
+    expect_true(all(diag(V) >= 0), info = nm)
+    expect_equal(rownames(V), names(coef(fit, method = nm)), info = nm)
+  }
+  expect_equal(length(fit$se$naive), 3L)
+  expect_true(all(fit$se$cs > 0))
+})
+
+test_that("summary.mcglm prints a Wald table per method", {
+  set.seed(21)
+  n <- 500
+  x <- cbind(1, rnorm(n))
+  z_hat <- rbinom(n, 1, 0.5)
+  y <- rpois(n, exp(0.3 * z_hat + x %*% c(-0.2, 0.4)))
+
+  fit <- mcglm(y, z_hat = z_hat, x = x, family = "poisson",
+               method = c("naive", "bca", "cs"),
+               p01 = 0.1, p10 = 0.1, pi_z = 0.5)
+  s <- summary(fit)
+
+  expect_s3_class(s, "summary.mcglm")
+  expect_named(s$coefficients, c("naive", "bca", "cs"))
+  for (nm in names(s$coefficients)) {
+    tab <- s$coefficients[[nm]]
+    expect_equal(colnames(tab),
+                 c("Estimate", "Std. Error", "z value", "Pr(>|z|)"))
+    expect_true(all(is.finite(tab)))
+  }
+  expect_output(print(s), "Pr\\(>\\|z\\|\\)")
+})
+
+test_that("confint.mcglm returns Wald intervals", {
+  set.seed(22)
+  n <- 500
+  x <- cbind(1, rnorm(n))
+  z_hat <- rbinom(n, 1, 0.5)
+  y <- rpois(n, exp(0.3 * z_hat + x %*% c(-0.2, 0.4)))
+
+  fit <- mcglm(y, z_hat = z_hat, x = x, family = "poisson",
+               method = c("naive", "bca"),
+               p01 = 0.1, p10 = 0.1, pi_z = 0.5)
+  ci <- confint(fit, method = "bca", level = 0.9)
+  expect_equal(dim(ci), c(3L, 2L))
+  expect_equal(rownames(ci), c("gamma", "alpha0", "alpha1"))
+  expect_true(all(ci[, 1] < ci[, 2]))
+  est <- coef(fit, method = "bca")
+  expect_true(all(ci[, 1] <= est & est <= ci[, 2]))
+})
+
+test_that("fitted/predict/residuals work for mcglm", {
+  set.seed(23)
+  n <- 400
+  x <- cbind(1, rnorm(n))
+  z_hat <- rbinom(n, 1, 0.5)
+  y <- rpois(n, exp(0.3 * z_hat + x %*% c(-0.2, 0.4)))
+
+  fit <- mcglm(y, z_hat = z_hat, x = x, family = "poisson",
+               method = c("naive", "bca"),
+               p01 = 0.1, p10 = 0.1, pi_z = 0.5)
+
+  fv <- fitted(fit, method = "naive")
+  expect_length(fv, n)
+  expect_true(all(fv > 0))
+
+  pl <- predict(fit, type = "link", method = "bca")
+  pr <- predict(fit, type = "response", method = "bca")
+  expect_equal(exp(pl), unname(pr), tolerance = 1e-10)
+
+  rr <- residuals(fit, method = "naive", type = "response")
+  expect_equal(unname(rr), y - unname(fv), tolerance = 1e-10)
+
+  rp <- residuals(fit, method = "naive", type = "pearson")
+  expect_equal(rp, rr / sqrt(unname(fv)), tolerance = 1e-10)
+
+  expect_silent(residuals(fit, method = "naive", type = "deviance"))
+})
+
+test_that("logLik / AIC / BIC / nobs / family / model.matrix work", {
+  set.seed(24)
+  n <- 300
+  x <- cbind(1, rnorm(n))
+  z_hat <- rbinom(n, 1, 0.5)
+  y <- rpois(n, exp(0.3 * z_hat + x %*% c(-0.2, 0.4)))
+
+  fit <- mcglm(y, z_hat = z_hat, x = x, family = "poisson",
+               method = c("naive", "bca"),
+               p01 = 0.1, p10 = 0.1, pi_z = 0.5)
+
+  ll <- logLik(fit, method = "naive")
+  expect_s3_class(ll, "logLik")
+  expect_equal(attr(ll, "nobs"), n)
+
+  expect_equal(AIC(fit), AIC(fit$naive_fit))
+  expect_true(is.finite(BIC(fit)))
+  expect_equal(nobs(fit), n)
+  expect_s3_class(family(fit), "family")
+  expect_equal(family(fit)$family, "poisson")
+
+  M <- model.matrix(fit)
+  expect_equal(dim(M), c(n, 3L))
+})
+
+test_that("Wald CI coverage is reasonable for naive Poisson", {
+  skip_on_cran()
+  set.seed(101)
+  n <- 1500
+  psi0 <- c(0.6, -0.3, 0.5)
+  hits <- 0L
+  reps <- 50
+  for (i in seq_len(reps)) {
+    x <- cbind(1, rnorm(n))
+    z <- rbinom(n, 1, 0.4)
+    y <- rpois(n, exp(psi0[1] * z + x %*% psi0[-1]))
+    p01 <- 0.05; p10 <- 0.05
+    z_hat <- z
+    z_hat[z == 0] <- rbinom(sum(z == 0), 1, p01)
+    z_hat[z == 1] <- 1 - rbinom(sum(z == 1), 1, p10)
+    fit <- mcglm(y, z_hat = z_hat, x = x, family = "poisson",
+                 method = c("naive", "bca"),
+                 p01 = p01, p10 = p10, pi_z = 0.4)
+    ci <- confint(fit, method = "bca")
+    if (psi0[1] >= ci[1, 1] && psi0[1] <= ci[1, 2]) hits <- hits + 1L
+  }
+  expect_gt(hits / reps, 0.7)
+})
+
 test_that("mcglm onestep works when RTMB available", {
   skip_if_not_installed("RTMB")
 
@@ -337,4 +483,9 @@ test_that("mcglm onestep works when RTMB available", {
   expect_true(all(is.finite(fit$coefficients$onestep)))
   expect_false(is.null(fit$vcov_onestep))
   expect_equal(nrow(fit$vcov_onestep), 3)
+  # vcov.mcglm dispatch should also surface the onestep matrix
+  expect_equal(vcov(fit, method = "onestep"), fit$vcov_onestep)
+  expect_true(all(se.mcglm(fit, method = "onestep") > 0))
+  ll <- logLik(fit, method = "onestep")
+  expect_s3_class(ll, "logLik")
 })

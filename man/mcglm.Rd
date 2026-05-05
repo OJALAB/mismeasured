@@ -14,9 +14,12 @@ mcglm(
   pi_z = NULL,
   Pi = NULL,
   K = NULL,
+  c1 = NULL,
+  c2 = NULL,
   iterate = FALSE,
-  weights = "fixed",
-  freq_weights = NULL,
+  fix_omega = FALSE,
+  vcov_corrected = FALSE,
+  weights = NULL,
   J = NULL,
   homoskedastic = TRUE,
   optim_control = list(),
@@ -54,12 +57,29 @@ this is extracted from the \code{mc()} term. Columns must sum to 1:
 
 \item{K}{Number of categories. Auto-detected if \code{NULL}.}
 
+\item{c1}{Pre-computed misclassification constant \eqn{c_1 = p_{01}(1-\pi_z)}.
+For binary case; computed automatically from \code{p01} and \code{pi_z}
+if not supplied directly.}
+
+\item{c2}{Pre-computed misclassification constant
+\eqn{c_2 = p_{01}(1-\pi_z) - p_{10}\pi_z}.
+For binary case; computed automatically from \code{p01}, \code{p10},
+and \code{pi_z} if not supplied directly.}
+
 \item{iterate}{Logical. If \code{TRUE}, iterate BCA/BCM until convergence.}
 
-\item{weights}{Character: \code{"fixed"} (default) or \code{"estimated"}
-(only for onestep).}
+\item{fix_omega}{Logical. If \code{TRUE}, fix the mixture weights (omega) at
+the values implied by the supplied misclassification parameters (onestep
+only). Default \code{FALSE} estimates omega jointly.}
 
-\item{freq_weights}{Optional frequency weights vector (length n, positive).}
+\item{vcov_corrected}{Logical. If \code{TRUE}, the BCA/BCM variance
+estimators account for the additional uncertainty due to estimating the
+drift correction term (joint score-and-drift sandwich). If \code{FALSE}
+(default), the asymptotic variance \eqn{A^{-1} C A^{-1}} from
+Theorem 5 of Battaglia et al. (2025) is used (drifting-regime sandwich
+evaluated at the corrected estimate).}
+
+\item{weights}{Optional frequency weights vector (length n, positive).}
 
 \item{J}{Number of response categories for multinomial. Auto-detected.}
 
@@ -75,14 +95,17 @@ this is extracted from the \code{mc()} term. Columns must sum to 1:
 An object of class \code{"mcglm"}, a list with components:
   \describe{
     \item{coefficients}{Named list of coefficient vectors, one per method.}
+    \item{vcov}{Named list of asymptotic variance-covariance matrices,
+      one per method (sandwich estimators from the paper's theorems).}
+    \item{se}{Named list of standard errors per method.}
     \item{naive_fit}{The \code{glm} object from the naive fit.}
     \item{method}{Methods used.}
     \item{family}{The GLM family.}
     \item{K}{Number of categories.}
     \item{n, p}{Sample size and number of parameters.}
-    \item{freq_weights}{Frequency weights used (NULL if unweighted).}
-    \item{vcov_onestep}{Variance-covariance matrix (if onestep used).}
+    \item{weights}{Frequency weights used (NULL if unweighted).}
     \item{loglik_onestep}{Log-likelihood at one-step estimate.}
+    \item{call, formula}{The matched call and (if used) formula.}
   }
 }
 \description{
@@ -105,8 +128,7 @@ x1 <- rnorm(n)
 y <- rpois(n, exp(0.8 * z + -0.5 + 0.7 * x1))
 df <- data.frame(y = y, z = factor(z_hat), x1 = x1)
 
-fit <- mcglm(y ~ mc(z, Pi) + x1, data = df, family = "poisson",
-             pi_z = 0.4)
+fit <- mcglm(y ~ mc(z, Pi) + x1, data = df, family = "poisson")
 fit
 
 # --- Matrix interface ---

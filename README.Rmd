@@ -44,6 +44,9 @@ The `mismeasured` package provides two complementary approaches for correcting b
 - **CS** --- corrected-score estimator
 - **One-step** --- joint mixture-likelihood via automatic differentiation (RTMB)
 - Supports binary and multicategory misclassified covariates, Poisson/Binomial/Gaussian families, and multinomial response models
+- Asymptotic inference (sandwich SE, Wald CIs) and the usual glm-style
+  S3 methods (`summary`, `vcov`, `confint`, `fitted`, `predict`,
+  `residuals`, `logLik`, `AIC`, ...) are provided for every method
 
 ## Quick start
 
@@ -109,6 +112,28 @@ df3 <- data.frame(y = y, z = factor(z_hat), x1 = x1)
 fit <- mcglm(y ~ mc(z, Pi) + x1, data = df3, family = "poisson",
              method = c("naive", "bca", "bcm", "cs"), pi_z = 0.4)
 fit
+```
+
+#### Inference and glm-style methods
+
+`mcglm()` returns asymptotic standard errors for every fitted method
+(sandwich estimators from Battaglia et al., 2025). All the usual GLM
+S3 methods are available; pass `method =` to select an estimator.
+
+```{r mcglm-inference}
+# Wald table per method (estimate, SE, z, p)
+summary(fit)
+
+# Variance-covariance matrix and confidence intervals for the CS estimator
+vcov(fit, method = "cs")
+confint(fit, method = "cs", level = 0.95)
+
+# Standard glm helpers, dispatched per-method
+coef(fit, method = "bca")
+head(fitted(fit, method = "cs"))
+head(residuals(fit, method = "cs", type = "pearson"))
+AIC(fit)         # naive log-likelihood when no onestep was fit
+nobs(fit); family(fit)$family
 ```
 
 ## Formula syntax (simex)

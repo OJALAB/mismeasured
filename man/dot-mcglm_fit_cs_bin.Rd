@@ -4,7 +4,7 @@
 \alias{.mcglm_fit_cs_bin}
 \title{Corrected-score estimator for binary misclassification}
 \usage{
-.mcglm_fit_cs_bin(psi_init, y, xi_hat, x, family, p01, p10, pi_z, wt = NULL)
+.mcglm_fit_cs_bin(psi_init, y, xi_hat, x, family, c1, c2, wt = NULL)
 }
 \description{
 Corrected-score estimator for binary misclassification

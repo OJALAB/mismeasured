@@ -14,7 +14,7 @@
   p10 = NULL,
   pi_z = NULL,
   Pi = NULL,
-  weights = "fixed",
+  fix_omega = FALSE,
   optim_control = list(),
   wt = NULL
 )

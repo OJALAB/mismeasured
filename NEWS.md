@@ -1,3 +1,30 @@
+# mismeasured 0.5.1
+
+## New features
+
+* **Asymptotic inference for `mcglm()`**: each fitted method (`naive`,
+  `bca`, `bcm`, `cs`, `onestep`) now carries its own asymptotic
+  variance-covariance matrix and standard errors. Variance estimators
+  follow Battaglia, Christensen, Hansen and Sacher (2025):
+  the drifting-regime sandwich \eqn{A^{-1} C A^{-1}} for naive/BCA/BCM
+  (Theorems on two-step and BC), the Z-estimator sandwich
+  \eqn{J^{-1} S J^{-T}} for CS, and the inverse Hessian for the
+  one-step mixture-likelihood estimator.
+
+* **`vcov_corrected` argument**: when set to `TRUE`, the BCA/BCM
+  variance accounts for the additional uncertainty due to the estimated
+  drift correction (joint score-and-drift sandwich). The default
+  (`FALSE`) returns the asymptotic variance from the paper's theorems.
+
+* **glm-style S3 methods for `mcglm` objects**:
+  `summary()` (Wald table per method with z-values and p-values),
+  `print()` (call / family / coefficient table / null + residual
+  deviance / AIC), `vcov()`, `coef()`, `confint()`, `fitted()`,
+  `predict()`, `residuals()` (response/pearson/deviance), `logLik()`
+  (naive and onestep), `AIC()`, `BIC()`, `nobs()`, `family()`,
+  `formula()`, `model.matrix()`, plus `se.mcglm()` for standard errors.
+  All accept a `method = ...` argument to select the estimator.
+
 # mismeasured 0.5.0
 
 ## Bug fixes

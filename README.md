@@ -45,6 +45,9 @@ covariates (Battaglia, Christensen, Hansen & Sacher, 2025):
   (RTMB)
 - Supports binary and multicategory misclassified covariates,
   Poisson/Binomial/Gaussian families, and multinomial response models
+- Asymptotic inference (sandwich SE, Wald CIs) and the usual glm-style
+  S3 methods (`summary`, `vcov`, `confint`, `fitted`, `predict`,
+  `residuals`, `logLik`, `AIC`, …) are provided for every method
 
 ## Quick start
 
@@ -164,13 +167,110 @@ df3 <- data.frame(y = y, z = factor(z_hat), x1 = x1)
 fit <- mcglm(y ~ mc(z, Pi) + x1, data = df3, family = "poisson",
              method = c("naive", "bca", "bcm", "cs"), pi_z = 0.4)
 fit
-#> Bias-corrected GLM with misclassified covariate
-#>   n = 5000, p = 3, K = 2
 #> 
-#>          NAIVE     BCA     BCM      CS
-#> gamma   0.6272  0.7843  0.8367  0.8400
-#> alpha0 -0.4113 -0.4988 -0.5280 -0.5353
-#> alpha1  0.7134  0.7136  0.7137  0.7137
+#> Call:
+#> mcglm(formula = y ~ mc(z, Pi) + x1, data = df3, family = "poisson", 
+#>     method = c("naive", "bca", "bcm", "cs"), pi_z = 0.4)
+#> 
+#> Family: poisson  |  n = 5000, K = 2, p = 3
+#> Methods: naive, bca, bcm, cs
+#> 
+#> Coefficients:
+#>         NAIVE    BCA      BCM      CS     
+#> gamma    0.6272   0.7843   0.8367   0.8400
+#> alpha0  -0.4113  -0.4988  -0.5280  -0.5353
+#> alpha1   0.7134   0.7136   0.7137   0.7137
+#> 
+#> Degrees of Freedom: 5000 Total (i.e. Null);  4997 Residual
+#> Null Deviance:     9252 
+#> Residual Deviance: 5660  | AIC (naive): 12590
+```
+
+#### Inference and glm-style methods
+
+`mcglm()` returns asymptotic standard errors for every fitted method
+(sandwich estimators from Battaglia et al., 2025). All the usual GLM S3
+methods are available; pass `method =` to select an estimator.
+
+``` r
+# Wald table per method (estimate, SE, z, p)
+summary(fit)
+#> 
+#> Call:
+#> mcglm(formula = y ~ mc(z, Pi) + x1, data = df3, family = "poisson", 
+#>     method = c("naive", "bca", "bcm", "cs"), pi_z = 0.4)
+#> 
+#> Family: poisson  |  n = 5000, K = 2, p = 3
+#> Methods: naive, bca, bcm, cs
+#> 
+#> --- NAIVE ---
+#>        Estimate Std. Error z value Pr(>|z|)    
+#> gamma   0.62722    0.02866   21.89   <2e-16 ***
+#> alpha0 -0.41131    0.02356  -17.46   <2e-16 ***
+#> alpha1  0.71335    0.01470   48.52   <2e-16 ***
+#> ---
+#> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+#> 
+#> --- BCA ---
+#>        Estimate Std. Error z value Pr(>|z|)    
+#> gamma   0.78434    0.02951   26.58   <2e-16 ***
+#> alpha0 -0.49881    0.02539  -19.64   <2e-16 ***
+#> alpha1  0.71364    0.01461   48.85   <2e-16 ***
+#> ---
+#> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+#> 
+#> --- BCM ---
+#>        Estimate Std. Error z value Pr(>|z|)    
+#> gamma   0.83669    0.02994   27.95   <2e-16 ***
+#> alpha0 -0.52797    0.02608  -20.24   <2e-16 ***
+#> alpha1  0.71374    0.01461   48.87   <2e-16 ***
+#> ---
+#> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+#> 
+#> --- CS ---
+#>        Estimate Std. Error z value Pr(>|z|)    
+#> gamma   0.83996    0.03956   21.23   <2e-16 ***
+#> alpha0 -0.53531    0.02980  -17.96   <2e-16 ***
+#> alpha1  0.71374    0.01468   48.61   <2e-16 ***
+#> ---
+#> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+#> 
+#> Residual deviance (naive): 5660  on 4997 degrees of freedom
+#> AIC (naive): 12590
+#> 
+#> Bias correction (difference from naive):
+#>         bca         bcm         cs        
+#> gamma    0.1571192   0.2094717   0.2127385
+#> alpha0  -0.0874993  -0.1166543  -0.1240022
+#> alpha1   0.0002896   0.0003861   0.0003856
+
+# Variance-covariance matrix and confidence intervals for the CS estimator
+vcov(fit, method = "cs")
+#>                gamma        alpha0        alpha1
+#> gamma   1.564896e-03 -0.0009691680  7.824985e-06
+#> alpha0 -9.691680e-04  0.0008882385 -1.399587e-04
+#> alpha1  7.824985e-06 -0.0001399587  2.155703e-04
+confint(fit, method = "cs", level = 0.95)
+#>             2.5 %     97.5 %
+#> gamma   0.7624216  0.9174891
+#> alpha0 -0.5937283 -0.4769014
+#> alpha1  0.6849617  0.7425153
+
+# Standard glm helpers, dispatched per-method
+coef(fit, method = "bca")
+#>      gamma     alpha0     alpha1 
+#>  0.7843361 -0.4988120  0.7136425
+head(fitted(fit, method = "cs"))
+#>         1         2         3         4         5         6 
+#> 2.1069839 0.5835903 0.5485658 1.8041813 0.8913723 0.5784742
+head(residuals(fit, method = "cs", type = "pearson"))
+#>           1           2           3           4           5           6 
+#> -0.07370344  1.85410728 -0.74065227 -0.59870637 -0.94412515 -0.76057489
+AIC(fit)         # naive log-likelihood when no onestep was fit
+#> [1] 12592.08
+nobs(fit); family(fit)$family
+#> [1] 5000
+#> [1] "poisson"
 ```
 
 ## Formula syntax (simex)

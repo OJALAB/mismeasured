@@ -12,7 +12,7 @@
   p01 = NULL,
   p10 = NULL,
   pi_z = NULL,
-  weights = "fixed",
+  fix_omega = FALSE,
   homoskedastic = TRUE,
   optim_control = list(),
   wt = NULL
