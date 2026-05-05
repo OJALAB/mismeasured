@@ -1,96 +1,244 @@
 #' Bias-Corrected GLM Estimation with Misclassified Covariates
 #'
-#' Fits a GLM where one covariate is observed with misclassification error and
-#' applies bias corrections following Battaglia et al. (2025). Supports binary
-#' and multicategory misclassified covariates and five estimation methods:
-#' naive, BCA (additive bias correction), BCM (multiplicative bias correction),
-#' CS (corrected score), and one-step (joint mixture-likelihood via RTMB).
+#' Fits a GLM in which one covariate is observed through a misclassified
+#' proxy and applies the bias-correction estimators of Battaglia,
+#' Christensen, Hansen and Sacher (2025). Five estimators are available:
+#' \emph{naive} (uncorrected proxy-score), \emph{BCA} (additive bias
+#' correction), \emph{BCM} (multiplicative bias correction), \emph{CS}
+#' (corrected score), and \emph{one-step} (joint mixture likelihood via
+#' \pkg{RTMB}). Both binary and multicategory latent regressors are
+#' supported.
 #'
-#' @param formula Either a formula of the form \code{y ~ mc(z, Pi) + x1 + x2}
-#'   (where \code{mc()} marks the misclassified covariate with its
-#'   misclassification matrix), or a numeric response vector (for the
-#'   matrix interface).
-#' @param data A data frame (required when using the formula interface).
+#' @section Model and notation:
+#' Let \eqn{Y_i} denote a scalar response, \eqn{x_i \in \mathbb{R}^r} a
+#' vector of cleanly observed covariates (typically including an
+#' intercept), and \eqn{Z_i \in \{0, 1, \dots, K-1\}} a latent categorical
+#' regressor that is observed only through a proxy \eqn{\hat Z_i}.
+#' For the binary case (\eqn{K = 2}) we let
+#' \eqn{\xi_i = (Z_i, x_i^\top)^\top} and
+#' \eqn{\hat\xi_i = (\hat Z_i, x_i^\top)^\top}; for \eqn{K > 2},
+#' \eqn{Z_i} is dummy-encoded with baseline category 0 and
+#' \eqn{\xi_i = (d_i^\top, x_i^\top)^\top}.
+#' The parameter is \eqn{\psi = (\gamma^\top, \alpha^\top)^\top}, where
+#' \eqn{\gamma \in \mathbb{R}^{K-1}} are the coefficients on the
+#' (dummy-coded) latent regressor and \eqn{\alpha \in \mathbb{R}^r}
+#' the coefficients on \eqn{x_i}. The conditional mean is
+#' \eqn{E[Y_i | Z_i, x_i] = \mu(\psi^\top \xi_i)} for
+#' \eqn{\mu = g^{-1}} the inverse canonical link.
+#'
+#' \emph{Misclassification mechanism.}
+#' For \eqn{K = 2}, the mechanism is summarized by the false-positive
+#' rate \eqn{p_{01} = \Pr(\hat Z = 1 \mid Z = 0)}, the false-negative
+#' rate \eqn{p_{10} = \Pr(\hat Z = 0 \mid Z = 1)} and the prevalence
+#' \eqn{\pi = \Pr(Z = 1)}. For \eqn{K > 2}, by the \eqn{K \times K}
+#' matrix \eqn{\Pi_{j\ell} = \Pr(\hat Z = j - 1 \mid Z = \ell - 1)}
+#' (column-stochastic) and the prevalence vector
+#' \eqn{(\pi_0, \dots, \pi_{K-1})}. Misclassification is assumed
+#' nondifferential: \eqn{\hat Z \perp\!\!\!\perp (Y, x) \mid Z}.
+#'
+#' \emph{Estimators.}
+#' Let \eqn{\hat\psi} solve the proxy score
+#' \eqn{\hat U_n(\psi) = n^{-1} \sum_i \hat\xi_i \{Y_i - \mu(\psi^\top \hat\xi_i)\} = 0}
+#' (this is the naive GLM estimator). Define the per-observation drift
+#' \eqn{m_i(\psi) = (-c_1 \delta_i(\psi),\, -c_2 \delta_i(\psi)\, x_i)^\top}
+#' with \eqn{\delta_i(\psi) = \mu(\gamma + \alpha^\top x_i) - \mu(\alpha^\top x_i)},
+#' \eqn{c_1 = p_{01}(1 - \pi)} and
+#' \eqn{c_2 = p_{01}(1 - \pi) - p_{10} \pi}, and let
+#' \eqn{\hat I(\psi) = n^{-1} \sum_i \dot\mu(\psi^\top \hat\xi_i) \hat\xi_i \hat\xi_i^\top}
+#' and \eqn{\hat M(\psi) = \partial \hat m / \partial \psi^\top}. Then:
+#'
+#' \describe{
+#'   \item{BCA:}{\eqn{\hat\psi_{\mathrm{bca}} = \hat\psi - \hat I(\hat\psi)^{-1} \hat m(\hat\psi)}}
+#'   \item{BCM:}{\eqn{\hat\psi_{\mathrm{bcm}} = \hat\psi - (\hat I(\hat\psi) + \hat M(\hat\psi))^{-1} \hat m(\hat\psi)}}
+#'   \item{CS:}{solves \eqn{n^{-1} \sum_i \phi_i(\psi) = 0} with
+#'     \eqn{\phi_i(\psi) = \hat\xi_i \{Y_i - \mu(\psi^\top \hat\xi_i)\} - m_i(\psi)}}
+#'   \item{one-step:}{maximizes the integrated mixture likelihood
+#'     \eqn{\prod_i \sum_\ell \pi_\ell\, \Pi_{\hat z_i+1, \ell+1}\, f(Y_i \mid Z = \ell, \psi)}
+#'     by automatic differentiation (\pkg{RTMB}).}
+#' }
+#'
+#' Multicategory analogues replace \eqn{(p_{01}, p_{10}, \pi)} with
+#' \eqn{(\Pi, \pi_z)} throughout; see Appendix B of Battaglia et al.
+#' (2025) for explicit formulas.
+#'
+#' \emph{Inference.}
+#' All five estimators report an asymptotic variance through
+#' \code{\link{vcov.mcglm}}: \eqn{A^{-1} C A^{-1}} for naive / BCA / BCM
+#' (Theorems on the two-step expansion and on bias-corrected estimators
+#' under drifting misclassification), \eqn{J^{-1} S J^{-\top}} for CS
+#' (Z-estimator sandwich, with \eqn{J = -(\hat I + \hat M)},
+#' \eqn{S = E[\phi_i \phi_i^\top]}), and the inverse Hessian of the
+#' integrated log-likelihood for one-step. See \code{vcov_corrected}
+#' below for an alternative, more conservative BCA/BCM sandwich.
+#'
+#' @section Required inputs by method:
+#' Only the chosen \code{method}s' inputs are validated; you do not have
+#' to supply parameters for methods you are not fitting.
+#'
+#' \tabular{lll}{
+#'   \strong{Method}    \tab \strong{Binary (K = 2)}                    \tab \strong{Multicategory (K > 2)} \cr
+#'   \code{"naive"}    \tab \emph{none}                                 \tab \emph{none} \cr
+#'   \code{"bca"}, \code{"bcm"}, \code{"cs"} \tab \code{c1} and \code{c2}, or \code{p01}/\code{p10}/\code{pi_z}, or \code{Pi} \tab \code{Pi} and \code{pi_z} \cr
+#'   \code{"onestep"} (\code{fix_omega = FALSE}) \tab \emph{none} (mixture weights estimated) \tab \emph{none} \cr
+#'   \code{"onestep"} (\code{fix_omega = TRUE})  \tab \code{p01}, \code{p10}, \code{pi_z} \tab \code{Pi}, \code{pi_z}
+#' }
+#'
+#' \emph{Auto-derivations performed by} \code{mcglm}\emph{:}
+#' \itemize{
+#'   \item If \code{Pi} is supplied with \code{nrow(Pi) == 2},
+#'     \code{p01 = Pi[2, 1]} and \code{p10 = Pi[1, 2]} are extracted.
+#'   \item If \code{Pi} and \code{z_hat} are available but \code{pi_z}
+#'     is not, \code{pi_z} is estimated by Bayesian inversion of the
+#'     observed proxy frequencies (\code{.mcglm_estimate_pi_z}).
+#'   \item If \code{p01}, \code{p10}, \code{pi_z} are available but
+#'     \code{c1}, \code{c2} are not, the latter are computed from the
+#'     formulas above.
+#' }
+#' Supplying \code{c1} and \code{c2} directly is an "advanced" path
+#' that bypasses these checks. The formula interface
+#' (\code{y ~ mc(z, Pi) + ...}) extracts \code{Pi} automatically and is
+#' the recommended entry point.
+#'
+#' @param formula Either a formula of the form
+#'   \code{y ~ mc(z, Pi) + x1 + x2}, where \code{\link{mc}()} marks the
+#'   misclassified covariate \eqn{\hat Z_i} together with its
+#'   misclassification matrix \eqn{\Pi}; or, when using the matrix
+#'   interface, a numeric response vector of length \eqn{n}.
+#' @param data A data frame (required for the formula interface). The
+#'   variable named in \code{mc()} should be a \code{\link{factor}} or
+#'   integer-valued vector with levels coded as \eqn{0, 1, \dots, K-1}.
 #' @param family A \code{\link[stats]{family}} object or one of
-#'   \code{"poisson"}, \code{"binomial"}, \code{"gaussian"},
-#'   \code{"multinomial"}.
-#' @param method Character vector of methods to compute. Any subset of
-#'   \code{c("naive", "bca", "bcm", "cs", "onestep")}.
-#' @param p01 False-positive rate P(Z_hat = 1 | Z = 0). For binary case;
-#'   if \code{Pi} is provided, extracted automatically.
-#' @param p10 False-negative rate P(Z_hat = 0 | Z = 1). For binary case;
-#'   if \code{Pi} is provided, extracted automatically.
-#' @param pi_z Prevalence P(Z = 1) (binary) or K-vector of class prevalences
-#'   (multicategory). Required for correction methods.
-#' @param Pi K x K misclassification matrix. When using the formula interface,
-#'   this is extracted from the \code{mc()} term. Columns must sum to 1:
-#'   \code{Pi[j, l] = P(Z_hat = j-1 | Z = l-1)}.
-#' @param K Number of categories. Auto-detected if \code{NULL}.
-#' @param c1 Pre-computed misclassification constant \eqn{c_1 = p_{01}(1-\pi_z)}.
-#'   For binary case; computed automatically from \code{p01} and \code{pi_z}
-#'   if not supplied directly.
+#'   the strings \code{"poisson"}, \code{"binomial"}, \code{"gaussian"}
+#'   (any \eqn{K}, all five methods), or \code{"multinomial"}
+#'   (\code{naive} and \code{onestep} only).
+#' @param method Character vector of estimators to fit. Any subset of
+#'   \code{c("naive", "bca", "bcm", "cs", "onestep")}; the default is
+#'   the four analytical estimators.
+#' @param p01 False-positive rate \eqn{p_{01} = \Pr(\hat Z = 1 \mid Z = 0)}
+#'   (\code{K = 2} only). Auto-extracted from \code{Pi} when supplied.
+#' @param p10 False-negative rate \eqn{p_{10} = \Pr(\hat Z = 0 \mid Z = 1)}
+#'   (\code{K = 2} only). Auto-extracted from \code{Pi} when supplied.
+#' @param pi_z Latent prevalence: a scalar
+#'   \eqn{\pi = \Pr(Z = 1)} (\code{K = 2}) or a \eqn{K}-vector
+#'   \eqn{(\pi_0, \dots, \pi_{K-1})} of class probabilities. If
+#'   \code{NULL}, \code{pi_z} is estimated from \code{z_hat} and
+#'   \code{Pi} via \eqn{\hat\pi = \Pi^{-1} \hat\pi_{\text{obs}}}
+#'   (clamped to \eqn{[0.01, 0.99]}).
+#' @param Pi The \eqn{K \times K} misclassification matrix
+#'   \eqn{\Pi_{j\ell} = \Pr(\hat Z = j - 1 \mid Z = \ell - 1)}; columns
+#'   must sum to 1. Extracted automatically from the \code{mc()} term
+#'   when using the formula interface.
+#' @param K Number of latent categories. Auto-detected from \code{Pi}
+#'   or, failing that, from the levels of \code{z_hat}.
+#' @param c1 Pre-computed misclassification constant
+#'   \eqn{c_1 = p_{01}(1 - \pi)} (binary case, advanced use). Computed
+#'   from \code{p01} and \code{pi_z} when \code{NULL}.
 #' @param c2 Pre-computed misclassification constant
-#'   \eqn{c_2 = p_{01}(1-\pi_z) - p_{10}\pi_z}.
-#'   For binary case; computed automatically from \code{p01}, \code{p10},
-#'   and \code{pi_z} if not supplied directly.
-#' @param iterate Logical. If \code{TRUE}, iterate BCA/BCM until convergence.
-#' @param fix_omega Logical. If \code{TRUE}, fix the mixture weights (omega) at
-#'   the values implied by the supplied misclassification parameters (onestep
-#'   only). Default \code{FALSE} estimates omega jointly.
+#'   \eqn{c_2 = p_{01}(1 - \pi) - p_{10} \pi} (binary case, advanced
+#'   use). Computed from \code{p01}, \code{p10} and \code{pi_z} when
+#'   \code{NULL}.
+#' @param iterate Logical. If \code{TRUE}, iterate the BCA/BCM updates
+#'   to convergence (the iterated BCM solves the corrected score
+#'   equation; iterated BCA performs Newton steps on the additive
+#'   correction).
+#' @param fix_omega Logical. If \code{TRUE}, fix the mixture weights
+#'   in the one-step estimator at the values implied by the supplied
+#'   misclassification parameters; if \code{FALSE} (default), they are
+#'   estimated jointly with \eqn{\psi} via a softmax parameterization.
 #' @param vcov_corrected Logical. If \code{TRUE}, the BCA/BCM variance
-#'   estimators account for the additional uncertainty due to estimating the
-#'   drift correction term (joint score-and-drift sandwich). If \code{FALSE}
-#'   (default), the asymptotic variance \eqn{A^{-1} C A^{-1}} from
-#'   Theorem 5 of Battaglia et al. (2025) is used (drifting-regime sandwich
-#'   evaluated at the corrected estimate).
-#' @param weights Optional frequency weights vector (length n, positive).
-#' @param J Number of response categories for multinomial. Auto-detected.
-#' @param homoskedastic Logical. For Gaussian one-step, assume common variance.
-#' @param optim_control List of control parameters for \code{nlminb} (onestep).
-#' @param z_hat Integer vector of observed proxy covariate (matrix interface).
-#' @param x Covariate matrix including intercept (matrix interface).
+#'   accounts for the additional uncertainty due to plug-in estimation
+#'   of \eqn{\hat m(\hat\psi)} (joint score-and-drift sandwich); if
+#'   \code{FALSE} (default), the drifting-regime asymptotic variance
+#'   \eqn{A^{-1} C A^{-1}} is used. Both share the same point estimate.
+#' @param weights Optional positive frequency weights of length \eqn{n}.
+#' @param J Number of response categories (multinomial family only;
+#'   auto-detected).
+#' @param homoskedastic Logical. For one-step Gaussian fits, assume a
+#'   single residual variance across mixture components; if
+#'   \code{FALSE}, separate variances are estimated.
+#' @param optim_control List of control parameters passed to
+#'   \code{\link[stats]{nlminb}} for the one-step estimator.
+#' @param z_hat Integer vector of observed proxy values
+#'   \eqn{\hat Z_i \in \{0, \dots, K-1\}} (matrix interface only).
+#' @param x Covariate matrix \eqn{[x_1, \dots, x_n]^\top} of dimension
+#'   \eqn{n \times r}; should include an intercept column when one is
+#'   desired (matrix interface only).
 #'
-#' @return An object of class \code{"mcglm"}, a list with components:
+#' @return An object of class \code{"mcglm"} with components:
 #'   \describe{
-#'     \item{coefficients}{Named list of coefficient vectors, one per method.}
-#'     \item{vcov}{Named list of asymptotic variance-covariance matrices,
-#'       one per method (sandwich estimators from the paper's theorems).}
+#'     \item{coefficients}{Named list of coefficient vectors
+#'       \eqn{\hat\psi}, one per method.}
+#'     \item{vcov}{Named list of asymptotic variance-covariance
+#'       matrices, one per method (sandwich estimators from the
+#'       paper's theorems).}
 #'     \item{se}{Named list of standard errors per method.}
-#'     \item{naive_fit}{The \code{glm} object from the naive fit.}
-#'     \item{method}{Methods used.}
-#'     \item{family}{The GLM family.}
-#'     \item{K}{Number of categories.}
-#'     \item{n, p}{Sample size and number of parameters.}
-#'     \item{weights}{Frequency weights used (NULL if unweighted).}
-#'     \item{loglik_onestep}{Log-likelihood at one-step estimate.}
-#'     \item{call, formula}{The matched call and (if used) formula.}
+#'     \item{naive_fit}{The \code{\link[stats]{glm}} object from the
+#'       naive fit (\code{NULL} for multinomial).}
+#'     \item{method, family, K, n, p}{Metadata.}
+#'     \item{weights}{Frequency weights used (\code{NULL} if
+#'       unweighted).}
+#'     \item{loglik_onestep, vcov_onestep}{One-step log-likelihood
+#'       and variance (when \code{onestep} is fit).}
+#'     \item{call, formula}{The matched call and the formula
+#'       (\code{NULL} if the matrix interface was used).}
 #'   }
+#'   See \code{\link{summary.mcglm}}, \code{\link{vcov.mcglm}},
+#'   \code{\link{confint.mcglm}}, \code{\link{predict.mcglm}}, and
+#'   \code{\link{logLik.mcglm}} for downstream methods.
 #'
 #' @references
 #' Battaglia, L., Christensen, T., Hansen, S. and Sacher, S. (2025).
 #' Inference for regression with variables generated by AI or machine
 #' learning. \emph{arXiv preprint arXiv:2402.15585}.
 #'
+#' @seealso \code{\link{simex}} for SIMEX and MC-SIMEX corrections;
+#'   \code{\link{mc}} for the formula-interface marker;
+#'   \code{\link{summary.mcglm}}, \code{\link{vcov.mcglm}},
+#'   \code{\link{confint.mcglm}}.
+#'
 #' @examples
-#' # --- Formula interface ---
+#' # --- Formula interface (binary misclassification, Poisson) ---
 #' set.seed(42)
-#' n <- 2000
-#' Pi <- matrix(c(0.9, 0.1, 0.15, 0.85), 2, 2)
-#' z <- rbinom(n, 1, 0.4)
-#' z_hat <- z
-#' z_hat[z == 0] <- rbinom(sum(z == 0), 1, 0.10)
-#' z_hat[z == 1] <- 1 - rbinom(sum(z == 1), 1, 0.15)
+#' n  <- 2000
+#' Pi <- matrix(c(0.90, 0.10,    # Pi[2,1] = p01 = 0.10
+#'                0.15, 0.85),   # Pi[1,2] = p10 = 0.15
+#'              nrow = 2, byrow = FALSE)
+#' z      <- rbinom(n, 1, 0.4)               # latent Z, prevalence pi = 0.4
+#' z_hat  <- z
+#' z_hat[z == 0] <- rbinom(sum(z == 0), 1, 0.10)        # flip 0 -> 1
+#' z_hat[z == 1] <- 1 - rbinom(sum(z == 1), 1, 0.15)    # flip 1 -> 0
 #' x1 <- rnorm(n)
-#' y <- rpois(n, exp(0.8 * z + -0.5 + 0.7 * x1))
+#' y  <- rpois(n, exp(0.8 * z + -0.5 + 0.7 * x1))
 #' df <- data.frame(y = y, z = factor(z_hat), x1 = x1)
 #'
-#' fit <- mcglm(y ~ mc(z, Pi) + x1, data = df, family = "poisson")
+#' fit <- mcglm(y ~ mc(z, Pi) + x1, data = df, family = "poisson",
+#'              method = c("naive", "bca", "bcm", "cs"))
 #' fit
+#' summary(fit)
+#' confint(fit, method = "cs")
 #'
-#' # --- Matrix interface ---
+#' # --- Matrix interface, supplying p01/p10/pi_z directly ---
 #' x_mat <- cbind(1, x1)
 #' fit2 <- mcglm(y, z_hat = as.integer(z_hat), x = x_mat,
-#'               family = "poisson", p01 = 0.10, p10 = 0.15, pi_z = 0.4)
+#'               family = "poisson", method = c("naive", "cs"),
+#'               p01 = 0.10, p10 = 0.15, pi_z = 0.4)
+#'
+#' # --- Multicategory misclassification (K = 3) ---
+#' \donttest{
+#' set.seed(3)
+#' n   <- 1000
+#' Pi3 <- matrix(c(0.8, 0.1, 0.1,
+#'                 0.1, 0.8, 0.1,
+#'                 0.1, 0.1, 0.8), 3, 3, byrow = TRUE)
+#' pi3 <- c(0.5, 0.3, 0.2)
+#' Z   <- sample(0:2, n, replace = TRUE, prob = pi3)
+#' Zh  <- vapply(Z, function(z) sample(0:2, 1, prob = Pi3[, z + 1]), 0L)
+#' x1  <- rnorm(n)
+#' y   <- rpois(n, exp(c(0, 1.0, -0.9)[Z + 1] + 0.8 - 0.7 * x1))
+#' fit3 <- mcglm(y, z_hat = Zh, x = cbind(1, x1), family = "poisson",
+#'               method = c("naive", "cs"), Pi = Pi3, pi_z = pi3)
+#' coef(fit3, method = "cs")
+#' }
 #'
 #' @export
 mcglm <- function(formula, data = NULL, family = "poisson",
