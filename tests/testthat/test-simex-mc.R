@@ -24,6 +24,72 @@ test_that("simex with mc() improved (default) corrects attenuation (linear)", {
   expect_lt(simex_bias, naive_bias)
 })
 
+test_that(".mat_power_r handles asymmetric Pi with complex eigenvalues", {
+  # A column-stochastic Pi that is not symmetric and whose eigenvalues
+  # are complex; .mat_power_r used to fail with
+  # "unimplemented complex function" because it called sign() on
+  # complex eigenvalues. Fixed by using the principal branch d^power
+  # in complex arithmetic and stripping numerical imaginary parts.
+  # Concrete 4x4 column-stochastic Pi whose eigendecomposition contains
+  # the complex pair -0.14 +/- 0.118i. The previous .mat_power_r used
+  # sign(d) which is undefined on complex values.
+  Pi <- matrix(c(0.125, 0.176, 0.270, 0.429,
+                 0.075, 0.332, 0.349, 0.244,
+                 0.586, 0.058, 0.192, 0.164,
+                 0.294, 0.164, 0.329, 0.213),
+               nrow = 4, byrow = FALSE)
+  Pi <- sweep(Pi, 2, colSums(Pi), "/")  # ensure column-stochastic
+  stopifnot(any(abs(Im(eigen(Pi)$values)) > 1e-6))
+
+  # Integer power: should equal Pi %*% Pi exactly.
+  P2 <- mismeasured:::.mat_power_r(Pi, 2)
+  expect_equal(P2, Pi %*% Pi, tolerance = 1e-12)
+
+  # Fractional power: should be real, finite, and roughly inverse to
+  # Pi^(-power) up to numerical precision.
+  P_half <- mismeasured:::.mat_power_r(Pi, 0.5)
+  expect_true(all(is.finite(P_half)))
+  expect_equal(P_half %*% P_half, Pi, tolerance = 1e-6)
+})
+
+test_that("improved MC-SIMEX handles K=4 estimated Pi without crashing", {
+  # Regression for the bug observed in simulations/simulation_study.R:
+  # estimating Pi from a small validation sample gave asymmetric Pi
+  # matrices whose eigendecomposition produced complex eigenvalues, and
+  # .mat_power_r crashed.
+  set.seed(20260707)
+  K <- 4L; n <- 2000
+  pi_z <- c(.5, .25, .15, .10)
+  Pi   <- 0.8 * diag(K) + (0.2 / 3) * (matrix(1, K, K) - diag(K))
+  q    <- rnorm(n)
+  z    <- sample(0:3, n, TRUE, pi_z)
+  zh   <- vapply(z, function(zi) sample(0:3, 1, prob = Pi[, zi + 1L]), 0L)
+  y    <- rpois(n, exp(c(0, 1, -0.9, 0.2)[z + 1L] + 0.8 - 0.7 * q))
+
+  n_fail <- 0L
+  for (b in 1:10) {
+    vi <- sample.int(n, 200)
+    Pi_hat <- matrix(0, K, K)
+    for (l in seq_len(K)) {
+      sel <- z[vi] == (l - 1L)
+      if (any(sel)) {
+        Pi_hat[, l] <- tabulate(zh[vi][sel] + 1L, nbins = K) / sum(sel)
+      } else {
+        Pi_hat[, l] <- 1 / K
+      }
+    }
+    Pi_hat <- pmax(Pi_hat, 1e-3)
+    Pi_hat <- sweep(Pi_hat, 2, colSums(Pi_hat), "/")
+    df <- data.frame(y = y, z = factor(zh, levels = as.character(0:3)), q1 = q)
+    res <- tryCatch(
+      simex(y ~ mc(z, Pi_hat) + q1, family = poisson(), data = df,
+            method = "improved", jackknife = FALSE),
+      error = function(e) { n_fail <<- n_fail + 1L; NULL }
+    )
+  }
+  expect_equal(n_fail, 0L)
+})
+
 test_that("simex with K-level mc() improved corrects dummy attenuation", {
   set.seed(42)
   n <- 6000

@@ -151,16 +151,45 @@
   pi_vec / sum(pi_vec)
 }
 
-#' Compute matrix power via eigendecomposition (R version)
+#' Compute matrix power Pi^power
+#'
+#' Uses exact matrix multiplication for non-negative integer powers and
+#' the principal branch of the eigendecomposition otherwise. Pi need not
+#' be symmetric; complex eigenvalues are handled via complex arithmetic
+#' (the result is real for any column-stochastic Pi raised to a real
+#' power, since complex eigenvalues come in conjugate pairs).
 #' @keywords internal
 .mat_power_r <- function(Pi, power) {
-  if (power == 0) return(diag(nrow(Pi)))
+  K <- nrow(Pi)
+  if (power == 0) return(diag(K))
   if (power == 1) return(Pi)
+
+  # Integer powers >= 1: pure matrix multiplication, no eigendecomposition.
+  if (isTRUE(all.equal(power, round(power))) && power >= 1) {
+    Pp <- Pi
+    for (k in seq_len(round(power) - 1L)) Pp <- Pp %*% Pi
+    return(Pp)
+  }
+
+  # Fractional / negative powers: principal branch via eigendecomposition.
   ev <- eigen(Pi)
-  V <- ev$vectors
-  d <- ev$values
-  d_pow <- abs(d)^power * sign(d)
-  zapsmall(V %*% diag(d_pow) %*% solve(V))
+  d  <- as.complex(ev$values)
+  V  <- ev$vectors
+  V_inv <- tryCatch(solve(V),
+                    error = function(e)
+                      MASS::ginv(V, tol = sqrt(.Machine$double.eps)))
+
+  d_pow <- d^power                      # principal branch (handles complex)
+  Pi_pow <- V %*% diag(d_pow, K) %*% V_inv
+
+  # For column-stochastic Pi, the result is real up to numerical noise.
+  imag_scale <- max(abs(Im(Pi_pow)))
+  real_scale <- max(abs(Re(Pi_pow)))
+  if (!is.finite(imag_scale) || imag_scale > 1e-8 * max(1, real_scale))
+    stop("Pi^power has a non-negligible imaginary part; the misclassification ",
+         "matrix is not diagonalisable to a real power.", call. = FALSE)
+
+  zapsmall(Re(Pi_pow))
 }
 
 #' Compute correction factor c_lambda for the improved MC-SIMEX

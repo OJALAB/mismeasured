@@ -1,7 +1,7 @@
 Package: mismeasured
 Type: Package
 Title: Bias Correction for GLMs with Measurement Error and Misclassification
-Version: 0.5.1
+Version: 0.5.2
 Authors@R: c(
     person("Maciej", "Beresewicz", role = c("aut", "cre"),
            email = "maciej.beresewicz@ue.poznan.pl",

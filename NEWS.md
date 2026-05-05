@@ -1,3 +1,23 @@
+# mismeasured 0.5.2
+
+## Bug fixes
+
+* **Improved MC-SIMEX no longer crashes on asymmetric \eqn{\Pi}**: the
+  internal helper `.mat_power_r()` raised
+  \emph{`unimplemented complex function`} whenever the eigendecomposition
+  of \eqn{\Pi} produced complex eigenvalues. This was triggered by
+  K-level estimated-\eqn{\Pi} workflows (e.g. multicategory misclassification
+  with a small validation sample). Two underlying bugs were fixed:
+  - `sign(d)` was called on complex eigenvalues, which is undefined.
+  - `abs(d)^power * sign(d)` is not equal to `d^power` for negative or
+    complex `d`; the principal branch `d^power` is now used instead.
+  Integer powers (e.g. \eqn{\Pi^2}, the only one needed for the
+  default lambda = 1 in improved MC-SIMEX) are now computed by exact
+  matrix multiplication, avoiding eigendecomposition entirely. In a
+  reproducer (Scenario III of the paper, K = 4, n = 5000, validation
+  subsample of 500), the number of successful Monte Carlo replicates
+  went from 1/30 to 30/30.
+
 # mismeasured 0.5.1
 
 ## New features
