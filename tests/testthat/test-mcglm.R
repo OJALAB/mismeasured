@@ -90,6 +90,54 @@ test_that("mcglm multicategory returns correct structure", {
   expect_named(fit$coefficients, c("naive", "bca", "bcm", "cs"))
 })
 
+test_that("multicategory analytical Jacobian matches numerical", {
+  set.seed(11)
+  n <- 800
+  K <- 3
+  pi_z <- c(0.5, 0.3, 0.2)
+  z <- sample(0:(K - 1), n, replace = TRUE, prob = pi_z)
+  Pi <- matrix(c(0.85, 0.10, 0.05,
+                 0.07, 0.88, 0.05,
+                 0.05, 0.05, 0.90), nrow = K, byrow = FALSE)
+  stopifnot(all(abs(colSums(Pi) - 1) < 1e-8))
+  z_hat <- integer(n)
+  for (i in seq_len(n)) z_hat[i] <- sample(0:(K - 1), 1, prob = Pi[, z[i] + 1])
+
+  x <- cbind(1, rnorm(n))
+  gamma <- c(0, 0.7, -0.4)
+  alpha <- c(-0.3, 0.5)
+  eta <- as.numeric(x %*% alpha) + gamma[z + 1]
+  y <- rbinom(n, 1, plogis(eta))
+
+  for (fam in c("binomial", "poisson")) {
+    yy <- if (fam == "binomial") y else rpois(n, exp(eta))
+    fit_an <- mcglm(yy, z_hat = z_hat, x = x, family = fam,
+                    method = c("bcm", "cs"),
+                    Pi = Pi, pi_z = pi_z, jacobian = "analytical")
+    fit_nu <- mcglm(yy, z_hat = z_hat, x = x, family = fam,
+                    method = c("bcm", "cs"),
+                    Pi = Pi, pi_z = pi_z, jacobian = "numerical")
+    expect_equal(fit_an$coefficients$bcm, fit_nu$coefficients$bcm,
+                 tolerance = 1e-6)
+    expect_equal(fit_an$coefficients$cs,  fit_nu$coefficients$cs,
+                 tolerance = 1e-6)
+  }
+})
+
+test_that("jacobian argument is validated", {
+  set.seed(12)
+  n <- 100
+  x <- cbind(1, rnorm(n))
+  z_hat <- rbinom(n, 1, 0.5)
+  y <- rpois(n, exp(0.5 * z_hat + x %*% c(-0.3, 0.4)))
+  expect_error(
+    mcglm(y, z_hat = z_hat, x = x, family = "poisson",
+          method = "bcm", p01 = 0.1, p10 = 0.15, pi_z = 0.4,
+          jacobian = "fancy"),
+    "should be one of"
+  )
+})
+
 # --- Subset methods ---
 
 test_that("mcglm accepts subset of methods", {

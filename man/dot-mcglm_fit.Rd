@@ -18,6 +18,7 @@
   c1 = NULL,
   c2 = NULL,
   iterate = FALSE,
+  jacobian = c("analytical", "numerical"),
   fix_omega = FALSE,
   vcov_corrected = FALSE,
   weights = NULL,

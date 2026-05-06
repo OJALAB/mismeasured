@@ -28,6 +28,7 @@
 #' @keywords internal
 .mcglm_vcov_bc_bin <- function(psi_bc, y, xi_hat, x, family,
                                p01 = NULL, p10 = NULL, pi_z = NULL,
+                               c1 = NULL, c2 = NULL,
                                psi_naive = NULL,
                                type = c("bca", "bcm"), corrected = FALSE,
                                wt = NULL) {
@@ -50,8 +51,12 @@
     A_hat <- crossprod(xi_hat * (wt * w), xi_hat) / N
   }
   A_inv <- solve(A_hat)
-  c1_loc <- p01 * (1 - pi_z)
-  c2_loc <- p01 * (1 - pi_z) - p10 * pi_z
+  c1_loc <- if (!is.null(c1)) c1 else p01 * (1 - pi_z)
+  c2_loc <- if (!is.null(c2)) c2 else p01 * (1 - pi_z) - p10 * pi_z
+  if (is.null(c1_loc) || is.null(c2_loc) ||
+      length(c1_loc) == 0L || length(c2_loc) == 0L)
+    stop("Corrected variance for 'bca'/'bcm' requires either ",
+         "(p01, p10, pi_z) or (c1, c2).")
   M_hat <- .mcglm_compute_Mhat_bin(psi_naive, x, fam$mu, fam$mu_dot, c1_loc,
                                     c2_loc, wt = wt)
   m_mat <- .mcglm_compute_m_bin(psi_naive, x, fam$mu, c1_loc, c2_loc)
@@ -92,6 +97,7 @@
 #' Sandwich variance for corrected-score estimator (binary)
 #' @keywords internal
 .mcglm_vcov_cs_bin <- function(psi, y, xi_hat, x, family, p01, p10, pi_z,
+                               c1 = NULL, c2 = NULL,
                                wt = NULL) {
   fam    <- .mcglm_get_link_funs(family)
   n      <- length(y)
@@ -99,8 +105,11 @@
 
   eta_tilde <- as.numeric(xi_hat %*% psi)
   resid     <- y - fam$mu(eta_tilde)
-  c1_loc <- p01 * (1 - pi_z)
-  c2_loc <- p01 * (1 - pi_z) - p10 * pi_z
+  c1_loc <- if (!is.null(c1)) c1 else p01 * (1 - pi_z)
+  c2_loc <- if (!is.null(c2)) c2 else p01 * (1 - pi_z) - p10 * pi_z
+  if (is.null(c1_loc) || is.null(c2_loc) ||
+      length(c1_loc) == 0L || length(c2_loc) == 0L)
+    stop("Variance for 'cs' requires either (p01, p10, pi_z) or (c1, c2).")
   m_mat     <- .mcglm_compute_m_bin(psi, x, fam$mu, c1_loc, c2_loc)
 
   phi_mat <- xi_hat * resid - m_mat
@@ -119,6 +128,11 @@
 
   J_inv %*% S %*% t(J_inv) / N
 }
+
+
+# Same fall-through for the BCA/BCM corrected sandwich.
+# (The earlier definition above already exists; here we extend the binary
+#  helper signature to accept c1/c2 the same way.)
 
 
 # ---- Multicategory variance estimators ----
@@ -158,7 +172,9 @@
                                  Pi = NULL, pi_z = NULL,
                                  psi_naive = NULL,
                                  type = c("bca", "bcm"), corrected = FALSE,
-                                 wt = NULL) {
+                                 wt = NULL,
+                                 jacobian = c("analytical", "numerical")) {
+  jacobian <- match.arg(jacobian)
   if (!corrected)
     return(.mcglm_vcov_naive_multi(psi_bc, y, xi_hat, z_hat, x, K, family,
                                     wt = wt))
@@ -188,7 +204,8 @@
   }
   A_inv <- solve(A_hat)
   M_hat <- .mcglm_compute_Mhat_multi(psi_naive, x, K, fam$mu, Pi, pi_z,
-                                      wt = wt)
+                                      wt = wt, jacobian = jacobian,
+                                      mu_dot_fun = fam$mu_dot)
   m_mat <- .mcglm_compute_m_multi(psi_naive, x, K, fam$mu, Pi, pi_z)
   if (is.null(wt)) {
     m_bar <- colMeans(m_mat)
@@ -227,7 +244,9 @@
 #' Sandwich variance for corrected-score estimator (multicategory)
 #' @keywords internal
 .mcglm_vcov_cs_multi <- function(psi, y, xi_hat, z_hat, x, K, family, Pi, pi_z,
-                                 wt = NULL) {
+                                 wt = NULL,
+                                 jacobian = c("analytical", "numerical")) {
+  jacobian <- match.arg(jacobian)
   fam <- .mcglm_get_link_funs(family)
   n   <- length(y)
   N   <- if (is.null(wt)) n else sum(wt)
@@ -251,7 +270,9 @@
 
   I_hat <- .mcglm_compute_Ihat_multi(psi, xi_hat, z_hat, K, fam$mu_dot,
                                       wt = wt)
-  M_hat <- .mcglm_compute_Mhat_multi(psi, x, K, fam$mu, Pi, pi_z, wt = wt)
+  M_hat <- .mcglm_compute_Mhat_multi(psi, x, K, fam$mu, Pi, pi_z, wt = wt,
+                                      jacobian = jacobian,
+                                      mu_dot_fun = fam$mu_dot)
   J     <- -(I_hat + M_hat)
   J_inv <- solve(J)
 

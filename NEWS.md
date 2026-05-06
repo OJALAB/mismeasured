@@ -1,3 +1,41 @@
+# mismeasured 0.5.4
+
+## New features
+
+* **Analytical Jacobian for K-class drift in `mcglm()`**: the BCM and CS
+  estimators in the multicategory case (\eqn{K \ge 3}) now use a closed-form
+  block expression for \eqn{M = \partial m / \partial \psi} by default,
+  matching the binary case. The previous forward-difference numerical Jacobian
+  remains available as `jacobian = "numerical"` (e.g. for cross-checking).
+  No change to the binary case.
+
+## Bug fixes
+
+* **Variance for binary `cs` / corrected `bca`/`bcm` works under the
+  `c1`/`c2`-only path**. Previously the variance helpers recomputed
+  \eqn{c_1 = p_{01}(1 - \pi)} from individual probabilities, so users who
+  supplied `c1`/`c2` directly (without `p01`/`p10`/`pi_z`) silently lost the
+  standard errors with a warning. The helpers now accept `c1`/`c2` directly
+  and fall back to deriving them from the probabilities only when needed.
+
+* **`R/RcppExports.R` regeneration is stable across Rcpp versions**.
+  The C++ default arguments `Rcpp::IntegerVector(0)` / `Rcpp::NumericVector(0)`
+  on `simex_sim_cpp()` and `mcsimex_multi_sim_cpp()` were translated by some
+  versions of `Rcpp::compileAttributes()` to undefined R identifiers
+  (`integerVector(0)` / `numericVector(0)`), breaking the multi-mc SIMEX
+  path whenever a contributor ran `devtools::document()`. The C++ defaults
+  were removed; R-side callers now always pass empty vectors / matrices
+  explicitly.
+
+## Test coverage
+
+* Line coverage raised from 73.3% to 91.3%. New tests cover frequency weights
+  across all `mcglm()` methods and families, `vcov_corrected = TRUE`, the
+  multinomial response family, the multicategory one-step estimator,
+  `iterate = TRUE` for K \eqn{\ge} 3, the direct `c1`/`c2` path,
+  Gaussian / Berkson / loglinear extrapolation paths in `simex()`, and the
+  S3 surface (`plot`/`print`/`summary`/`formula`) of both estimators.
+
 # mismeasured 0.5.2
 
 ## Bug fixes

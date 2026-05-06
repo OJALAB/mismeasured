@@ -2,11 +2,15 @@
 % Please edit documentation in R/mcsimex-internal.R
 \name{.mat_power_r}
 \alias{.mat_power_r}
-\title{Compute matrix power via eigendecomposition (R version)}
+\title{Compute matrix power Pi^power}
 \usage{
 .mat_power_r(Pi, power)
 }
 \description{
-Compute matrix power via eigendecomposition (R version)
+Uses exact matrix multiplication for non-negative integer powers and
+the principal branch of the eigendecomposition otherwise. Pi need not
+be symmetric; complex eigenvalues are handled via complex arithmetic
+(the result is real for any column-stochastic Pi raised to a real
+power, since complex eigenvalues come in conjugate pairs).
 }
 \keyword{internal}

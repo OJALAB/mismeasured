@@ -13,6 +13,8 @@
   p01 = NULL,
   p10 = NULL,
   pi_z = NULL,
+  c1 = NULL,
+  c2 = NULL,
   psi_naive = NULL,
   type = c("bca", "bcm"),
   corrected = FALSE,

@@ -141,6 +141,13 @@
 #'   to convergence (the iterated BCM solves the corrected score
 #'   equation; iterated BCA performs Newton steps on the additive
 #'   correction).
+#' @param jacobian Character. Either \code{"analytical"} (default) or
+#'   \code{"numerical"}. Controls how the drift Jacobian
+#'   \eqn{M = \partial m / \partial \psi} is evaluated for the
+#'   multicategory (\eqn{K \ge 3}) BCM and CS estimators. The analytical
+#'   form is exact and faster; the numerical form (forward differences)
+#'   is provided as a fallback for cross-checking. The binary case
+#'   (\eqn{K = 2}) always uses the analytical Jacobian.
 #' @param fix_omega Logical. If \code{TRUE}, fix the mixture weights
 #'   in the one-step estimator at the values implied by the supplied
 #'   misclassification parameters; if \code{FALSE} (default), they are
@@ -247,6 +254,7 @@ mcglm <- function(formula, data = NULL, family = "poisson",
                   Pi = NULL, K = NULL,
                   c1 = NULL, c2 = NULL,
                   iterate = FALSE,
+                  jacobian = c("analytical", "numerical"),
                   fix_omega = FALSE,
                   vcov_corrected = FALSE,
                   weights = NULL,
@@ -256,6 +264,7 @@ mcglm <- function(formula, data = NULL, family = "poisson",
                   z_hat = NULL, x = NULL) {
 
   cl <- match.call()
+  jacobian <- match.arg(jacobian)
   formula_obj <- NULL
 
   # --- Dispatch: formula vs matrix interface ---
@@ -294,6 +303,7 @@ mcglm <- function(formula, data = NULL, family = "poisson",
   out <- .mcglm_fit(y = y, z_hat = z_hat, x = x, family = family,
                     method = method, p01 = p01, p10 = p10, pi_z = pi_z,
                     Pi = Pi, K = K, c1 = c1, c2 = c2, iterate = iterate,
+                    jacobian = jacobian,
                     fix_omega = fix_omega,
                     vcov_corrected = vcov_corrected,
                     weights = weights, J = J,
@@ -403,6 +413,7 @@ mcglm <- function(formula, data = NULL, family = "poisson",
                        Pi = NULL, K = NULL,
                        c1 = NULL, c2 = NULL,
                        iterate = FALSE,
+                       jacobian = c("analytical", "numerical"),
                        fix_omega = FALSE,
                        vcov_corrected = FALSE,
                        weights = NULL,
@@ -415,6 +426,7 @@ mcglm <- function(formula, data = NULL, family = "poisson",
   z_hat <- as.integer(z_hat)
   x     <- as.matrix(x)
   n     <- length(y)
+  jacobian <- match.arg(jacobian)
   method <- match.arg(method, c("naive", "bca", "bcm", "cs", "onestep"),
                       several.ok = TRUE)
 
@@ -546,10 +558,12 @@ mcglm <- function(formula, data = NULL, family = "poisson",
                                            Pi, pi_z, iterate = iterate, wt = wt)
     if ("bcm" %in% method)
       results$bcm <- .mcglm_fit_bcm_multi(psi, y, xi_hat, z_hat, x, K, family,
-                                           Pi, pi_z, iterate = iterate, wt = wt)
+                                           Pi, pi_z, iterate = iterate, wt = wt,
+                                           jacobian = jacobian)
     if ("cs"  %in% method)
       results$cs  <- .mcglm_fit_cs_multi(psi, y, xi_hat, z_hat, x, K, family,
-                                          Pi, pi_z, wt = wt)
+                                          Pi, pi_z, wt = wt,
+                                          jacobian = jacobian)
 
     if ("onestep" %in% method) {
       os <- .mcglm_fit_onestep_multi(y, z_hat, x, K, family, Pi, pi_z,
@@ -602,10 +616,12 @@ mcglm <- function(formula, data = NULL, family = "poisson",
             .mcglm_vcov_naive_multi(psi_nm, y, xi_hat, z_hat, x, K, family,
                                     wt = wt)
         } else if (nm %in% c("bca", "bcm")) {
-          have_probs <- !is.null(p01) && !is.null(p10) && !is.null(pi_z)
+          have_probs <- (!is.null(p01) && !is.null(p10) && !is.null(pi_z)) ||
+                        (!is.null(c1) && !is.null(c2))
           if (is_binary) {
             .mcglm_vcov_bc_bin(psi_nm, y, xi_hat, x, family,
                                p01 = p01, p10 = p10, pi_z = pi_z,
+                               c1 = c1, c2 = c2,
                                psi_naive = unname(results$naive),
                                type = nm,
                                corrected = vcov_corrected && have_probs,
@@ -617,15 +633,18 @@ mcglm <- function(formula, data = NULL, family = "poisson",
                                  psi_naive = unname(results$naive),
                                  type = nm,
                                  corrected = vcov_corrected && have_multi,
-                                 wt = wt)
+                                 wt = wt,
+                                 jacobian = jacobian)
           }
         } else if (nm == "cs") {
           if (is_binary)
             .mcglm_vcov_cs_bin(psi_nm, y, xi_hat, x, family, p01, p10, pi_z,
+                               c1 = c1, c2 = c2,
                                wt = wt)
           else
             .mcglm_vcov_cs_multi(psi_nm, y, xi_hat, z_hat, x, K, family,
-                                 Pi, pi_z, wt = wt)
+                                 Pi, pi_z, wt = wt,
+                                 jacobian = jacobian)
         } else if (nm == "onestep") {
           onestep_vcov
         },

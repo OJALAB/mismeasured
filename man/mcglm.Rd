@@ -17,6 +17,7 @@ mcglm(
   c1 = NULL,
   c2 = NULL,
   iterate = FALSE,
+  jacobian = c("analytical", "numerical"),
   fix_omega = FALSE,
   vcov_corrected = FALSE,
   weights = NULL,
@@ -81,6 +82,14 @@ use). Computed from \code{p01}, \code{p10} and \code{pi_z} when
 to convergence (the iterated BCM solves the corrected score
 equation; iterated BCA performs Newton steps on the additive
 correction).}
+
+\item{jacobian}{Character. Either \code{"analytical"} (default) or
+\code{"numerical"}. Controls how the drift Jacobian
+\eqn{M = \partial m / \partial \psi} is evaluated for the
+multicategory (\eqn{K \ge 3}) BCM and CS estimators. The analytical
+form is exact and faster; the numerical form (forward differences)
+is provided as a fallback for cross-checking. The binary case
+(\eqn{K = 2}) always uses the analytical Jacobian.}
 
 \item{fix_omega}{Logical. If \code{TRUE}, fix the mixture weights
 in the one-step estimator at the values implied by the supplied

@@ -591,7 +591,10 @@ simex <- function(formula, family = gaussian(), data,
     Pi_list <- lapply(mc_list, unname)
     sim_result <- mcsimex_multi_sim_cpp(y, z_hats, Pi_list, K_vec, x_mat,
                                         dist_code, lambda, B, wt,
-                                        as.integer(seed))
+                                        as.integer(seed),
+                                        integer(0),
+                                        matrix(0, nrow = 0, ncol = 0),
+                                        0L)
 
     theta_list <- vector("list", n_lambda)
     avg_estimates <- matrix(0, n_lambda, p)

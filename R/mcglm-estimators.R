@@ -165,7 +165,9 @@
 #' @keywords internal
 .mcglm_fit_bcm_multi <- function(psi_naive, y, xi_hat, z_hat, x, K, family,
                                  Pi, pi_z, iterate = FALSE, max_iter = 50,
-                                 tol = 1e-8, wt = NULL) {
+                                 tol = 1e-8, wt = NULL,
+                                 jacobian = c("analytical", "numerical")) {
+  jacobian <- match.arg(jacobian)
   fam <- .mcglm_get_link_funs(family)
   n   <- length(y)
   N   <- if (is.null(wt)) n else sum(wt)
@@ -189,7 +191,9 @@
 
     I_hat <- .mcglm_compute_Ihat_multi(psi, xi_hat, z_hat, K, fam$mu_dot,
                                         wt = wt)
-    M_hat <- .mcglm_compute_Mhat_multi(psi, x, K, fam$mu, Pi, pi_z, wt = wt)
+    M_hat <- .mcglm_compute_Mhat_multi(psi, x, K, fam$mu, Pi, pi_z, wt = wt,
+                                        jacobian = jacobian,
+                                        mu_dot_fun = fam$mu_dot)
     step  <- solve(I_hat + M_hat, Phi)
 
     psi_new <- psi + step
@@ -202,7 +206,9 @@
 #' Corrected-score estimator for multicategory misclassification
 #' @keywords internal
 .mcglm_fit_cs_multi <- function(psi_init, y, xi_hat, z_hat, x, K, family,
-                                Pi, pi_z, wt = NULL) {
+                                Pi, pi_z, wt = NULL,
+                                jacobian = c("analytical", "numerical")) {
+  jacobian <- match.arg(jacobian)
   if (!requireNamespace("nleqslv", quietly = TRUE))
     stop("Package 'nleqslv' is required for the corrected-score method. ",
          "Install with: install.packages('nleqslv')")
@@ -231,7 +237,9 @@
   phi_jac <- function(psi) {
     I_hat <- .mcglm_compute_Ihat_multi(psi, xi_hat, z_hat, K, fam$mu_dot,
                                         wt = wt)
-    M_hat <- .mcglm_compute_Mhat_multi(psi, x, K, fam$mu, Pi, pi_z, wt = wt)
+    M_hat <- .mcglm_compute_Mhat_multi(psi, x, K, fam$mu, Pi, pi_z, wt = wt,
+                                        jacobian = jacobian,
+                                        mu_dot_fun = fam$mu_dot)
     -(I_hat + M_hat)
   }
 

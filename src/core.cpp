@@ -266,9 +266,9 @@ Rcpp::NumericMatrix mcsimex_multi_sim_cpp(
     int B,
     Rcpp::NumericVector wt_r,
     unsigned int seed,
-    Rcpp::IntegerVector y_z_hat_r = Rcpp::IntegerVector(0),
-    Rcpp::NumericMatrix Pi_y_r = Rcpp::NumericMatrix(0, 0),
-    int K_y = 0) {
+    Rcpp::IntegerVector y_z_hat_r,
+    Rcpp::NumericMatrix Pi_y_r,
+    int K_y) {
 
   int n = y_r.size();
   int n_mc = z_list.size();
@@ -453,8 +453,8 @@ Rcpp::List simex_sim_cpp(
     int B,
     Rcpp::NumericVector wt_r,
     unsigned int seed,
-    Rcpp::IntegerVector error_type_r = Rcpp::IntegerVector(0),
-    Rcpp::NumericVector me_mean_r = Rcpp::NumericVector(0)) {
+    Rcpp::IntegerVector error_type_r,
+    Rcpp::NumericVector me_mean_r) {
 
   int n = y_r.size();
   int p = X_r.ncol();

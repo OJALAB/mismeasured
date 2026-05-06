@@ -17,7 +17,8 @@
   psi_naive = NULL,
   type = c("bca", "bcm"),
   corrected = FALSE,
-  wt = NULL
+  wt = NULL,
+  jacobian = c("analytical", "numerical")
 )
 }
 \description{

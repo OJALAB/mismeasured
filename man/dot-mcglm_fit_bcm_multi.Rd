@@ -17,7 +17,8 @@
   iterate = FALSE,
   max_iter = 50,
   tol = 1e-08,
-  wt = NULL
+  wt = NULL,
+  jacobian = c("analytical", "numerical")
 )
 }
 \description{

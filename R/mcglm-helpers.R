@@ -187,9 +187,92 @@
   }
 }
 
-#' Numerical Jacobian M_hat for multicategory drift
+#' Analytical Jacobian M_hat for multicategory drift
+#'
+#' Closed-form block expression for the K-class Jacobian, with
+#' B = Pi column-scaled by pi_z and w = rowSums(B) = Pr(Z_hat = j).
+#' Replaces the forward-difference numerical Jacobian.
+#'
 #' @keywords internal
-.mcglm_compute_Mhat_multi <- function(psi, x, K, mu_fun, Pi, pi_z, wt = NULL) {
+.mcglm_compute_Mhat_multi_analytical <- function(psi, x, K, mu_dot_fun, Pi, pi_z,
+                                                  wt = NULL) {
+  s <- K - 1L
+  r <- ncol(x)
+  p <- s + r
+  n <- nrow(x)
+  N <- if (is.null(wt)) n else sum(wt)
+
+  gamma <- c(0, psi[seq_len(s)])
+  alpha <- psi[(s + 1L):p]
+  eta_base <- as.numeric(x %*% alpha)
+
+  dmu_mat <- vapply(seq_len(K),
+                    function(ell) mu_dot_fun(eta_base + gamma[ell]),
+                    numeric(n))  # n x K
+
+  B <- sweep(Pi, 2, pi_z, "*")     # B[j, l] = Pi[j, l] * pi_z[l]
+  w <- rowSums(B)                   # marginal P(Z_hat = j)
+
+  if (is.null(wt)) {
+    mean_dmu <- colMeans(dmu_mat)
+  } else {
+    mean_dmu <- colSums(wt * dmu_mat) / N
+  }
+
+  # Block 1: d m_gamma / d gamma  (s x s)
+  M_gg <- matrix(0, s, s)
+  for (k in seq_len(s)) {
+    for (t in seq_len(s)) {
+      if (t != k) {
+        M_gg[k, t] <- B[k + 1L, t + 1L] * mean_dmu[t + 1L]
+      } else {
+        M_gg[k, t] <- (B[k + 1L, k + 1L] - w[k + 1L]) * mean_dmu[k + 1L]
+      }
+    }
+  }
+
+  # Block 2: d m_gamma / d alpha  (s x r)
+  dmu_dot <- dmu_mat %*% t(B[2:K, , drop = FALSE])             # n x s
+  dmu_k   <- dmu_mat[, 2:K, drop = FALSE]                       # n x s
+  s_mat   <- dmu_dot - sweep(dmu_k, 2, w[2:K], "*")
+  if (is.null(wt)) {
+    M_ga <- crossprod(s_mat, x) / N
+  } else {
+    M_ga <- crossprod(s_mat, wt * x) / N
+  }
+
+  # Block 3: d m_alpha / d gamma  (r x s)
+  coeff <- pi_z - w
+  M_ag <- matrix(0, r, s)
+  for (t in seq_len(s)) {
+    dmu_t <- dmu_mat[, t + 1L]
+    if (is.null(wt)) {
+      M_ag[, t] <- coeff[t + 1L] * colMeans(x * dmu_t)
+    } else {
+      M_ag[, t] <- coeff[t + 1L] * colSums(wt * x * dmu_t) / N
+    }
+  }
+
+  # Block 4: d m_alpha / d alpha  (r x r)
+  t_vec <- drop(dmu_mat %*% coeff)
+  if (is.null(wt)) {
+    M_aa <- crossprod(x, x * t_vec) / N
+  } else {
+    M_aa <- crossprod(x, x * (wt * t_vec)) / N
+  }
+
+  M <- matrix(0, p, p)
+  M[1L:s, 1L:s]               <- M_gg
+  M[1L:s, (s + 1L):p]         <- M_ga
+  M[(s + 1L):p, 1L:s]         <- M_ag
+  M[(s + 1L):p, (s + 1L):p]   <- M_aa
+  M
+}
+
+#' Numerical Jacobian M_hat for multicategory drift (forward differences)
+#' @keywords internal
+.mcglm_compute_Mhat_multi_numerical <- function(psi, x, K, mu_fun, Pi, pi_z,
+                                                wt = NULL) {
   p <- length(psi)
   M <- matrix(0, p, p)
   h <- 1e-7
@@ -201,4 +284,20 @@
     M[, j] <- (m1 - m0) / h
   }
   M
+}
+
+#' Dispatch wrapper: analytical (default) or numerical Jacobian for K-class drift
+#' @keywords internal
+.mcglm_compute_Mhat_multi <- function(psi, x, K, mu_fun, Pi, pi_z, wt = NULL,
+                                      jacobian = c("analytical", "numerical"),
+                                      mu_dot_fun = NULL) {
+  jacobian <- match.arg(jacobian)
+  if (jacobian == "analytical") {
+    if (is.null(mu_dot_fun))
+      stop("Internal error: analytical Jacobian requires mu_dot_fun.")
+    .mcglm_compute_Mhat_multi_analytical(psi, x, K, mu_dot_fun, Pi, pi_z,
+                                          wt = wt)
+  } else {
+    .mcglm_compute_Mhat_multi_numerical(psi, x, K, mu_fun, Pi, pi_z, wt = wt)
+  }
 }

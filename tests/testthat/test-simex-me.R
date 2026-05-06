@@ -137,8 +137,11 @@ test_that("non-zero mean me() corrects systematic error", {
   # Both should be different from naive
   expect_false(identical(coef(fit_nzm), fit_nzm$naive.coefficients))
 
-  # Non-zero mean should give different correction than standard
-  expect_false(identical(coef(fit_std)["x"], coef(fit_nzm)["x"]))
+  # The systematic shift mu = 0.3 enters X linearly, so it primarily
+  # affects the intercept. With true intercept = 1, mean=0 leaves the
+  # naive bias of -0.3 * slope = -0.6 in place; mean=0.3 removes it.
+  expect_gt(abs(coef(fit_std)["(Intercept)"] - 1),
+            abs(coef(fit_nzm)["(Intercept)"] - 1) + 0.1)
 })
 
 test_that("mean=0 gives same result as default", {

@@ -5,11 +5,11 @@ mcsimex_sim_cpp <- function(y_r, z_hat_r, x_r, Pi_r, K, dist_code, lambda_r, B, 
     .Call(`_mismeasured_mcsimex_sim_cpp`, y_r, z_hat_r, x_r, Pi_r, K, dist_code, lambda_r, B, wt_r, seed)
 }
 
-mcsimex_multi_sim_cpp <- function(y_r, z_list, Pi_list, K_vec, x_r, dist_code, lambda_r, B, wt_r, seed, y_z_hat_r = integer(0), Pi_y_r = matrix(0, nrow = 0, ncol = 0), K_y = 0L) {
+mcsimex_multi_sim_cpp <- function(y_r, z_list, Pi_list, K_vec, x_r, dist_code, lambda_r, B, wt_r, seed, y_z_hat_r, Pi_y_r, K_y) {
     .Call(`_mismeasured_mcsimex_multi_sim_cpp`, y_r, z_list, Pi_list, K_vec, x_r, dist_code, lambda_r, B, wt_r, seed, y_z_hat_r, Pi_y_r, K_y)
 }
 
-simex_sim_cpp <- function(y_r, X_r, simex_cols_r, me_r, dist_code, lambda_r, B, wt_r, seed, error_type_r = integer(0), me_mean_r = numeric(0)) {
+simex_sim_cpp <- function(y_r, X_r, simex_cols_r, me_r, dist_code, lambda_r, B, wt_r, seed, error_type_r, me_mean_r) {
     .Call(`_mismeasured_simex_sim_cpp`, y_r, X_r, simex_cols_r, me_r, dist_code, lambda_r, B, wt_r, seed, error_type_r, me_mean_r)
 }
 

@@ -2,11 +2,21 @@
 % Please edit documentation in R/mcglm-helpers.R
 \name{.mcglm_compute_Mhat_multi}
 \alias{.mcglm_compute_Mhat_multi}
-\title{Numerical Jacobian M_hat for multicategory drift}
+\title{Dispatch wrapper: analytical (default) or numerical Jacobian for K-class drift}
 \usage{
-.mcglm_compute_Mhat_multi(psi, x, K, mu_fun, Pi, pi_z, wt = NULL)
+.mcglm_compute_Mhat_multi(
+  psi,
+  x,
+  K,
+  mu_fun,
+  Pi,
+  pi_z,
+  wt = NULL,
+  jacobian = c("analytical", "numerical"),
+  mu_dot_fun = NULL
+)
 }
 \description{
-Numerical Jacobian M_hat for multicategory drift
+Dispatch wrapper: analytical (default) or numerical Jacobian for K-class drift
 }
 \keyword{internal}

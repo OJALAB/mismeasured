@@ -4,7 +4,19 @@
 \alias{.mcglm_vcov_cs_multi}
 \title{Sandwich variance for corrected-score estimator (multicategory)}
 \usage{
-.mcglm_vcov_cs_multi(psi, y, xi_hat, z_hat, x, K, family, Pi, pi_z, wt = NULL)
+.mcglm_vcov_cs_multi(
+  psi,
+  y,
+  xi_hat,
+  z_hat,
+  x,
+  K,
+  family,
+  Pi,
+  pi_z,
+  wt = NULL,
+  jacobian = c("analytical", "numerical")
+)
 }
 \description{
 Sandwich variance for corrected-score estimator (multicategory)

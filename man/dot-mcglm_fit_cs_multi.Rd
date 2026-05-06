@@ -14,7 +14,8 @@
   family,
   Pi,
   pi_z,
-  wt = NULL
+  wt = NULL,
+  jacobian = c("analytical", "numerical")
 )
 }
 \description{

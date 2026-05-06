@@ -4,7 +4,19 @@
 \alias{.mcglm_vcov_cs_bin}
 \title{Sandwich variance for corrected-score estimator (binary)}
 \usage{
-.mcglm_vcov_cs_bin(psi, y, xi_hat, x, family, p01, p10, pi_z, wt = NULL)
+.mcglm_vcov_cs_bin(
+  psi,
+  y,
+  xi_hat,
+  x,
+  family,
+  p01,
+  p10,
+  pi_z,
+  c1 = NULL,
+  c2 = NULL,
+  wt = NULL
+)
 }
 \description{
 Sandwich variance for corrected-score estimator (binary)
