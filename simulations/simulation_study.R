@@ -40,6 +40,12 @@
 # Parallelism: reps are dispatched via future.apply::future_lapply.
 # Set MCGLM_SIM_WORKERS to override the worker count (default:
 # parallel::detectCores() - 1). Set to 1 for serial.
+#
+# Package version: written for mismeasured >= 0.5.4. From this version
+# onward, mcglm() uses an analytical block-form Jacobian for K >= 3
+# BCM/CS by default; the K = 4 scenario below makes this explicit via
+# `jacobian = "analytical"` for documentation. Pass `jacobian = "numerical"`
+# to fall back to forward differences (slower; only useful for cross-checking).
 # =====================================================================
 
 suppressPackageStartupMessages({
@@ -152,7 +158,8 @@ run_mcglm <- function(y, z_hat, x, family, p01, p10, pi_z,
           p01 = p01, p10 = p10, pi_z = pi_z, fix_omega = TRUE)
   } else {
     mcglm(y, z_hat = z_hat, x = x, family = family, method = methods,
-          Pi = Pi_hat, pi_z = pi_z, fix_omega = TRUE)
+          Pi = Pi_hat, pi_z = pi_z, fix_omega = TRUE,
+          jacobian = "analytical")
   }
   list(coef = fit$coefficients, se = fit$se)
 }
@@ -602,7 +609,9 @@ main <- function() {
                                WORKERS = WORKERS,
                                USE_ONESTEP = USE_ONESTEP,
                                USE_SIMEX_STD = USE_SIMEX_STD,
-                               USE_SIMEX_IMP = USE_SIMEX_IMP),
+                               USE_SIMEX_IMP = USE_SIMEX_IMP,
+                               package_version =
+                                 as.character(utils::packageVersion("mismeasured"))),
                session  = sessionInfo()),
           out_rds)
   message(sprintf("Summary written to %s\nRaw data + summary written to %s",
