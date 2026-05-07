@@ -5,12 +5,12 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<title>Correcting measurement error and misclassification with mismeasured • mismeasured</title>
+<title>Getting started with mismeasured • mismeasured</title>
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
 <script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Correcting measurement error and misclassification with mismeasured">
+<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Getting started with mismeasured">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">mismeasured</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.6.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.6.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -31,6 +31,13 @@
       <ul class="navbar-nav me-auto">
 <li class="active nav-item"><a class="nav-link" href="../articles/mismeasured.html">Get started</a></li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
+<li class="nav-item dropdown">
+  <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
+<li><hr class="dropdown-divider"></li>
+    <li><a class="dropdown-item" href="../articles/index.html">More articles...</a></li>
+  </ul>
+</li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul>
 <ul class="navbar-nav">
@@ -51,7 +58,7 @@
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
 
-      <h1>Correcting measurement error and misclassification with mismeasured</h1>
+      <h1>Getting started with mismeasured</h1>
                         <h4 data-toc-skip class="author">Maciej
 Beresewicz</h4>
             
@@ -64,619 +71,151 @@ Beresewicz</h4>
     
     
 <div class="section level2">
-<h2 id="introduction">Introduction<a class="anchor" aria-label="anchor" href="#introduction"></a>
+<h2 id="what-this-package-does">What this package does<a class="anchor" aria-label="anchor" href="#what-this-package-does"></a>
 </h2>
-<p>The <strong>mismeasured</strong> package provides
-Simulation-Extrapolation (SIMEX) and Misclassification SIMEX (MC-SIMEX)
-corrections for generalized linear models where covariates are measured
-with error or subject to misclassification.</p>
-<p>The package uses a formula interface inspired by
-<strong>brms</strong>: error-prone variables are marked directly in the
-formula with <code><a href="../reference/me.html">me()</a></code> (continuous measurement error) or
-<code><a href="../reference/mc.html">mc()</a></code> (discrete misclassification). The simulation step runs
-in C++ via Rcpp and RcppEigen for high performance.</p>
-<div class="section level3">
-<h3 id="supported-error-types">Supported error types<a class="anchor" aria-label="anchor" href="#supported-error-types"></a>
-</h3>
+<p><strong>mismeasured</strong> corrects regression estimates for
+measurement error and misclassification of covariates (and response). It
+bundles two complementary toolsets:</p>
 <table class="table">
 <colgroup>
-<col width="20%">
-<col width="51%">
-<col width="27%">
+<col width="19%">
+<col width="57%">
+<col width="23%">
 </colgroup>
 <thead><tr class="header">
-<th>Type</th>
-<th>Formula syntax</th>
-<th>Method</th>
+<th>Toolset</th>
+<th>When to use</th>
+<th>Vignette</th>
 </tr></thead>
 <tbody>
 <tr class="odd">
-<td>Continuous measurement error</td>
-<td><code>me(x, sd)</code></td>
-<td>SIMEX (Cook &amp; Stefanski, 1994)</td>
+<td><code><a href="../reference/simex.html">simex()</a></code></td>
+<td>Continuous measurement error, Berkson error, single or multiple
+misclassified factors, response misclassification</td>
+<td><code><a href="../articles/simex.html">vignette("simex", "mismeasured")</a></code></td>
 </tr>
 <tr class="even">
-<td>Berkson measurement error</td>
-<td><code>me(x, sd, type = "berkson")</code></td>
-<td>Berkson SIMEX</td>
-</tr>
-<tr class="odd">
-<td>Systematic (non-zero mean) ME</td>
-<td><code>me(x, sd, mean = mu)</code></td>
-<td>Non-zero mean SIMEX</td>
-</tr>
-<tr class="even">
-<td>Discrete misclassification</td>
-<td><code>mc(z, Pi)</code></td>
-<td>MC-SIMEX (Kuchenhoff et al., 2006)</td>
-</tr>
-<tr class="odd">
-<td>Improved misclassification</td>
 <td>
-<code>mc(z, Pi)</code> with <code>method = "improved"</code>
+<code><a href="../reference/mcglm.html">mcglm()</a></code> / <code><a href="../reference/mclm.html">mclm()</a></code>
 </td>
-<td>Sevilimedu &amp; Yu (2026)</td>
-</tr>
-<tr class="even">
-<td>Response misclassification</td>
-<td><code>mc(y, Pi_y) ~ ...</code></td>
-<td>MC-SIMEX on response</td>
+<td>Misclassified discrete covariate(s) with known (or
+auxiliary-estimated)
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi mathvariant="normal">Π</mi><annotation encoding="application/x-tex">\Pi</annotation></semantics></math>,
+where you want analytical bias-corrected GLM/LM inference</td>
+<td><code><a href="../articles/mcglm.html">vignette("mcglm", "mismeasured")</a></code></td>
 </tr>
 </tbody>
 </table>
-</div>
+<p>Variables subject to error are marked directly in the formula:
+<code>me(x, sd)</code> for continuous measurement error,
+<code>mc(z, Pi)</code> for discrete misclassification.</p>
 <div class="section level3">
-<h3 id="supported-families">Supported families<a class="anchor" aria-label="anchor" href="#supported-families"></a>
+<h3 id="supported-response-families">Supported response families<a class="anchor" aria-label="anchor" href="#supported-response-families"></a>
 </h3>
-<p>Gaussian (<code><a href="https://rdrr.io/r/stats/family.html" class="external-link">gaussian()</a></code>), Poisson (<code><a href="https://rdrr.io/r/stats/family.html" class="external-link">poisson()</a></code>),
-and Binomial (<code><a href="https://rdrr.io/r/stats/family.html" class="external-link">binomial()</a></code>).</p>
+<p><code><a href="https://rdrr.io/r/stats/family.html" class="external-link">gaussian()</a></code>, <code><a href="https://rdrr.io/r/stats/family.html" class="external-link">poisson()</a></code>,
+<code><a href="https://rdrr.io/r/stats/family.html" class="external-link">binomial()</a></code> (canonical links). <code><a href="../reference/mcglm.html">mcglm()</a></code> also
+supports <code>family = "multinomial"</code> for the naive and one-step
+estimators.</p>
 </div>
 </div>
 <div class="section level2">
-<h2 id="background-the-simex-algorithm">Background: the SIMEX algorithm<a class="anchor" aria-label="anchor" href="#background-the-simex-algorithm"></a>
-</h2>
-<p>When a covariate
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>
-is measured with additive error
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>W</mi><mo>=</mo><mi>X</mi><mo>+</mo><mi>U</mi></mrow><annotation encoding="application/x-tex">W = X + U</annotation></semantics></math>,
-where
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>U</mi><mo>∼</mo><mi>N</mi><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo>,</mo><msubsup><mi>σ</mi><mi>u</mi><mn>2</mn></msubsup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">U \sim N(0, \sigma_u^2)</annotation></semantics></math>,
-regression coefficients are biased toward zero (attenuation bias). SIMEX
-corrects this in two steps:</p>
-<ol style="list-style-type: decimal">
-<li><p><strong>Simulation</strong>: For
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>λ</mi><mo>∈</mo><mo stretchy="false" form="prefix">{</mo><mn>0.5</mn><mo>,</mo><mn>1</mn><mo>,</mo><mn>1.5</mn><mo>,</mo><mn>2</mn><mo stretchy="false" form="postfix">}</mo></mrow><annotation encoding="application/x-tex">\lambda \in \{0.5, 1, 1.5, 2\}</annotation></semantics></math>
-and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>b</mi><mo>=</mo><mn>1</mn><mo>,</mo><mi>…</mi><mo>,</mo><mi>B</mi></mrow><annotation encoding="application/x-tex">b = 1, \ldots, B</annotation></semantics></math>,
-generate
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>W</mi><mrow><mi>b</mi><mo>,</mo><mi>λ</mi></mrow><mo>*</mo></msubsup><mo>=</mo><mi>W</mi><mo>+</mo><msqrt><mi>λ</mi></msqrt><mo>⋅</mo><msub><mi>U</mi><mi>b</mi></msub></mrow><annotation encoding="application/x-tex">W^*_{b,\lambda} = W + \sqrt{\lambda} \cdot U_b</annotation></semantics></math>,
-where
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>U</mi><mi>b</mi></msub><mo>∼</mo><mi>N</mi><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo>,</mo><msubsup><mi>σ</mi><mi>u</mi><mn>2</mn></msubsup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">U_b \sim N(0, \sigma_u^2)</annotation></semantics></math>.
-Refit the model on each pseudo-dataset.</p></li>
-<li><p><strong>Extrapolation</strong>: Fit a polynomial (quadratic,
-linear, or loglinear) to the average estimates
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo accent="true">‾</mo></mover><mo stretchy="false" form="prefix">(</mo><mi>λ</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\bar{\hat\beta}(\lambda)</annotation></semantics></math>
-as a function of
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>λ</mi><annotation encoding="application/x-tex">\lambda</annotation></semantics></math>,
-and extrapolate to
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>λ</mi><mo>=</mo><mi>−</mi><mn>1</mn></mrow><annotation encoding="application/x-tex">\lambda = -1</annotation></semantics></math>
-(no measurement error).</p></li>
-</ol>
-<p>For misclassification, the MC-SIMEX algorithm replaces additive noise
-with resampling from
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi mathvariant="normal">Π</mi><mi>λ</mi></msup><annotation encoding="application/x-tex">\Pi^\lambda</annotation></semantics></math>,
-the misclassification matrix raised to fractional powers.</p>
-</div>
-<div class="section level2">
-<h2 id="example-1-continuous-measurement-error">Example 1: Continuous measurement error<a class="anchor" aria-label="anchor" href="#example-1-continuous-measurement-error"></a>
+<h2 id="a-simex-example-in-30-seconds">A SIMEX example in 30 seconds<a class="anchor" aria-label="anchor" href="#a-simex-example-in-30-seconds"></a>
 </h2>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">n</span> <span class="op">&lt;-</span> <span class="fl">2000</span></span>
+<code class="sourceCode R"><span><span class="va">n</span> <span class="op">&lt;-</span> <span class="fl">1500</span></span>
 <span><span class="va">x_true</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span><span class="op">)</span></span>
-<span><span class="va">y</span> <span class="op">&lt;-</span> <span class="fl">1</span> <span class="op">+</span> <span class="fl">2</span> <span class="op">*</span> <span class="va">x_true</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span>, sd <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span></span>
-<span><span class="va">x_obs</span> <span class="op">&lt;-</span> <span class="va">x_true</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span>, sd <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span>  <span class="co"># measurement error with sd = 0.5</span></span>
-<span><span class="va">df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>y <span class="op">=</span> <span class="va">y</span>, x <span class="op">=</span> <span class="va">x_obs</span><span class="op">)</span></span>
+<span><span class="va">y</span>      <span class="op">&lt;-</span> <span class="fl">1</span> <span class="op">+</span> <span class="fl">2</span> <span class="op">*</span> <span class="va">x_true</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span>, sd <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span></span>
+<span><span class="va">x_obs</span>  <span class="op">&lt;-</span> <span class="va">x_true</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span>, sd <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span></span>
+<span><span class="va">df</span>     <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>y <span class="op">=</span> <span class="va">y</span>, x <span class="op">=</span> <span class="va">x_obs</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Naive OLS (biased)</span></span>
-<span><span class="va">naive</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/lm.html" class="external-link">lm</a></span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="va">x</span>, data <span class="op">=</span> <span class="va">df</span><span class="op">)</span></span>
+<span><span class="va">fit_simex</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simex.html">simex</a></span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="fu"><a href="../reference/me.html">me</a></span><span class="op">(</span><span class="va">x</span>, <span class="fl">0.5</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">df</span>, B <span class="op">=</span> <span class="fl">200</span>, seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># SIMEX corrected</span></span>
-<span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simex.html">simex</a></span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="fu"><a href="../reference/me.html">me</a></span><span class="op">(</span><span class="va">x</span>, <span class="fl">0.5</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">df</span>, B <span class="op">=</span> <span class="fl">200</span>, seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span></span>
-<span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"True slope:  2.000\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; True slope:  2.000</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Naive slope:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">naive</span><span class="op">)</span><span class="op">[</span><span class="st">"x"</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Naive slope: 1.578</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"SIMEX slope:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span><span class="op">[</span><span class="st">"x"</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; SIMEX slope: 1.915</span></span></code></pre></div>
-<p>The naive estimate is attenuated toward zero. SIMEX recovers a value
-closer to the true slope of 2.</p>
-<div class="section level3">
-<h3 id="summary-and-inference">Summary and inference<a class="anchor" aria-label="anchor" href="#summary-and-inference"></a>
-</h3>
+<span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>naive_lm <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/lm.html" class="external-link">lm</a></span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="va">x</span>, data <span class="op">=</span> <span class="va">df</span><span class="op">)</span><span class="op">)</span><span class="op">[</span><span class="st">"x"</span><span class="op">]</span>,</span>
+<span>  simex    <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit_simex</span><span class="op">)</span><span class="op">[</span><span class="st">"x"</span><span class="op">]</span>,</span>
+<span>  truth    <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
+<span><span class="co">#&gt; naive_lm.x    simex.x      truth </span></span>
+<span><span class="co">#&gt;   1.578317   1.921585   2.000000</span></span></code></pre></div>
+<p>The naive OLS slope is attenuated; SIMEX recovers a value close to
+the true slope of 2. See <code><a href="../articles/simex.html">vignette("simex", "mismeasured")</a></code>
+for the full algorithm, MC-SIMEX, response misclassification, Berkson
+error, and weights.</p>
+</div>
+<div class="section level2">
+<h2 id="a-bias-corrected-glm-example-in-30-seconds">A bias-corrected GLM example in 30 seconds<a class="anchor" aria-label="anchor" href="#a-bias-corrected-glm-example-in-30-seconds"></a>
+</h2>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Call:</span></span>
-<span><span class="co">#&gt; simex(formula = y ~ me(x, 0.5), data = df, B = 200, seed = 42)</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Family: gaussian </span></span>
-<span><span class="co">#&gt; SIMEX variable(s): x </span></span>
-<span><span class="co">#&gt; Extrapolation: quadratic </span></span>
-<span><span class="co">#&gt; Lambda grid: 0, 0.5, 1, 1.5, 2 </span></span>
-<span><span class="co">#&gt; B = 200 , n = 2000 </span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Residuals:</span></span>
-<span><span class="co">#&gt;      Min       1Q   Median       3Q      Max </span></span>
-<span><span class="co">#&gt; -3.38970 -0.78080 -0.02356  0.79428  3.25930 </span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Naive coefficients:</span></span>
-<span><span class="co">#&gt; (Intercept)           x </span></span>
-<span><span class="co">#&gt;      0.9843      1.5779 </span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; SIMEX corrected coefficients:</span></span>
-<span><span class="co">#&gt;             Estimate Std. Error t value Pr(&gt;|t|)    </span></span>
-<span><span class="co">#&gt; (Intercept)  0.98948    0.02418   40.92   &lt;2e-16 ***</span></span>
-<span><span class="co">#&gt; x            1.91518    0.02453   78.08   &lt;2e-16 ***</span></span>
-<span><span class="co">#&gt; ---</span></span>
-<span><span class="co">#&gt; Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/stats/confint.html" class="external-link">confint</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span>
-<span><span class="co">#&gt;                 2.5 %   97.5 %</span></span>
-<span><span class="co">#&gt; (Intercept) 0.9420865 1.036866</span></span>
-<span><span class="co">#&gt; x           1.8671012 1.963252</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="simex-trajectory-plot">SIMEX trajectory plot<a class="anchor" aria-label="anchor" href="#simex-trajectory-plot"></a>
-</h3>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></code></pre></div>
-<p><img src="mismeasured_files/figure-html/me-plot-1.png" class="r-plt" alt="" width="576"><img src="mismeasured_files/figure-html/me-plot-2.png" class="r-plt" alt="" width="576"></p>
-<p>The plot shows coefficient estimates at each
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>λ</mi><annotation encoding="application/x-tex">\lambda</annotation></semantics></math>
-level (solid points), the naive estimate at
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>λ</mi><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\lambda = 0</annotation></semantics></math>
-(open circle), the extrapolation curve, and the corrected estimate at
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>λ</mi><mo>=</mo><mi>−</mi><mn>1</mn></mrow><annotation encoding="application/x-tex">\lambda = -1</annotation></semantics></math>
-(red cross).</p>
-</div>
-<div class="section level3">
-<h3 id="changing-the-extrapolation-method">Changing the extrapolation method<a class="anchor" aria-label="anchor" href="#changing-the-extrapolation-method"></a>
-</h3>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">fit_lin</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/refit.html">refit</a></span><span class="op">(</span><span class="va">fit</span>, extrapolation <span class="op">=</span> <span class="st">"linear"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Quadratic:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span><span class="op">[</span><span class="st">"x"</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Quadratic: 1.915</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Linear:   "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit_lin</span><span class="op">)</span><span class="op">[</span><span class="st">"x"</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Linear:    1.78</span></span></code></pre></div>
-</div>
-</div>
-<div class="section level2">
-<h2 id="example-2-multiple-error-prone-covariates">Example 2: Multiple error-prone covariates<a class="anchor" aria-label="anchor" href="#example-2-multiple-error-prone-covariates"></a>
-</h2>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">x1_true</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span><span class="op">)</span></span>
-<span><span class="va">x2_true</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span><span class="op">)</span></span>
-<span><span class="va">y</span> <span class="op">&lt;-</span> <span class="fl">1</span> <span class="op">+</span> <span class="fl">1.5</span> <span class="op">*</span> <span class="va">x1_true</span> <span class="op">-</span> <span class="fl">0.8</span> <span class="op">*</span> <span class="va">x2_true</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span>, sd <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span></span>
-<span><span class="va">df2</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>  y  <span class="op">=</span> <span class="va">y</span>,</span>
-<span>  x1 <span class="op">=</span> <span class="va">x1_true</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span>, sd <span class="op">=</span> <span class="fl">0.3</span><span class="op">)</span>,</span>
-<span>  x2 <span class="op">=</span> <span class="va">x2_true</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span>, sd <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">n</span>  <span class="op">&lt;-</span> <span class="fl">3000</span></span>
+<span><span class="va">Pi</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.9</span>, <span class="fl">0.1</span>, <span class="fl">0.1</span>, <span class="fl">0.9</span><span class="op">)</span>, <span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span></span>
+<span><span class="va">z</span>      <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="va">n</span>, <span class="fl">1</span>, <span class="fl">0.4</span><span class="op">)</span></span>
+<span><span class="va">z_hat</span>  <span class="op">&lt;-</span> <span class="va">z</span></span>
+<span><span class="va">z_hat</span><span class="op">[</span><span class="va">z</span> <span class="op">==</span> <span class="fl">0</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">z</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span>, <span class="fl">1</span>, <span class="fl">0.10</span><span class="op">)</span></span>
+<span><span class="va">z_hat</span><span class="op">[</span><span class="va">z</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fl">1</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">z</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span>, <span class="fl">1</span>, <span class="fl">0.10</span><span class="op">)</span></span>
+<span><span class="va">x1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span><span class="op">)</span></span>
+<span><span class="va">y</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Poisson.html" class="external-link">rpois</a></span><span class="op">(</span><span class="va">n</span>, <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="fl">0.8</span> <span class="op">*</span> <span class="va">z</span> <span class="op">-</span> <span class="fl">0.5</span> <span class="op">+</span> <span class="fl">0.7</span> <span class="op">*</span> <span class="va">x1</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>y <span class="op">=</span> <span class="va">y</span>, z <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span><span class="va">z_hat</span><span class="op">)</span>, x1 <span class="op">=</span> <span class="va">x1</span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">fit2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simex.html">simex</a></span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="fu"><a href="../reference/me.html">me</a></span><span class="op">(</span><span class="va">x1</span>, <span class="fl">0.3</span><span class="op">)</span> <span class="op">+</span> <span class="fu"><a href="../reference/me.html">me</a></span><span class="op">(</span><span class="va">x2</span>, <span class="fl">0.5</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">df2</span>, B <span class="op">=</span> <span class="fl">200</span>, seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">fit2</span><span class="op">)</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Call:</span></span>
-<span><span class="co">#&gt; simex(formula = y ~ me(x1, 0.3) + me(x2, 0.5), data = df2, B = 200, </span></span>
-<span><span class="co">#&gt;     seed = 42)</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Family: gaussian </span></span>
-<span><span class="co">#&gt; SIMEX variable(s): x1, x2 </span></span>
-<span><span class="co">#&gt; Extrapolation: quadratic </span></span>
-<span><span class="co">#&gt; Lambda grid: 0, 0.5, 1, 1.5, 2 </span></span>
-<span><span class="co">#&gt; B = 200 , n = 2000 </span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Residuals:</span></span>
-<span><span class="co">#&gt;       Min        1Q    Median        3Q       Max </span></span>
-<span><span class="co">#&gt; -2.431169 -0.525458  0.008814  0.508883  2.844247 </span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Naive coefficients:</span></span>
-<span><span class="co">#&gt; (Intercept)          x1          x2 </span></span>
-<span><span class="co">#&gt;      0.9901      1.3756     -0.6430 </span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; SIMEX corrected coefficients:</span></span>
-<span><span class="co">#&gt;             Estimate Std. Error t value Pr(&gt;|t|)    </span></span>
-<span><span class="co">#&gt; (Intercept)  0.99644    0.01751   56.92   &lt;2e-16 ***</span></span>
-<span><span class="co">#&gt; x1           1.48999    0.01691   88.13   &lt;2e-16 ***</span></span>
-<span><span class="co">#&gt; x2          -0.77492    0.01739  -44.55   &lt;2e-16 ***</span></span>
-<span><span class="co">#&gt; ---</span></span>
-<span><span class="co">#&gt; Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</span></span></code></pre></div>
-</div>
-<div class="section level2">
-<h2 id="example-3-misclassification-standard-mc-simex">Example 3: Misclassification (standard MC-SIMEX)<a class="anchor" aria-label="anchor" href="#example-3-misclassification-standard-mc-simex"></a>
-</h2>
-<p>A binary covariate
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Z</mi><annotation encoding="application/x-tex">Z</annotation></semantics></math>
-is misclassified with known misclassification matrix
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi mathvariant="normal">Π</mi><annotation encoding="application/x-tex">\Pi</annotation></semantics></math>,
-where
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi mathvariant="normal">Π</mi><mrow><mi>j</mi><mi>l</mi></mrow></msub><mo>=</mo><mi>P</mi><mo stretchy="false" form="prefix">(</mo><msup><mi>Z</mi><mo>*</mo></msup><mo>=</mo><mi>j</mi><mo>∣</mo><mi>Z</mi><mo>=</mo><mi>l</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\Pi_{jl} = P(Z^* = j \mid Z = l)</annotation></semantics></math>.</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">z</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="va">n</span>, <span class="fl">1</span>, <span class="fl">0.4</span><span class="op">)</span></span>
-<span><span class="va">y3</span> <span class="op">&lt;-</span> <span class="fl">1</span> <span class="op">+</span> <span class="fl">2</span> <span class="op">*</span> <span class="va">z</span> <span class="op">+</span> <span class="fl">0.5</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Misclassify: sensitivity = 0.85, specificity = 0.9</span></span>
-<span><span class="va">z_star</span> <span class="op">&lt;-</span> <span class="va">z</span></span>
-<span><span class="va">z_star</span><span class="op">[</span><span class="va">z</span> <span class="op">==</span> <span class="fl">0</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">z</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span>, <span class="fl">1</span>, <span class="fl">0.10</span><span class="op">)</span></span>
-<span><span class="va">z_star</span><span class="op">[</span><span class="va">z</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fl">1</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">z</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span>, <span class="fl">1</span>, <span class="fl">0.15</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">Pi</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.9</span>, <span class="fl">0.1</span>, <span class="fl">0.15</span>, <span class="fl">0.85</span><span class="op">)</span>, <span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span></span>
-<span><span class="va">df3</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>y <span class="op">=</span> <span class="va">y3</span>, z <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span><span class="va">z_star</span><span class="op">)</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">fit3</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simex.html">simex</a></span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="fu"><a href="../reference/mc.html">mc</a></span><span class="op">(</span><span class="va">z</span>, <span class="va">Pi</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">df3</span>, method <span class="op">=</span> <span class="st">"standard"</span>,</span>
-<span>              B <span class="op">=</span> <span class="fl">200</span>, seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span></span>
-<span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"True z effect:     2.000\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; True z effect:     2.000</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Naive z effect:   "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">fit3</span><span class="op">$</span><span class="va">naive.coefficients</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Naive z effect:    1.485</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"MC-SIMEX z effect:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit3</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; MC-SIMEX z effect: 1.962</span></span></code></pre></div>
-</div>
-<div class="section level2">
-<h2 id="example-4-improved-mc-simex-exact-correction">Example 4: Improved MC-SIMEX (exact correction)<a class="anchor" aria-label="anchor" href="#example-4-improved-mc-simex-exact-correction"></a>
-</h2>
-<p>The improved method (Sevilimedu &amp; Yu, 2026) computes an exact
-fixed-matrix correction instead of extrapolation. It requires only B = 1
-replicate and is the default for a single misclassified covariate. For
-binary covariates, the scalar correction factor is reported as
-<code>c.lambda</code>; for K-level factors, the dummy-coefficient
-correction matrix is stored in <code>correction.matrix</code>.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">fit4</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simex.html">simex</a></span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="fu"><a href="../reference/mc.html">mc</a></span><span class="op">(</span><span class="va">z</span>, <span class="va">Pi</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">df3</span>, seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span>  <span class="co"># default: method = "improved"</span></span>
-<span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Method:"</span>, <span class="va">fit4</span><span class="op">$</span><span class="va">method</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Method: improved</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Correction factor c(lambda):"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">fit4</span><span class="op">$</span><span class="va">c.lambda</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Correction factor c(lambda): 1.7954</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Improved z effect:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit4</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Improved z effect: 2.001</span></span></code></pre></div>
-<div class="section level3">
-<h3 id="optimal-lambda">Optimal lambda<a class="anchor" aria-label="anchor" href="#optimal-lambda"></a>
-</h3>
-<p>The improved method can search for the lambda that minimizes the
-absolute correction factor:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">fit4_opt</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simex.html">simex</a></span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="fu"><a href="../reference/mc.html">mc</a></span><span class="op">(</span><span class="va">z</span>, <span class="va">Pi</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">df3</span>, lambda <span class="op">=</span> <span class="st">"optimal"</span>, seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Optimal lambda:"</span>, <span class="va">fit4_opt</span><span class="op">$</span><span class="va">lambda</span><span class="op">[</span><span class="op">-</span><span class="fl">1</span><span class="op">]</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Optimal lambda: 0.1</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Optimal c(lambda):"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">fit4_opt</span><span class="op">$</span><span class="va">c.lambda</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Optimal c(lambda): 1.3808</span></span></code></pre></div>
-</div>
-</div>
-<div class="section level2">
-<h2 id="example-5-multiple-misclassified-covariates">Example 5: Multiple misclassified covariates<a class="anchor" aria-label="anchor" href="#example-5-multiple-misclassified-covariates"></a>
-</h2>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">z1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="va">n</span>, <span class="fl">1</span>, <span class="fl">0.4</span><span class="op">)</span></span>
-<span><span class="va">z2</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="va">n</span>, <span class="fl">1</span>, <span class="fl">0.6</span><span class="op">)</span></span>
-<span><span class="va">y5</span> <span class="op">&lt;-</span> <span class="fl">1</span> <span class="op">+</span> <span class="fl">2</span> <span class="op">*</span> <span class="va">z1</span> <span class="op">+</span> <span class="fl">1.5</span> <span class="op">*</span> <span class="va">z2</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Misclassify both</span></span>
-<span><span class="va">z1_star</span> <span class="op">&lt;-</span> <span class="va">z1</span></span>
-<span><span class="va">z1_star</span><span class="op">[</span><span class="va">z1</span> <span class="op">==</span> <span class="fl">0</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">z1</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span>, <span class="fl">1</span>, <span class="fl">0.10</span><span class="op">)</span></span>
-<span><span class="va">z1_star</span><span class="op">[</span><span class="va">z1</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fl">1</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">z1</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span>, <span class="fl">1</span>, <span class="fl">0.15</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">z2_star</span> <span class="op">&lt;-</span> <span class="va">z2</span></span>
-<span><span class="va">z2_star</span><span class="op">[</span><span class="va">z2</span> <span class="op">==</span> <span class="fl">0</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">z2</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span>, <span class="fl">1</span>, <span class="fl">0.08</span><span class="op">)</span></span>
-<span><span class="va">z2_star</span><span class="op">[</span><span class="va">z2</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fl">1</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">z2</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span>, <span class="fl">1</span>, <span class="fl">0.12</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">Pi1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.9</span>, <span class="fl">0.1</span>, <span class="fl">0.15</span>, <span class="fl">0.85</span><span class="op">)</span>, <span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span></span>
-<span><span class="va">Pi2</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.92</span>, <span class="fl">0.08</span>, <span class="fl">0.12</span>, <span class="fl">0.88</span><span class="op">)</span>, <span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span></span>
-<span><span class="va">df5</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>y <span class="op">=</span> <span class="va">y5</span>, z1 <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span><span class="va">z1_star</span><span class="op">)</span>, z2 <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span><span class="va">z2_star</span><span class="op">)</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">fit5</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simex.html">simex</a></span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="fu"><a href="../reference/mc.html">mc</a></span><span class="op">(</span><span class="va">z1</span>, <span class="va">Pi1</span><span class="op">)</span> <span class="op">+</span> <span class="fu"><a href="../reference/mc.html">mc</a></span><span class="op">(</span><span class="va">z2</span>, <span class="va">Pi2</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">df5</span>,</span>
-<span>              method <span class="op">=</span> <span class="st">"standard"</span>, B <span class="op">=</span> <span class="fl">200</span>, seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">fit5</span><span class="op">)</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Call:</span></span>
-<span><span class="co">#&gt; simex(formula = y ~ mc(z1, Pi1) + mc(z2, Pi2), data = df5, method = "standard", </span></span>
-<span><span class="co">#&gt;     B = 200, seed = 42)</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Family: gaussian </span></span>
-<span><span class="co">#&gt; MC-SIMEX variables: z1, z2 </span></span>
-<span><span class="co">#&gt; Method: standard </span></span>
-<span><span class="co">#&gt; Extrapolation: quadratic </span></span>
-<span><span class="co">#&gt; Lambda grid: 0, 0.5, 1, 1.5, 2 </span></span>
-<span><span class="co">#&gt; B = 200 , n = 2000 </span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Residuals:</span></span>
-<span><span class="co">#&gt;       Min        1Q    Median        3Q       Max </span></span>
-<span><span class="co">#&gt; -4.421865 -0.789852  0.005384  0.824377  4.935690 </span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Naive coefficients:</span></span>
-<span><span class="co">#&gt;         z11         z21 (Intercept) </span></span>
-<span><span class="co">#&gt;      1.4812      1.2013      1.4261 </span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; MC-SIMEX corrected coefficients:</span></span>
-<span><span class="co">#&gt;             Estimate Std. Error t value Pr(&gt;|t|)    </span></span>
-<span><span class="co">#&gt; z11          1.91470    0.08737   21.91   &lt;2e-16 ***</span></span>
-<span><span class="co">#&gt; z21          1.47276    0.08430   17.47   &lt;2e-16 ***</span></span>
-<span><span class="co">#&gt; (Intercept)  1.08076    0.06494   16.64   &lt;2e-16 ***</span></span>
-<span><span class="co">#&gt; ---</span></span>
-<span><span class="co">#&gt; Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</span></span></code></pre></div>
-<p>With multiple <code><a href="../reference/mc.html">mc()</a></code> terms, the standard method is used
-automatically. Each variable is resampled independently via its own
-misclassification matrix.</p>
-</div>
-<div class="section level2">
-<h2 id="example-6-response-misclassification">Example 6: Response misclassification<a class="anchor" aria-label="anchor" href="#example-6-response-misclassification"></a>
-</h2>
-<p>When the outcome itself is misclassified (e.g., disease status from
-an imperfect diagnostic test), use <code><a href="../reference/mc.html">mc()</a></code> on the left-hand
-side:</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">x6</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span><span class="op">)</span></span>
-<span><span class="va">y6_true</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="va">n</span>, <span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/stats/Logistic.html" class="external-link">plogis</a></span><span class="op">(</span><span class="op">-</span><span class="fl">0.5</span> <span class="op">+</span> <span class="fl">1.2</span> <span class="op">*</span> <span class="va">x6</span><span class="op">)</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Misclassify the response</span></span>
-<span><span class="va">y6_obs</span> <span class="op">&lt;-</span> <span class="va">y6_true</span></span>
-<span><span class="va">y6_obs</span><span class="op">[</span><span class="va">y6_true</span> <span class="op">==</span> <span class="fl">0</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">y6_true</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span>, <span class="fl">1</span>, <span class="fl">0.10</span><span class="op">)</span></span>
-<span><span class="va">y6_obs</span><span class="op">[</span><span class="va">y6_true</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fl">1</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">y6_true</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span>, <span class="fl">1</span>, <span class="fl">0.08</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">Pi_y</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.90</span>, <span class="fl">0.10</span>, <span class="fl">0.08</span>, <span class="fl">0.92</span><span class="op">)</span>, <span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span></span>
-<span><span class="va">df6</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>y <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span><span class="va">y6_obs</span><span class="op">)</span>, x <span class="op">=</span> <span class="va">x6</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">fit6</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simex.html">simex</a></span><span class="op">(</span><span class="fu"><a href="../reference/mc.html">mc</a></span><span class="op">(</span><span class="va">y</span>, <span class="va">Pi_y</span><span class="op">)</span> <span class="op">~</span> <span class="va">x</span>, family <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/family.html" class="external-link">binomial</a></span><span class="op">(</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">df6</span>,</span>
-<span>              B <span class="op">=</span> <span class="fl">200</span>, seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span></span>
-<span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"True x effect:     1.200\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; True x effect:     1.200</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Naive x effect:   "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">fit6</span><span class="op">$</span><span class="va">naive.coefficients</span><span class="op">[</span><span class="st">"x"</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Naive x effect:    0.9</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"MC-SIMEX x effect:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit6</span><span class="op">)</span><span class="op">[</span><span class="st">"x"</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; MC-SIMEX x effect: 1.175</span></span></code></pre></div>
-<p>Response misclassification can be combined with covariate
-misclassification:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">z6</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="va">n</span>, <span class="fl">1</span>, <span class="fl">0.4</span><span class="op">)</span></span>
-<span><span class="va">y6b_true</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="va">n</span>, <span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/stats/Logistic.html" class="external-link">plogis</a></span><span class="op">(</span><span class="op">-</span><span class="fl">0.5</span> <span class="op">+</span> <span class="fl">1.0</span> <span class="op">*</span> <span class="va">z6</span> <span class="op">+</span> <span class="fl">0.5</span> <span class="op">*</span> <span class="va">x6</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">y6b_obs</span> <span class="op">&lt;-</span> <span class="va">y6b_true</span></span>
-<span><span class="va">y6b_obs</span><span class="op">[</span><span class="va">y6b_true</span> <span class="op">==</span> <span class="fl">0</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">y6b_true</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span>, <span class="fl">1</span>, <span class="fl">0.10</span><span class="op">)</span></span>
-<span><span class="va">y6b_obs</span><span class="op">[</span><span class="va">y6b_true</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fl">1</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">y6b_true</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span>, <span class="fl">1</span>, <span class="fl">0.08</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">z6_star</span> <span class="op">&lt;-</span> <span class="va">z6</span></span>
-<span><span class="va">z6_star</span><span class="op">[</span><span class="va">z6</span> <span class="op">==</span> <span class="fl">0</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">z6</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span>, <span class="fl">1</span>, <span class="fl">0.10</span><span class="op">)</span></span>
-<span><span class="va">z6_star</span><span class="op">[</span><span class="va">z6</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fl">1</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">z6</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span>, <span class="fl">1</span>, <span class="fl">0.15</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">df6b</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>y <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span><span class="va">y6b_obs</span><span class="op">)</span>, z <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span><span class="va">z6_star</span><span class="op">)</span>, x <span class="op">=</span> <span class="va">x6</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">fit6b</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simex.html">simex</a></span><span class="op">(</span><span class="fu"><a href="../reference/mc.html">mc</a></span><span class="op">(</span><span class="va">y</span>, <span class="va">Pi_y</span><span class="op">)</span> <span class="op">~</span> <span class="fu"><a href="../reference/mc.html">mc</a></span><span class="op">(</span><span class="va">z</span>, <span class="va">Pi</span><span class="op">)</span> <span class="op">+</span> <span class="va">x</span>, family <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/family.html" class="external-link">binomial</a></span><span class="op">(</span><span class="op">)</span>,</span>
-<span>               data <span class="op">=</span> <span class="va">df6b</span>, B <span class="op">=</span> <span class="fl">200</span>, seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">fit6b</span><span class="op">)</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Call:</span></span>
-<span><span class="co">#&gt; simex(formula = mc(y, Pi_y) ~ mc(z, Pi) + x, family = binomial(), </span></span>
-<span><span class="co">#&gt;     data = df6b, B = 200, seed = 42)</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Family: binomial </span></span>
-<span><span class="co">#&gt; MC-SIMEX variable: z </span></span>
-<span><span class="co">#&gt; Method: standard </span></span>
-<span><span class="co">#&gt; Extrapolation: quadratic </span></span>
-<span><span class="co">#&gt; Lambda grid: 0, 0.5, 1, 1.5, 2 </span></span>
-<span><span class="co">#&gt; B = 200 , n = 2000 </span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Residuals:</span></span>
-<span><span class="co">#&gt;     Min      1Q  Median      3Q     Max </span></span>
-<span><span class="co">#&gt; -0.8432 -0.4503 -0.2201  0.4895  0.8450 </span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Naive coefficients:</span></span>
-<span><span class="co">#&gt;          z1 (Intercept)           x </span></span>
-<span><span class="co">#&gt;      0.4873     -0.2085      0.3293 </span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; MC-SIMEX corrected coefficients:</span></span>
-<span><span class="co">#&gt;             Estimate Std. Error t value Pr(&gt;|t|)    </span></span>
-<span><span class="co">#&gt; z1           0.75905    0.13445   5.646 1.88e-08 ***</span></span>
-<span><span class="co">#&gt; (Intercept) -0.35817    0.07936  -4.513 6.76e-06 ***</span></span>
-<span><span class="co">#&gt; x            0.39681    0.05843   6.791 1.46e-11 ***</span></span>
-<span><span class="co">#&gt; ---</span></span>
-<span><span class="co">#&gt; Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</span></span></code></pre></div>
-</div>
-<div class="section level2">
-<h2 id="example-7-berkson-measurement-error">Example 7: Berkson measurement error<a class="anchor" aria-label="anchor" href="#example-7-berkson-measurement-error"></a>
-</h2>
-<p>In the Berkson error model, the true value is a noisy version of the
-observed (assigned) value:
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>X</mi><mo>=</mo><mi>W</mi><mo>+</mo><mi>U</mi></mrow><annotation encoding="application/x-tex">X = W + U</annotation></semantics></math>.
-This arises in occupational exposure assessment, where
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>W</mi><annotation encoding="application/x-tex">W</annotation></semantics></math>
-is the assigned group mean and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>
-is the individual’s true exposure.</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">w</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span><span class="op">)</span></span>
-<span><span class="va">u</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span>, sd <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span></span>
-<span><span class="va">x_true_b</span> <span class="op">&lt;-</span> <span class="va">w</span> <span class="op">+</span> <span class="va">u</span></span>
-<span><span class="va">y7</span> <span class="op">&lt;-</span> <span class="fl">1</span> <span class="op">+</span> <span class="fl">2</span> <span class="op">*</span> <span class="va">x_true_b</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span>, sd <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span></span>
-<span><span class="va">df7</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>y <span class="op">=</span> <span class="va">y7</span>, x <span class="op">=</span> <span class="va">w</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">fit7_class</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simex.html">simex</a></span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="fu"><a href="../reference/me.html">me</a></span><span class="op">(</span><span class="va">x</span>, <span class="fl">0.5</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">df7</span>, B <span class="op">=</span> <span class="fl">200</span>, seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span></span>
-<span><span class="va">fit7_berk</span>  <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simex.html">simex</a></span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="fu"><a href="../reference/me.html">me</a></span><span class="op">(</span><span class="va">x</span>, <span class="fl">0.5</span>, type <span class="op">=</span> <span class="st">"berkson"</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">df7</span>,</span>
-<span>                    B <span class="op">=</span> <span class="fl">200</span>, seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span></span>
-<span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Classical SIMEX slope:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit7_class</span><span class="op">)</span><span class="op">[</span><span class="st">"x"</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Classical SIMEX slope: 2.567</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Berkson SIMEX slope:  "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit7_berk</span><span class="op">)</span><span class="op">[</span><span class="st">"x"</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Berkson SIMEX slope:   2.562</span></span></code></pre></div>
-</div>
-<div class="section level2">
-<h2 id="example-8-non-zero-mean-measurement-error">Example 8: Non-zero mean measurement error<a class="anchor" aria-label="anchor" href="#example-8-non-zero-mean-measurement-error"></a>
-</h2>
-<p>When measurement error has a systematic component
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>U</mi><mo>∼</mo><mi>N</mi><mo stretchy="false" form="prefix">(</mo><mi>μ</mi><mo>,</mo><msup><mi>σ</mi><mn>2</mn></msup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">U \sim N(\mu, \sigma^2)</annotation></semantics></math>
-with
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>μ</mi><mo>≠</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\mu \neq 0</annotation></semantics></math>:</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">x_true_m</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span><span class="op">)</span></span>
-<span><span class="va">x_obs_m</span> <span class="op">&lt;-</span> <span class="va">x_true_m</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span>, mean <span class="op">=</span> <span class="fl">0.3</span>, sd <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span></span>
-<span><span class="va">y8</span> <span class="op">&lt;-</span> <span class="fl">1</span> <span class="op">+</span> <span class="fl">2</span> <span class="op">*</span> <span class="va">x_true_m</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span>, sd <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span></span>
-<span><span class="va">df8</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>y <span class="op">=</span> <span class="va">y8</span>, x <span class="op">=</span> <span class="va">x_obs_m</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">fit8_std</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simex.html">simex</a></span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="fu"><a href="../reference/me.html">me</a></span><span class="op">(</span><span class="va">x</span>, <span class="fl">0.5</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">df8</span>, B <span class="op">=</span> <span class="fl">200</span>, seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span></span>
-<span><span class="va">fit8_nzm</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simex.html">simex</a></span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="fu"><a href="../reference/me.html">me</a></span><span class="op">(</span><span class="va">x</span>, <span class="fl">0.5</span>, mean <span class="op">=</span> <span class="fl">0.3</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">df8</span>, B <span class="op">=</span> <span class="fl">200</span>, seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span></span>
-<span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Standard SIMEX (ignoring mean):"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit8_std</span><span class="op">)</span><span class="op">[</span><span class="st">"x"</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Standard SIMEX (ignoring mean): 1.938</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Non-zero mean SIMEX:           "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit8_nzm</span><span class="op">)</span><span class="op">[</span><span class="st">"x"</span><span class="op">]</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Non-zero mean SIMEX:            1.938</span></span></code></pre></div>
-</div>
-<div class="section level2">
-<h2 id="example-9-poisson-regression-with-misclassification">Example 9: Poisson regression with misclassification<a class="anchor" aria-label="anchor" href="#example-9-poisson-regression-with-misclassification"></a>
-</h2>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">z9</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="va">n</span>, <span class="fl">1</span>, <span class="fl">0.4</span><span class="op">)</span></span>
-<span><span class="va">y9</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Poisson.html" class="external-link">rpois</a></span><span class="op">(</span><span class="va">n</span>, <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="fl">0.5</span> <span class="op">+</span> <span class="fl">0.8</span> <span class="op">*</span> <span class="va">z9</span><span class="op">)</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">z9_star</span> <span class="op">&lt;-</span> <span class="va">z9</span></span>
-<span><span class="va">z9_star</span><span class="op">[</span><span class="va">z9</span> <span class="op">==</span> <span class="fl">0</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">z9</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span>, <span class="fl">1</span>, <span class="fl">0.10</span><span class="op">)</span></span>
-<span><span class="va">z9_star</span><span class="op">[</span><span class="va">z9</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fl">1</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">z9</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span>, <span class="fl">1</span>, <span class="fl">0.15</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">df9</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>y <span class="op">=</span> <span class="va">y9</span>, z <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/factor.html" class="external-link">factor</a></span><span class="op">(</span><span class="va">z9_star</span><span class="op">)</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">fit9</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simex.html">simex</a></span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="fu"><a href="../reference/mc.html">mc</a></span><span class="op">(</span><span class="va">z</span>, <span class="va">Pi</span><span class="op">)</span>, family <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/family.html" class="external-link">poisson</a></span><span class="op">(</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">df9</span>, seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">fit9</span><span class="op">)</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Call:</span></span>
-<span><span class="co">#&gt; simex(formula = y ~ mc(z, Pi), family = poisson(), data = df9, </span></span>
-<span><span class="co">#&gt;     seed = 42)</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Family: poisson </span></span>
-<span><span class="co">#&gt; MC-SIMEX variable: z </span></span>
-<span><span class="co">#&gt; Method: improved </span></span>
-<span><span class="co">#&gt; Extrapolation: exact (improved) </span></span>
-<span><span class="co">#&gt; Lambda grid: 0, 1 </span></span>
-<span><span class="co">#&gt; B = 1 , n = 2000 </span></span>
-<span><span class="co">#&gt; Estimated P(X=1): 0.3807 </span></span>
-<span><span class="co">#&gt; Correction factor(s): 1.7925 </span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Residuals:</span></span>
-<span><span class="co">#&gt;     Min      1Q  Median      3Q     Max </span></span>
-<span><span class="co">#&gt; -3.8076 -1.7772  0.1924  1.1924  7.2228 </span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Naive coefficients:</span></span>
-<span><span class="co">#&gt;           1 (Intercept) </span></span>
-<span><span class="co">#&gt;      0.5784      0.6237 </span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; MC-SIMEX corrected coefficients:</span></span>
-<span><span class="co">#&gt;             Estimate Std. Error t value Pr(&gt;|t|)    </span></span>
-<span><span class="co">#&gt; 1            0.76194    0.05151   14.79   &lt;2e-16 ***</span></span>
-<span><span class="co">#&gt; (Intercept)  0.57505    0.02762   20.82   &lt;2e-16 ***</span></span>
-<span><span class="co">#&gt; ---</span></span>
-<span><span class="co">#&gt; Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</span></span></code></pre></div>
-</div>
-<div class="section level2">
-<h2 id="example-10-frequency-weights">Example 10: Frequency weights<a class="anchor" aria-label="anchor" href="#example-10-frequency-weights"></a>
-</h2>
-<p>The <code>weights</code> argument supports frequency (prior)
-weights:</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Aggregated data with weights</span></span>
-<span><span class="va">df10_agg</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>  y <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2.5</span>, <span class="fl">3.1</span>, <span class="fl">4.2</span>, <span class="fl">5.0</span><span class="op">)</span>,</span>
-<span>  x <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1.0</span>, <span class="fl">2.0</span>, <span class="fl">3.0</span>, <span class="fl">4.0</span><span class="op">)</span>,</span>
-<span>  freq <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">100</span>, <span class="fl">150</span>, <span class="fl">120</span>, <span class="fl">130</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">fit10</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simex.html">simex</a></span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="fu"><a href="../reference/me.html">me</a></span><span class="op">(</span><span class="va">x</span>, <span class="fl">0.3</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">df10_agg</span>, weights <span class="op">=</span> <span class="va">df10_agg</span><span class="op">$</span><span class="va">freq</span>,</span>
-<span>               B <span class="op">=</span> <span class="fl">100</span>, seed <span class="op">=</span> <span class="fl">42</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit10</span><span class="op">)</span></span>
-<span><span class="co">#&gt; (Intercept)           x </span></span>
-<span><span class="co">#&gt;   1.4042179   0.9413936</span></span></code></pre></div>
+<span><span class="va">fit_mcglm</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/mcglm.html">mcglm</a></span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="fu"><a href="../reference/mc.html">mc</a></span><span class="op">(</span><span class="va">z</span>, <span class="va">Pi</span><span class="op">)</span> <span class="op">+</span> <span class="va">x1</span>, data <span class="op">=</span> <span class="va">df</span>, family <span class="op">=</span> <span class="st">"poisson"</span>,</span>
+<span>                   method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"naive"</span>, <span class="st">"cs"</span>, <span class="st">"cs_akn"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit_mcglm</span>, method <span class="op">=</span> <span class="st">"naive"</span><span class="op">)</span></span>
+<span><span class="co">#&gt;      gamma     alpha0     alpha1 </span></span>
+<span><span class="co">#&gt;  0.6201552 -0.4452069  0.7125682</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit_mcglm</span>, method <span class="op">=</span> <span class="st">"cs"</span><span class="op">)</span></span>
+<span><span class="co">#&gt;      gamma     alpha0     alpha1 </span></span>
+<span><span class="co">#&gt;  0.7792699 -0.5291241  0.7141844</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit_mcglm</span>, method <span class="op">=</span> <span class="st">"cs_akn"</span><span class="op">)</span></span>
+<span><span class="co">#&gt;      gamma     alpha0     alpha1 </span></span>
+<span><span class="co">#&gt;  0.7789926 -0.5294969  0.7161404</span></span></code></pre></div>
+<p>The naive
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>γ</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat\gamma</annotation></semantics></math>
+is attenuated below the truth (0.8); both corrected scores recover it.
+<code><a href="../reference/mclm.html">mclm()</a></code> is a Gaussian-fixed wrapper of <code><a href="../reference/mcglm.html">mcglm()</a></code>
+for linear models. See <code><a href="../articles/mcglm.html">vignette("mcglm", "mismeasured")</a></code> for
+the full theory, the BCA/BCM/one-step alternatives, and the
+multicategory case.</p>
 </div>
 <div class="section level2">
 <h2 id="utility-functions">Utility functions<a class="anchor" aria-label="anchor" href="#utility-functions"></a>
 </h2>
-<div class="section level3">
-<h3 id="building-misclassification-matrices">Building misclassification matrices<a class="anchor" aria-label="anchor" href="#building-misclassification-matrices"></a>
-</h3>
-<p><code><a href="../reference/build.mc.matrix.html">build.mc.matrix()</a></code> finds the nearest valid
-misclassification matrix (one that can be raised to fractional powers
-without negative probabilities):</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<p>The package also exports two helpers for working with
+misclassification matrices, used by both toolsets:</p>
+<ul>
+<li>
+<code><a href="../reference/build.mc.matrix.html">build.mc.matrix()</a></code> finds the nearest valid
+(non-negative-power) matrix given an empirical estimate of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi mathvariant="normal">Π</mi><annotation encoding="application/x-tex">\Pi</annotation></semantics></math>.</li>
+<li>
+<code><a href="../reference/check.mc.matrix.html">check.mc.matrix()</a></code> validates a list of candidate
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi mathvariant="normal">Π</mi><annotation encoding="application/x-tex">\Pi</annotation></semantics></math>s.</li>
+</ul>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">Pi_empirical</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.85</span>, <span class="fl">0.10</span>, <span class="fl">0.05</span>,</span>
-<span>                          <span class="fl">0.10</span>, <span class="fl">0.80</span>, <span class="fl">0.10</span>,</span>
-<span>                          <span class="fl">0.05</span>, <span class="fl">0.10</span>, <span class="fl">0.85</span><span class="op">)</span>, <span class="fl">3</span>, <span class="fl">3</span>, byrow <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span>                         <span class="fl">0.10</span>, <span class="fl">0.80</span>, <span class="fl">0.10</span>,</span>
+<span>                         <span class="fl">0.05</span>, <span class="fl">0.10</span>, <span class="fl">0.85</span><span class="op">)</span>, <span class="fl">3</span>, <span class="fl">3</span>, byrow <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/check.mc.matrix.html">check.mc.matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">Pi_empirical</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] TRUE</span></span>
-<span></span>
 <span><span class="va">Pi_valid</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/build.mc.matrix.html">build.mc.matrix</a></span><span class="op">(</span><span class="va">Pi_empirical</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/check.mc.matrix.html">check.mc.matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">Pi_valid</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] TRUE</span></span></code></pre></div>
 </div>
-<div class="section level3">
-<h3 id="checking-matrix-validity">Checking matrix validity<a class="anchor" aria-label="anchor" href="#checking-matrix-validity"></a>
-</h3>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">P1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.9</span>, <span class="fl">0.1</span>, <span class="fl">0.2</span>, <span class="fl">0.8</span><span class="op">)</span>, <span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span></span>
-<span><span class="va">P2</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.4</span>, <span class="fl">0.6</span>, <span class="fl">0.6</span>, <span class="fl">0.4</span><span class="op">)</span>, <span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span>  <span class="co"># too much error</span></span>
-<span><span class="fu"><a href="../reference/check.mc.matrix.html">check.mc.matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">P1</span>, <span class="va">P2</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1]  TRUE FALSE</span></span></code></pre></div>
-</div>
-</div>
 <div class="section level2">
-<h2 id="implementation-details">Implementation details<a class="anchor" aria-label="anchor" href="#implementation-details"></a>
+<h2 id="getting-help">Getting help<a class="anchor" aria-label="anchor" href="#getting-help"></a>
 </h2>
-<div class="section level3">
-<h3 id="c-backend">C++ backend<a class="anchor" aria-label="anchor" href="#c-backend"></a>
-</h3>
-<p>The simulation step runs entirely in C++ for all error types:</p>
 <ul>
 <li>
-<code>simex_sim_cpp</code>: Continuous ME with IRLS fitting + model
-vcov accumulation</li>
+<code><a href="../reference/simex.html">?simex</a></code>, <code><a href="../reference/mcglm.html">?mcglm</a></code>, <code><a href="../reference/mclm.html">?mclm</a></code>,
+<code><a href="../reference/me.html">?me</a></code>, <code><a href="../reference/mc.html">?mc</a></code> — function references.</li>
 <li>
-<code>mcsimex_sim_cpp</code>: Single-variable MC-SIMEX</li>
+<code><a href="../articles/simex.html">vignette("simex", "mismeasured")</a></code> — SIMEX/MC-SIMEX in
+depth.</li>
 <li>
-<code>mcsimex_multi_sim_cpp</code>: Multi-variable MC-SIMEX with
-optional response mc</li>
+<code><a href="../articles/mcglm.html">vignette("mcglm", "mismeasured")</a></code> — bias-corrected GLM
+theory and methods.</li>
+<li>
+<code>https://ojalab.github.io/mismeasured/</code> — pkgdown site
+with the full reference index.</li>
+<li>Issues:
+<code>https://github.com/OJALAB/mismeasured/issues</code>.</li>
 </ul>
-<p>The IRLS solver supports Gaussian (identity link), Poisson (log
-link), and Binomial (logit link) families. Matrix exponentiation for
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi mathvariant="normal">Π</mi><mi>λ</mi></msup><annotation encoding="application/x-tex">\Pi^\lambda</annotation></semantics></math>
-uses eigendecomposition.</p>
-</div>
-<div class="section level3">
-<h3 id="variance-estimation">Variance estimation<a class="anchor" aria-label="anchor" href="#variance-estimation"></a>
-</h3>
-<ul>
-<li><p><strong>ME-SIMEX</strong>: Jackknife variance following Stefanski
-&amp; Cook (1994). The model-based variance
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>V</mi><mo accent="true">‾</mo></mover><mtext mathvariant="normal">model</mtext></msub><mo stretchy="false" form="prefix">(</mo><mi>λ</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\bar{V}_{\text{model}}(\lambda)</annotation></semantics></math>
-is the average of
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><msubsup><mi>X</mi><mtext mathvariant="normal">sim</mtext><mo>′</mo></msubsup><mi>W</mi><msub><mi>X</mi><mtext mathvariant="normal">sim</mtext></msub><msup><mo stretchy="false" form="postfix">)</mo><mrow><mi>−</mi><mn>1</mn></mrow></msup><mi>ϕ</mi></mrow><annotation encoding="application/x-tex">(X_{\text{sim}}'WX_{\text{sim}})^{-1}\phi</annotation></semantics></math>
-across B refits, computed in C++.
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>V</mi><mtext mathvariant="normal">jk</mtext></msub><mo stretchy="false" form="prefix">(</mo><mi>λ</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><msub><mover><mi>V</mi><mo accent="true">‾</mo></mover><mtext mathvariant="normal">model</mtext></msub><mo>−</mo><mtext mathvariant="normal">Cov</mtext><mo stretchy="false" form="prefix">(</mo><msub><mover><mi>θ</mi><mo accent="true">̂</mo></mover><mi>b</mi></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">V_{\text{jk}}(\lambda) = \bar{V}_{\text{model}} - \text{Cov}(\hat\theta_b)</annotation></semantics></math>
-is then extrapolated to
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>λ</mi><mo>=</mo><mi>−</mi><mn>1</mn></mrow><annotation encoding="application/x-tex">\lambda = -1</annotation></semantics></math>.</p></li>
-<li><p><strong>MC-SIMEX standard</strong>: Same jackknife approach with
-sandwich variance at the mean estimate per lambda.</p></li>
-<li><p><strong>MC-SIMEX improved</strong>: Scaled model-based variance:
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>V</mi><mtext mathvariant="normal">corrected</mtext></msub><mo>=</mo><mi>c</mi><mo stretchy="false" form="prefix">(</mo><mi>λ</mi><msup><mo stretchy="false" form="postfix">)</mo><mn>2</mn></msup><mo>⋅</mo><msub><mi>V</mi><mtext mathvariant="normal">model</mtext></msub></mrow><annotation encoding="application/x-tex">V_{\text{corrected}} = c(\lambda)^2 \cdot V_{\text{model}}</annotation></semantics></math>.</p></li>
-</ul>
-</div>
-</div>
-<div class="section level2">
-<h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
-</h2>
-<p>Cook, J.R. and Stefanski, L.A. (1994). Simulation-extrapolation
-estimation in parametric measurement error models. <em>Journal of the
-American Statistical Association</em>, 89(428), 1314-1328.</p>
-<p>Kuchenhoff, H., Mwalili, S.M. and Lesaffre, E. (2006). A general
-method for dealing with misclassification in regression: The
-misclassification SIMEX. <em>Biometrics</em>, 62(1), 85-96.</p>
-<p>Sevilimedu, V. and Yu, L. (2026). An improved misclassification
-simulation extrapolation (MC-SIMEX) algorithm. <em>Statistics in
-Medicine</em>, 45, e70418.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">mismeasured</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.6.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.6.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -17,6 +17,11 @@
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto"><li class="nav-item"><a class="nav-link" href="../articles/mismeasured.html">Get started</a></li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
+<li class="nav-item dropdown">
+  <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><hr class="dropdown-divider"></li>
+    <li><a class="dropdown-item" href="../articles/index.html">More articles...</a></li>
+  </ul></li>
 <li class="active nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
@@ -33,6 +38,14 @@
       <small>Source: <a href="https://github.com/OJALAB/mismeasured/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.6.1" id="mismeasured-061">mismeasured 0.6.1<a class="anchor" aria-label="anchor" href="#mismeasured-061"></a></h2>
+<div class="section level3">
+<h3 id="documentation-0-6-1">Documentation<a class="anchor" aria-label="anchor" href="#documentation-0-6-1"></a></h3>
+<ul><li>
+<strong>Vignettes split into three.</strong> <code><a href="../articles/mismeasured.html">vignette("mismeasured")</a></code> is now a brief getting-started overview; new <code><a href="../articles/simex.html">vignette("simex")</a></code> covers SIMEX/MC-SIMEX in depth (continuous ME, Berkson, multiple covariates, response misclassification, weights, C++ backend, variance estimation); new <code><a href="../articles/mcglm.html">vignette("mcglm")</a></code> covers <code><a href="../reference/mcglm.html">mcglm()</a></code> and <code><a href="../reference/mclm.html">mclm()</a></code> with the underlying drift / corrected-score / one-step theory, the two CS formulations (drift vs AKN98 unbiased surrogate), the multicategory case, and a method-selection guide.</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.6.0" id="mismeasured-060">mismeasured 0.6.0<a class="anchor" aria-label="anchor" href="#mismeasured-060"></a></h2>
 <div class="section level3">

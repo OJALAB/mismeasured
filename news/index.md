@@ -1,5 +1,24 @@
 # Changelog
 
+## mismeasured 0.6.1
+
+### Documentation
+
+- **Vignettes split into three.**
+  [`vignette("mismeasured")`](https://ojalab.github.io/mismeasured/articles/mismeasured.md)
+  is now a brief getting-started overview; new
+  [`vignette("simex")`](https://ojalab.github.io/mismeasured/articles/simex.md)
+  covers SIMEX/MC-SIMEX in depth (continuous ME, Berkson, multiple
+  covariates, response misclassification, weights, C++ backend, variance
+  estimation); new
+  [`vignette("mcglm")`](https://ojalab.github.io/mismeasured/articles/mcglm.md)
+  covers
+  [`mcglm()`](https://ojalab.github.io/mismeasured/reference/mcglm.md)
+  and [`mclm()`](https://ojalab.github.io/mismeasured/reference/mclm.md)
+  with the underlying drift / corrected-score / one-step theory, the two
+  CS formulations (drift vs AKN98 unbiased surrogate), the multicategory
+  case, and a method-selection guide.
+
 ## mismeasured 0.6.0
 
 ### New features
