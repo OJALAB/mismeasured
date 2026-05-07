@@ -14,6 +14,7 @@ importFrom(nleqslv, nleqslv)
 
 export(simex)
 export(mcglm)
+export(mclm)
 export(me)
 export(mc)
 export(misclass)
