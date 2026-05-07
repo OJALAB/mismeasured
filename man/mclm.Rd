@@ -39,8 +39,14 @@ variable named in \code{mc()} should be a \code{\link{factor}} or
 integer-valued vector with levels coded as \eqn{0, 1, \dots, K-1}.}
 
 \item{method}{Character vector of estimators to fit. Any subset of
-\code{c("naive", "bca", "bcm", "cs", "onestep")}; the default is
-the four analytical estimators.}
+\code{c("naive", "bca", "bcm", "cs", "cs_akn", "onestep")}; the
+default is the four analytical estimators
+\code{c("naive", "bca", "bcm", "cs")}. The \code{"cs_akn"} entry
+selects the Akazawa--Kinukawa--Nakamura (1998) corrected-score
+construction (an alternative formulation of \code{"cs"} based on
+the unbiased-surrogate transform \eqn{x = Q^{-1}(u - p_0)}); it
+needs only \eqn{\Pi} (not \eqn{\pi_z}) and is unsupported for
+\code{family = "multinomial"}.}
 
 \item{p01}{False-positive rate \eqn{p_{01} = \Pr(\hat Z = 1 \mid Z = 0)}
 (\code{K = 2} only). Auto-extracted from \code{Pi} when supplied.}

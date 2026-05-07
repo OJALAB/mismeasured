@@ -112,8 +112,14 @@
 #'   (any \eqn{K}, all five methods), or \code{"multinomial"}
 #'   (\code{naive} and \code{onestep} only).
 #' @param method Character vector of estimators to fit. Any subset of
-#'   \code{c("naive", "bca", "bcm", "cs", "onestep")}; the default is
-#'   the four analytical estimators.
+#'   \code{c("naive", "bca", "bcm", "cs", "cs_akn", "onestep")}; the
+#'   default is the four analytical estimators
+#'   \code{c("naive", "bca", "bcm", "cs")}. The \code{"cs_akn"} entry
+#'   selects the Akazawa--Kinukawa--Nakamura (1998) corrected-score
+#'   construction (an alternative formulation of \code{"cs"} based on
+#'   the unbiased-surrogate transform \eqn{x = Q^{-1}(u - p_0)}); it
+#'   needs only \eqn{\Pi} (not \eqn{\pi_z}) and is unsupported for
+#'   \code{family = "multinomial"}.
 #' @param p01 False-positive rate \eqn{p_{01} = \Pr(\hat Z = 1 \mid Z = 0)}
 #'   (\code{K = 2} only). Auto-extracted from \code{Pi} when supplied.
 #' @param p10 False-negative rate \eqn{p_{10} = \Pr(\hat Z = 0 \mid Z = 1)}
@@ -245,6 +251,13 @@
 #' fit
 #' summary(fit)
 #' confint(fit, method = "cs")
+#'
+#' # Same problem with the AKN98 unbiased-surrogate corrected score
+#' # (needs only Pi, not pi_z). The two CS variants give population-
+#' # equivalent estimators and agree closely in large samples.
+#' fit_akn <- mcglm(y ~ mc(z, Pi) + x1, data = df, family = "poisson",
+#'                  method = c("cs", "cs_akn"))
+#' coef(fit_akn, method = "cs_akn")
 #'
 #' # --- Matrix interface, supplying p01/p10/pi_z directly ---
 #' x_mat <- cbind(1, x1)
@@ -449,7 +462,8 @@ mcglm <- function(formula, data = NULL, family = "poisson",
   x     <- as.matrix(x)
   n     <- length(y)
   jacobian <- match.arg(jacobian)
-  method <- match.arg(method, c("naive", "bca", "bcm", "cs", "onestep"),
+  method <- match.arg(method,
+                      c("naive", "bca", "bcm", "cs", "cs_akn", "onestep"),
                       several.ok = TRUE)
 
   stopifnot(nrow(x) == n, length(z_hat) == n)
@@ -471,6 +485,9 @@ mcglm <- function(formula, data = NULL, family = "poisson",
     if (length(unsupported) > 0)
       stop("For multinomial family, only 'naive' and 'onestep' methods are ",
            "supported. Unsupported: ", paste(unsupported, collapse = ", "))
+    if ("cs_akn" %in% method)
+      stop("'cs_akn' is not supported for multinomial responses (AKN98 ",
+           "covers univariate-response GLMs only).")
     y <- as.integer(y)
     if (is.null(J)) J <- length(unique(y))
     if (any(y < 0L) || any(y >= J))
@@ -489,7 +506,8 @@ mcglm <- function(formula, data = NULL, family = "poisson",
   is_binary <- (K == 2L)
 
   # --- validate misclassification parameters ---
-  needs_correction <- any(method %in% c("bca", "bcm", "cs", "onestep"))
+  needs_correction <- any(method %in% c("bca", "bcm", "cs", "cs_akn", "onestep"))
+  needs_cs_akn     <- "cs_akn" %in% method
   if (needs_correction) {
     if (is_binary) {
       needs_bca_bcm_cs <- any(method %in% c("bca", "bcm", "cs"))
@@ -498,6 +516,13 @@ mcglm <- function(formula, data = NULL, family = "poisson",
         stop("For binary bca/bcm/cs, supply c1 and c2 (or Pi, or p01/p10/pi_z).")
       if (needs_onestep && fix_omega && (is.null(p01) || is.null(p10) || is.null(pi_z)))
         stop("For onestep with fix_omega=TRUE, supply p01, p10, and pi_z.")
+      if (needs_cs_akn) {
+        if (is.null(Pi)) {
+          if (is.null(p01) || is.null(p10))
+            stop("For binary cs_akn, supply Pi or both p01 and p10.")
+          Pi <- matrix(c(1 - p01, p01, p10, 1 - p10), 2L, 2L)
+        }
+      }
     } else {
       needs_bca_bcm_cs <- any(method %in% c("bca", "bcm", "cs"))
       needs_onestep    <- "onestep" %in% method
@@ -510,12 +535,25 @@ mcglm <- function(formula, data = NULL, family = "poisson",
       }
       if (needs_onestep && fix_omega && (is.null(Pi) || is.null(pi_z)))
         stop("For multicategory onestep with fix_omega=TRUE, supply Pi and pi_z.")
+      if (needs_cs_akn) {
+        if (is.null(Pi))
+          stop("For multicategory cs_akn, supply Pi.")
+        Pi <- as.matrix(Pi)
+        stopifnot(nrow(Pi) == K, ncol(Pi) == K)
+      }
     }
   }
 
   # --- build xi_hat once ---
   if (!is_multinomial) {
     xi_hat <- .mcglm_build_xi_hat(z_hat, x, K)
+  }
+
+  # --- AKN98 unbiased surrogate (built once, reused for fit + variance) ---
+  x_akn <- NULL
+  if (needs_cs_akn) {
+    Q_pack <- .akn_build_Q(Pi, K)
+    x_akn  <- .akn_unbiased_surrogate(z_hat, Q_pack$Q_inv, Q_pack$p0, K)
   }
 
   # --- fit ---
@@ -557,6 +595,8 @@ mcglm <- function(formula, data = NULL, family = "poisson",
     if ("cs"  %in% method)
       results$cs  <- .mcglm_fit_cs_bin(psi, y, xi_hat, x, family, c1, c2,
                                         wt = wt)
+    if ("cs_akn" %in% method)
+      results$cs_akn <- .mcglm_fit_cs_akn(psi, y, x_akn, x, K, family, wt = wt)
 
     if ("onestep" %in% method) {
       os <- .mcglm_fit_onestep_bin(y, z_hat, x, family, p01, p10, pi_z,
@@ -586,6 +626,8 @@ mcglm <- function(formula, data = NULL, family = "poisson",
       results$cs  <- .mcglm_fit_cs_multi(psi, y, xi_hat, z_hat, x, K, family,
                                           Pi, pi_z, wt = wt,
                                           jacobian = jacobian)
+    if ("cs_akn" %in% method)
+      results$cs_akn <- .mcglm_fit_cs_akn(psi, y, x_akn, x, K, family, wt = wt)
 
     if ("onestep" %in% method) {
       os <- .mcglm_fit_onestep_multi(y, z_hat, x, K, family, Pi, pi_z,
@@ -667,6 +709,8 @@ mcglm <- function(formula, data = NULL, family = "poisson",
             .mcglm_vcov_cs_multi(psi_nm, y, xi_hat, z_hat, x, K, family,
                                  Pi, pi_z, wt = wt,
                                  jacobian = jacobian)
+        } else if (nm == "cs_akn") {
+          .mcglm_vcov_cs_akn(psi_nm, y, x_akn, x, K, family, wt = wt)
         } else if (nm == "onestep") {
           onestep_vcov
         },

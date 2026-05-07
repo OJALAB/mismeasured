@@ -45,8 +45,14 @@ the strings \code{"poisson"}, \code{"binomial"}, \code{"gaussian"}
 (\code{naive} and \code{onestep} only).}
 
 \item{method}{Character vector of estimators to fit. Any subset of
-\code{c("naive", "bca", "bcm", "cs", "onestep")}; the default is
-the four analytical estimators.}
+\code{c("naive", "bca", "bcm", "cs", "cs_akn", "onestep")}; the
+default is the four analytical estimators
+\code{c("naive", "bca", "bcm", "cs")}. The \code{"cs_akn"} entry
+selects the Akazawa--Kinukawa--Nakamura (1998) corrected-score
+construction (an alternative formulation of \code{"cs"} based on
+the unbiased-surrogate transform \eqn{x = Q^{-1}(u - p_0)}); it
+needs only \eqn{\Pi} (not \eqn{\pi_z}) and is unsupported for
+\code{family = "multinomial"}.}
 
 \item{p01}{False-positive rate \eqn{p_{01} = \Pr(\hat Z = 1 \mid Z = 0)}
 (\code{K = 2} only). Auto-extracted from \code{Pi} when supplied.}
@@ -268,6 +274,13 @@ fit <- mcglm(y ~ mc(z, Pi) + x1, data = df, family = "poisson",
 fit
 summary(fit)
 confint(fit, method = "cs")
+
+# Same problem with the AKN98 unbiased-surrogate corrected score
+# (needs only Pi, not pi_z). The two CS variants give population-
+# equivalent estimators and agree closely in large samples.
+fit_akn <- mcglm(y ~ mc(z, Pi) + x1, data = df, family = "poisson",
+                 method = c("cs", "cs_akn"))
+coef(fit_akn, method = "cs_akn")
 
 # --- Matrix interface, supplying p01/p10/pi_z directly ---
 x_mat <- cbind(1, x1)
