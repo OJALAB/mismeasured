@@ -1,0 +1,300 @@
+---
+title: "Bias-corrected GLMs with misclassified covariates: mcglm() and mclm()"
+author: "Maciej Beresewicz, Michal Warmuz"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Bias-corrected GLMs with misclassified covariates: mcglm() and mclm()}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 6, fig.height = 4
+)
+library(mismeasured)
+set.seed(42)
+```
+
+## Scope
+
+This vignette describes the analytical bias-correction estimators in
+**mismeasured**: `mcglm()` for any supported family and `mclm()`, the
+Gaussian-fixed wrapper of `mcglm()`. Five estimators are implemented for
+GLMs in which a discrete covariate is observed only through a misclassified
+proxy: naive, additive bias correction (BCA), multiplicative bias correction
+(BCM), corrected score (CS, two formulations), and a one-step joint
+mixture-likelihood estimator.
+
+For simulation-extrapolation methods, see the companion vignette
+`vignette("simex", "mismeasured")`.
+
+## Setup and notation
+
+Let $Y_i$ be a scalar response, $x_i \in \mathbb{R}^r$ a vector of cleanly
+observed covariates (typically including an intercept), and
+$Z_i \in \{0, 1, \dots, K-1\}$ a latent categorical regressor observed only
+through a proxy $\hat Z_i$. For binary problems ($K = 2$) take
+$\xi_i = (Z_i, x_i^\top)^\top$ and
+$\hat\xi_i = (\hat Z_i, x_i^\top)^\top$; for $K \ge 3$, $Z_i$ is dummy-encoded
+with baseline $0$ so $\xi_i = (d_i^\top, x_i^\top)^\top$. The parameter is
+$\psi = (\gamma^\top, \alpha^\top)^\top$ with $\gamma \in \mathbb{R}^{K-1}$ on
+the (dummy-coded) latent regressor and $\alpha \in \mathbb{R}^r$ on $x_i$.
+
+The conditional mean is $\mathbb{E}[Y_i \mid Z_i, x_i] = \mu(\psi^\top \xi_i)$
+for $\mu = g^{-1}$ the inverse canonical link.
+
+**Misclassification mechanism.** For $K = 2$ this is summarized by
+$p_{01} = \Pr(\hat Z = 1 \mid Z = 0)$, $p_{10} = \Pr(\hat Z = 0 \mid Z = 1)$,
+and prevalence $\pi = \Pr(Z = 1)$. For $K \ge 3$, by the $K \times K$
+column-stochastic matrix $\Pi_{j\ell} = \Pr(\hat Z = j \mid Z = \ell)$ and
+the prevalence vector $(\pi_0, \dots, \pi_{K-1})$. We assume nondifferential
+misclassification: $\hat Z_i \,\rule[1pt]{8pt}{0.4pt}\!\!\!\rule[-3pt]{0.4pt}{8pt}\rule[1pt]{8pt}{0.4pt}\!\!\!\rule[-3pt]{0.4pt}{8pt}\, (Y_i, x_i) \mid Z_i$.
+
+## The naive proxy-score estimator and its bias
+
+The naive estimator solves the proxy-score equation
+$$
+\hat U_n(\psi) = \frac{1}{n} \sum_{i=1}^n \hat\xi_i \{Y_i - \mu(\psi^\top \hat\xi_i)\} = 0.
+$$
+This is just GLM estimation with $\hat Z_i$ in place of $Z_i$. It is
+typically inconsistent for $\psi_0$. For binary $Z$, the package theory
+(Warmuz & Beresewicz, 2026, Proposition on score drift) shows
+$$
+\mathbb{E}[\hat U_n(\psi_0)] = \mathbb{E}[m_i(\psi_0)],
+$$
+where the per-observation drift is
+$$
+m_i(\psi) = \begin{pmatrix} -c_1\, \delta_i(\psi) \\ -c_2\, \delta_i(\psi)\, x_i \end{pmatrix},
+\qquad
+\delta_i(\psi) = \mu(\gamma + \alpha^\top x_i) - \mu(\alpha^\top x_i),
+$$
+with constants $c_1 = p_{01}(1-\pi)$ and $c_2 = p_{01}(1-\pi) - p_{10}\pi$.
+The multicategory version replaces $(\delta_i, c_1, c_2)$ with explicit
+double sums over $(\Pi, \pi_z)$ (Appendix B of the package theory note).
+
+## The five estimators
+
+| Method      | Idea                                                                                              | Required nuisance | Asymptotic regime                |
+|-------------|---------------------------------------------------------------------------------------------------|-------------------|----------------------------------|
+| `naive`     | proxy GLM, no correction                                                                          | --                | inconsistent under fixed $\Pi$   |
+| `bca`       | additive: $\hat\psi_{\mathrm{bca}} = \hat\psi - \hat I(\hat\psi)^{-1}\hat m(\hat\psi)$              | $(c_1, c_2)$ or $(\Pi, \pi)$ | drifting $\Pi = O(n^{-1/2})$ |
+| `bcm`       | multiplicative: $\hat\psi_{\mathrm{bcm}} = \hat\psi - (\hat I + \hat M)^{-1} \hat m$                | same              | drifting $\Pi = O(n^{-1/2})$ |
+| `cs`        | corrected score: solve $\sum_i [\hat\xi_i\{Y_i - \mu(\psi^\top\hat\xi_i)\} - m_i(\psi)] = 0$       | same              | **fixed $\Pi$**                  |
+| `cs_akn`    | AKN98 corrected score via unbiased surrogate $x = Q^{-1}(u - p_0)$                                | $\Pi$ only        | **fixed $\Pi$**                  |
+| `onestep`   | maximize $\prod_i \sum_\ell \pi_\ell \Pi_{\hat z_i+1, \ell+1} f(Y_i \mid Z = \ell, \psi)$ via RTMB | (see below)        | fixed $\Pi$                      |
+
+`bca` and `bcm` remove the leading $n^{-1/2}$ bias under a drifting-sequence
+regime where misclassification probabilities shrink with $n$. `cs` and
+`cs_akn` are unbiased estimating equations under fixed $\Pi$ -- they remain
+consistent even when misclassification is moderate or large. `onestep` is a
+likelihood-based alternative implemented through automatic differentiation
+(`RTMB`); it estimates mixture weights jointly with $\psi$ unless
+`fix_omega = TRUE`.
+
+### Two CS formulations
+
+The package implements *two* corrected-score estimators that solve the same
+population equation but differ in finite-sample form:
+
+- **`cs` (drift)** keeps the proxy as-is and adds the explicit drift
+  $m_i(\psi)$ to the naive score. Needs $(\Pi, \pi_z)$. (Warmuz &
+  Beresewicz, 2026, Theorem on the corrected-score estimator;
+  Battaglia et al., 2025 for the linear-model origin.)
+- **`cs_akn` (unbiased surrogate)** transforms the regressor via
+  $x = Q^{-1}(u - p_0)$ where
+  $Q = [p_1 - p_0, \ldots, p_{K-1} - p_0]$, then substitutes into the
+  log-likelihood. Needs only $\Pi$ -- $\pi_z$ cancels out.
+  (Akazawa, Kinukawa & Nakamura, 1998.)
+
+The two are population-equivalent at $\psi_0$. Empirically they agree to
+$\sim 10^{-4}$ for $K = 2$ and within sampling noise for $K \ge 3$;
+`cs_akn`'s SD is slightly larger when $\Pi$ has off-diagonals away from zero
+(the $Q^{-1}$ amplifies single-observation contributions).
+
+### Inference
+
+All five estimators report an asymptotic variance through `vcov()`:
+
+- naive / BCA / BCM: $A^{-1} C A^{-1}$ where $A = \mathbb{E}[\dot\mu(\psi_0^\top\xi_i)\xi_i\xi_i^\top]$ and $C = \mathbb{E}[\varepsilon_i^2 \xi_i \xi_i^\top]$.
+- CS / cs_akn: $J^{-1} S J^{-\top}$ with $J = -(\hat I + \hat M)$ (cs) or $J = -I_{\mathrm{akn}}$ (cs_akn) and $S = \mathbb{E}[\phi_i \phi_i^\top]$.
+- onestep: inverse Hessian of the integrated log-likelihood.
+
+Set `vcov_corrected = TRUE` in `mcglm()` to get a more conservative BCA/BCM
+sandwich that accounts for the additional uncertainty from estimating
+$\hat m(\hat\psi)$.
+
+## Worked examples
+
+### Binary misclassification, Poisson response
+
+```{r poisson-binary}
+n  <- 5000
+Pi <- matrix(c(0.9, 0.1, 0.1, 0.9), 2, 2)   # p01 = p10 = 0.10
+z  <- rbinom(n, 1, 0.4)
+z_hat <- z
+z_hat[z == 0] <- rbinom(sum(z == 0), 1, 0.10)
+z_hat[z == 1] <- 1 - rbinom(sum(z == 1), 1, 0.10)
+x1 <- rnorm(n)
+y  <- rpois(n, exp(0.8 * z - 0.5 + 0.7 * x1))
+
+df <- data.frame(y = y, z = factor(z_hat), x1 = x1)
+
+fit <- mcglm(y ~ mc(z, Pi) + x1, data = df, family = "poisson",
+             method = c("naive", "bca", "bcm", "cs", "cs_akn"))
+fit
+```
+
+The naive $\hat\gamma$ is biased toward zero; all four corrections recover
+$\gamma_0 = 0.8$.
+
+```{r poisson-summary}
+summary(fit)
+```
+
+### Binary misclassification, logistic response
+
+```{r logistic}
+n  <- 5000
+Pi <- matrix(c(0.85, 0.15, 0.10, 0.90), 2, 2)
+z  <- rbinom(n, 1, 0.4); zh <- z
+zh[z == 0] <- rbinom(sum(z == 0), 1, 0.15)
+zh[z == 1] <- 1 - rbinom(sum(z == 1), 1, 0.10)
+x1 <- rnorm(n)
+y  <- rbinom(n, 1, plogis(0.9 * z - 0.4 + 0.6 * x1))
+
+dfb <- data.frame(y = y, z = factor(zh), x1 = x1)
+fitb <- mcglm(y ~ mc(z, Pi) + x1, data = dfb, family = "binomial",
+              method = c("naive", "cs", "cs_akn"))
+coef(fitb, method = "naive")
+coef(fitb, method = "cs")
+coef(fitb, method = "cs_akn")
+```
+
+### Multicategory misclassification ($K = 3$)
+
+For $K \ge 3$ pass the misclassification matrix and (for `cs`/`bca`/`bcm`)
+the prevalence vector $\pi$. `cs_akn` needs only $\Pi$.
+
+```{r multicat}
+n   <- 5000
+Pi3 <- matrix(0.1, 3, 3); diag(Pi3) <- 0.8
+pi3 <- c(0.5, 0.3, 0.2)
+Z  <- sample(0:2, n, replace = TRUE, prob = pi3)
+Zh <- vapply(Z, function(z) sample(0:2, 1, prob = Pi3[, z + 1]), 0L)
+x1 <- rnorm(n)
+ym <- rpois(n, exp(c(0, 1.0, -0.9)[Z + 1] + 0.8 - 0.7 * x1))
+
+fit3 <- mcglm(ym, z_hat = Zh, x = cbind(1, x1), family = "poisson",
+              method = c("naive", "cs", "cs_akn"),
+              Pi = Pi3, pi_z = pi3)
+coef(fit3, method = "cs")
+coef(fit3, method = "cs_akn")
+```
+
+### Confidence intervals
+
+```{r ci}
+confint(fit, method = "cs")
+confint(fit, method = "cs_akn")
+```
+
+### One-step (joint mixture likelihood)
+
+The one-step estimator maximizes the integrated mixture likelihood across
+the latent categories. It uses `RTMB` for automatic differentiation and is
+robust under fixed $\Pi$ for any $K$. Mixture weights can be estimated
+jointly (default) or fixed at user-supplied $\pi_z$ via `fix_omega = TRUE`.
+
+```{r onestep, eval = requireNamespace("RTMB", quietly = TRUE)}
+fit_os <- mcglm(y ~ mc(z, Pi) + x1, data = df, family = "poisson",
+                method = c("naive", "onestep"))
+coef(fit_os, method = "onestep")
+```
+
+## `mclm()`: Gaussian-fixed convenience wrapper
+
+`mclm()` is a thin wrapper around `mcglm()` with `family = "gaussian"`, in
+the spirit of base R's `lm()` versus `glm()`. All other arguments forward
+unchanged and the returned object remains of class `"mcglm"`, so all S3
+methods (`summary`, `vcov`, `confint`, ...) work identically.
+
+```{r mclm}
+n  <- 4000
+Pi <- matrix(c(0.9, 0.1, 0.1, 0.9), 2, 2)
+z  <- rbinom(n, 1, 0.4); zh <- z
+zh[z == 0] <- rbinom(sum(z == 0), 1, 0.10)
+zh[z == 1] <- 1 - rbinom(sum(z == 1), 1, 0.10)
+x1 <- rnorm(n)
+yg <- 0.8 * z - 0.5 + 0.7 * x1 + rnorm(n, 0, 0.5)
+
+dfg <- data.frame(y = yg, z = factor(zh), x1 = x1)
+fitg <- mclm(y ~ mc(z, Pi) + x1, data = dfg,
+             method = c("naive", "cs", "cs_akn"))
+coef(fitg, method = "cs")
+coef(fitg, method = "cs_akn")
+```
+
+For Gaussian, `cs_akn` admits a closed-form linear-system solution (no
+iterative solver), so the two CS formulations agree to numerical precision.
+
+## When to use which method
+
+- **Reliable $(\Pi, \pi_z)$, well-curated proxy.** Any of `cs`, `cs_akn`, or
+  `onestep`. Use `cs` for the most established formulation; `onestep` when
+  you also want a likelihood-based confidence set or model fit comparison.
+- **Reliable $\Pi$ but $\pi_z$ unknown or unstable.** Prefer `cs_akn` --
+  the surrogate construction makes $\pi_z$ irrelevant.
+- **Misclassification probabilities small and shrinking with $n$.** `bca`
+  or `bcm` are valid (drifting-sequence regime). `bcm` removes second-order
+  bias and is closer to the iterated CS update.
+- **Multicategory $K \ge 3$.** All five estimators apply; `cs_akn` carries a
+  small variance penalty (≈ 10--20% larger SD) versus drift `cs`.
+- **Multinomial response.** Only `naive` and `onestep` (the others are
+  univariate-response specific).
+
+## Estimated misclassification parameters
+
+The package theory (Warmuz & Beresewicz, 2026, Proposition on plug-in
+robustness) shows that the corrected-score estimator remains consistent
+when $(\Pi, \pi)$ are estimated from auxiliary data, provided the plug-in
+score satisfies $\sup_\psi \|\Phi_n^* - \Phi_n^\circ\| = o_P(1)$, and is
+asymptotically unbiased under the tighter rate $o_P(n^{-1/2})$. In
+practice this means a validation subsample of moderate size (e.g. 5--10%
+of the main sample) is sufficient.
+
+## Result object and S3 methods
+
+`mcglm()` and `mclm()` both return objects of class `"mcglm"`. The
+following S3 methods are available:
+
+- `print()`, `summary()` -- coefficient tables per method.
+- `coef()`, `vcov()`, `se()`, `confint()` -- accept a `method = ` argument
+  to select which estimator's quantity to extract.
+- `predict()`, `fitted()`, `residuals()` -- on the original (proxy) data.
+- `logLik()`, `AIC()`, `BIC()`, `nobs()` -- only meaningful for `onestep`.
+
+## References
+
+Akazawa, K., Kinukawa, N. and Nakamura, T. (1998). A note on the corrected
+score function adjusting for misclassification. *J. Japan Statist. Soc.*
+28(1), 115--123. (Foundational existence theorem and explicit corrected
+scores for misclassified discrete covariates; basis of `cs_akn`.)
+
+Battaglia, L., Christensen, T., Hansen, S. and Sacher, S. (2025). Inference
+for regression with variables generated by AI or machine learning.
+*arXiv preprint* arXiv:2402.15585. (Drifting-asymptotics framework for
+linear models; origin of BCA/BCM and one-step.)
+
+Nakamura, T. (1990). Corrected score function for errors-in-variables
+models: methodology and application to generalized linear models.
+*Biometrika* 77(1), 127--137. \doi{10.1093/biomet/77.1.127} (Originating
+reference for the corrected-score concept under continuous additive error.)
+
+Warmuz, M. and Beresewicz, M. (2026). Bias corrections for GLMs with
+misclassified covariates. Working paper. (GLM extension of the
+drifting-asymptotics regime; multicategory drift formulas; plug-in
+robustness conditions used in the package.)

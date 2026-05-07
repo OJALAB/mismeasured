@@ -1,3 +1,16 @@
+# mismeasured 0.6.1
+
+## Documentation
+
+* **Vignettes split into three.** `vignette("mismeasured")` is now a brief
+  getting-started overview; new `vignette("simex")` covers SIMEX/MC-SIMEX in
+  depth (continuous ME, Berkson, multiple covariates, response
+  misclassification, weights, C++ backend, variance estimation); new
+  `vignette("mcglm")` covers `mcglm()` and `mclm()` with the underlying
+  drift / corrected-score / one-step theory, the two CS formulations
+  (drift vs AKN98 unbiased surrogate), the multicategory case, and a
+  method-selection guide.
+
 # mismeasured 0.6.0
 
 ## New features

@@ -57,3 +57,7 @@ articles:
     navbar: ~
     contents:
       - mismeasured
+  - title: "Topics"
+    contents:
+      - simex
+      - mcglm
