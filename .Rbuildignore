@@ -16,3 +16,6 @@
 ^\.\.Rcheck$
 ^mismeasured\.Rcheck$
 ^mismeasured_.*\.tar\.gz$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$

@@ -1,0 +1,59 @@
+url: https://ojalab.github.io/mismeasured/
+
+template:
+  bootstrap: 5
+
+development:
+  mode: auto
+
+home:
+  links:
+    - text: Source code
+      href: https://github.com/OJALAB/mismeasured
+
+reference:
+  - title: "Bias-corrected GLM / LM"
+    desc: "Analytical bias-correction estimators (BCA, BCM, CS) and the joint mixture-likelihood one-step estimator for GLMs with a misclassified covariate."
+    contents:
+      - mcglm
+      - mclm
+  - title: "SIMEX and MC-SIMEX"
+    desc: "Simulation-extrapolation for measurement error and misclassification."
+    contents:
+      - simex
+      - misclass
+      - me
+      - mc
+  - title: "Misclassification-matrix utilities"
+    contents:
+      - build.mc.matrix
+      - check.mc.matrix
+      - diag.block
+  - title: "Methods for mcglm fits"
+    desc: "S3 methods for objects returned by mcglm() and mclm()."
+    contents:
+      - summary.mcglm
+      - print.mcglm
+      - coef.mcglm
+      - vcov.mcglm
+      - confint.mcglm
+      - se.mcglm
+      - predict.mcglm
+      - fitted.mcglm
+      - residuals.mcglm
+      - logLik.mcglm
+      - AIC.mcglm
+      - BIC.mcglm
+      - nobs.mcglm
+      - family.mcglm
+      - formula.mcglm
+      - model.matrix.mcglm
+  - title: "Other methods"
+    contents:
+      - refit
+
+articles:
+  - title: "Get started"
+    navbar: ~
+    contents:
+      - mismeasured
