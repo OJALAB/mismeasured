@@ -54,8 +54,13 @@ mclm(
 - method:
 
   Character vector of estimators to fit. Any subset of
-  `c("naive", "bca", "bcm", "cs", "onestep")`; the default is the four
-  analytical estimators.
+  `c("naive", "bca", "bcm", "cs", "cs_akn", "onestep")`; the default is
+  the four analytical estimators `c("naive", "bca", "bcm", "cs")`. The
+  `"cs_akn"` entry selects the Akazawa–Kinukawa–Nakamura (1998)
+  corrected-score construction (an alternative formulation of `"cs"`
+  based on the unbiased-surrogate transform \\x = Q^{-1}(u - p_0)\\); it
+  needs only \\\Pi\\ (not \\\pi_z\\) and is unsupported for
+  `family = "multinomial"`.
 
 - p01:
 

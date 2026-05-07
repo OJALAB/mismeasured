@@ -13,6 +13,11 @@
 <url><loc>https://ojalab.github.io/mismeasured/reference/coef.mcglm.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/confint.mcglm.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/diag.block.html</loc></url>
+<url><loc>https://ojalab.github.io/mismeasured/reference/dot-akn_build_Q.html</loc></url>
+<url><loc>https://ojalab.github.io/mismeasured/reference/dot-akn_fit_gaussian_closed.html</loc></url>
+<url><loc>https://ojalab.github.io/mismeasured/reference/dot-akn_information.html</loc></url>
+<url><loc>https://ojalab.github.io/mismeasured/reference/dot-akn_phi.html</loc></url>
+<url><loc>https://ojalab.github.io/mismeasured/reference/dot-akn_unbiased_surrogate.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/dot-apply_k_improved_correction.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/dot-build_multi_xi_hat.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/dot-build_x_mat.html</loc></url>
@@ -46,6 +51,7 @@
 <url><loc>https://ojalab.github.io/mismeasured/reference/dot-mcglm_fit_bca_multi.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/dot-mcglm_fit_bcm_bin.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/dot-mcglm_fit_bcm_multi.html</loc></url>
+<url><loc>https://ojalab.github.io/mismeasured/reference/dot-mcglm_fit_cs_akn.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/dot-mcglm_fit_cs_bin.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/dot-mcglm_fit_cs_multi.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/dot-mcglm_fit_naive_bin.html</loc></url>
@@ -62,6 +68,7 @@
 <url><loc>https://ojalab.github.io/mismeasured/reference/dot-mcglm_run_nlminb.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/dot-mcglm_vcov_bc_bin.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/dot-mcglm_vcov_bc_multi.html</loc></url>
+<url><loc>https://ojalab.github.io/mismeasured/reference/dot-mcglm_vcov_cs_akn.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/dot-mcglm_vcov_cs_bin.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/dot-mcglm_vcov_cs_multi.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/dot-mcglm_vcov_naive.html</loc></url>

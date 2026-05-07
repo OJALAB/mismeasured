@@ -15,7 +15,7 @@ carry the same meaning.'></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">mismeasured</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.6.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -96,8 +96,14 @@ integer-valued vector with levels coded as \(0, 1, \dots, K-1\).</p></dd>
 
 <dt id="arg-method">method<a class="anchor" aria-label="anchor" href="#arg-method"></a></dt>
 <dd><p>Character vector of estimators to fit. Any subset of
-<code>c("naive", "bca", "bcm", "cs", "onestep")</code>; the default is
-the four analytical estimators.</p></dd>
+<code>c("naive", "bca", "bcm", "cs", "cs_akn", "onestep")</code>; the
+default is the four analytical estimators
+<code>c("naive", "bca", "bcm", "cs")</code>. The <code>"cs_akn"</code> entry
+selects the Akazawa–Kinukawa–Nakamura (1998) corrected-score
+construction (an alternative formulation of <code>"cs"</code> based on
+the unbiased-surrogate transform \(x = Q^{-1}(u - p_0)\)); it
+needs only \(\Pi\) (not \(\pi_z\)) and is unsupported for
+<code>family = "multinomial"</code>.</p></dd>
 
 
 <dt id="arg-p-">p01<a class="anchor" aria-label="anchor" href="#arg-p-"></a></dt>

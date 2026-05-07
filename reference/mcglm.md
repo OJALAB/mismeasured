@@ -62,8 +62,13 @@ mcglm(
 - method:
 
   Character vector of estimators to fit. Any subset of
-  `c("naive", "bca", "bcm", "cs", "onestep")`; the default is the four
-  analytical estimators.
+  `c("naive", "bca", "bcm", "cs", "cs_akn", "onestep")`; the default is
+  the four analytical estimators `c("naive", "bca", "bcm", "cs")`. The
+  `"cs_akn"` entry selects the Akazawa–Kinukawa–Nakamura (1998)
+  corrected-score construction (an alternative formulation of `"cs"`
+  based on the unbiased-surrogate transform \\x = Q^{-1}(u - p_0)\\); it
+  needs only \\\Pi\\ (not \\\pi_z\\) and is unsupported for
+  `family = "multinomial"`.
 
 - p01:
 
@@ -445,6 +450,15 @@ confint(fit, method = "cs")
 #> gamma   0.6378256  0.8703766
 #> alpha0 -0.5514243 -0.3835923
 #> alpha1  0.6707755  0.7505572
+
+# Same problem with the AKN98 unbiased-surrogate corrected score
+# (needs only Pi, not pi_z). The two CS variants give population-
+# equivalent estimators and agree closely in large samples.
+fit_akn <- mcglm(y ~ mc(z, Pi) + x1, data = df, family = "poisson",
+                 method = c("cs", "cs_akn"))
+coef(fit_akn, method = "cs_akn")
+#>      gamma     alpha0     alpha1 
+#>  0.7533845 -0.4645779  0.7088654 
 
 # --- Matrix interface, supplying p01/p10/pi_z directly ---
 x_mat <- cbind(1, x1)

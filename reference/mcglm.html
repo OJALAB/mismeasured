@@ -21,7 +21,7 @@ supported."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">mismeasured</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.6.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -113,8 +113,14 @@ the strings <code>"poisson"</code>, <code>"binomial"</code>, <code>"gaussian"</c
 
 <dt id="arg-method">method<a class="anchor" aria-label="anchor" href="#arg-method"></a></dt>
 <dd><p>Character vector of estimators to fit. Any subset of
-<code>c("naive", "bca", "bcm", "cs", "onestep")</code>; the default is
-the four analytical estimators.</p></dd>
+<code>c("naive", "bca", "bcm", "cs", "cs_akn", "onestep")</code>; the
+default is the four analytical estimators
+<code>c("naive", "bca", "bcm", "cs")</code>. The <code>"cs_akn"</code> entry
+selects the Akazawa–Kinukawa–Nakamura (1998) corrected-score
+construction (an alternative formulation of <code>"cs"</code> based on
+the unbiased-surrogate transform \(x = Q^{-1}(u - p_0)\)); it
+needs only \(\Pi\) (not \(\pi_z\)) and is unsupported for
+<code>family = "multinomial"</code>.</p></dd>
 
 
 <dt id="arg-p-">p01<a class="anchor" aria-label="anchor" href="#arg-p-"></a></dt>
@@ -472,6 +478,15 @@ from auxiliary data.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> gamma   0.6378256  0.8703766</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> alpha0 -0.5514243 -0.3835923</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> alpha1  0.6707755  0.7505572</span>
+<span class="r-in"><span></span></span>
+<span class="r-in"><span><span class="co"># Same problem with the AKN98 unbiased-surrogate corrected score</span></span></span>
+<span class="r-in"><span><span class="co"># (needs only Pi, not pi_z). The two CS variants give population-</span></span></span>
+<span class="r-in"><span><span class="co"># equivalent estimators and agree closely in large samples.</span></span></span>
+<span class="r-in"><span><span class="va">fit_akn</span> <span class="op">&lt;-</span> <span class="fu">mcglm</span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="fu"><a href="mc.html">mc</a></span><span class="op">(</span><span class="va">z</span>, <span class="va">Pi</span><span class="op">)</span> <span class="op">+</span> <span class="va">x1</span>, data <span class="op">=</span> <span class="va">df</span>, family <span class="op">=</span> <span class="st">"poisson"</span>,</span></span>
+<span class="r-in"><span>                 method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"cs"</span>, <span class="st">"cs_akn"</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit_akn</span>, method <span class="op">=</span> <span class="st">"cs_akn"</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>      gamma     alpha0     alpha1 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  0.7533845 -0.4645779  0.7088654 </span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># --- Matrix interface, supplying p01/p10/pi_z directly ---</span></span></span>
 <span class="r-in"><span><span class="va">x_mat</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">cbind</a></span><span class="op">(</span><span class="fl">1</span>, <span class="va">x1</span><span class="op">)</span></span></span>

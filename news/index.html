@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">mismeasured</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.5.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.6.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -33,6 +33,14 @@
       <small>Source: <a href="https://github.com/OJALAB/mismeasured/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.6.0" id="mismeasured-060">mismeasured 0.6.0<a class="anchor" aria-label="anchor" href="#mismeasured-060"></a></h2>
+<div class="section level3">
+<h3 id="new-features-0-6-0">New features<a class="anchor" aria-label="anchor" href="#new-features-0-6-0"></a></h3>
+<ul><li><p><strong><code>method = "cs_akn"</code></strong>: a new corrected-score formulation following Akazawa, Kinukawa &amp; Nakamura (1998). The unbiased-surrogate construction  produces an unbiased estimating equation that needs only the misclassification matrix  – not the latent prevalence . Supports binary and multicategory misclassification for Gaussian (closed form), Poisson, and Binomial families; complements the existing <code>method = "cs"</code> (drift-corrected score). The two methods are population-equivalent and agree closely in finite samples; <code>cs_akn</code> is preferable when  is unknown or unreliable.</p></li>
+<li><p><strong>References updated</strong>: <code><a href="../reference/mcglm.html">mcglm()</a></code> now cites Nakamura (1990), Akazawa, Kinukawa &amp; Nakamura (1998), Battaglia et al. (2025), and the package theory note (Warmuz &amp; Beresewicz, 2026).</p></li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.5.4" id="mismeasured-054">mismeasured 0.5.4<a class="anchor" aria-label="anchor" href="#mismeasured-054"></a></h2>
 <div class="section level3">

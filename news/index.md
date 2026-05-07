@@ -1,5 +1,25 @@
 # Changelog
 
+## mismeasured 0.6.0
+
+### New features
+
+- **`method = "cs_akn"`**: a new corrected-score formulation following
+  Akazawa, Kinukawa & Nakamura (1998). The unbiased-surrogate
+  construction produces an unbiased estimating equation that needs only
+  the misclassification matrix – not the latent prevalence . Supports
+  binary and multicategory misclassification for Gaussian (closed form),
+  Poisson, and Binomial families; complements the existing
+  `method = "cs"` (drift-corrected score). The two methods are
+  population-equivalent and agree closely in finite samples; `cs_akn` is
+  preferable when is unknown or unreliable.
+
+- **References updated**:
+  [`mcglm()`](https://ojalab.github.io/mismeasured/reference/mcglm.md)
+  now cites Nakamura (1990), Akazawa, Kinukawa & Nakamura (1998),
+  Battaglia et al. (2025), and the package theory note (Warmuz &
+  Beresewicz, 2026).
+
 ## mismeasured 0.5.4
 
 ### New features
