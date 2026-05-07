@@ -1,0 +1,30 @@
+# Core mcglm fitting (internal, called by mcglm after dispatch)
+
+Core mcglm fitting (internal, called by mcglm after dispatch)
+
+## Usage
+
+``` r
+.mcglm_fit(
+  y,
+  z_hat,
+  x,
+  family = "poisson",
+  method = c("naive", "bca", "bcm", "cs"),
+  p01 = NULL,
+  p10 = NULL,
+  pi_z = NULL,
+  Pi = NULL,
+  K = NULL,
+  c1 = NULL,
+  c2 = NULL,
+  iterate = FALSE,
+  jacobian = c("analytical", "numerical"),
+  fix_omega = FALSE,
+  vcov_corrected = FALSE,
+  weights = NULL,
+  J = NULL,
+  homoskedastic = TRUE,
+  optim_control = list()
+)
+```

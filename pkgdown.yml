@@ -1,0 +1,9 @@
+pandoc: 3.8.3
+pkgdown: 2.2.0
+pkgdown_sha: ~
+articles:
+  mismeasured: mismeasured.html
+last_built: 2026-05-07T07:00Z
+urls:
+  reference: https://ojalab.github.io/mismeasured/reference
+  article: https://ojalab.github.io/mismeasured/articles
