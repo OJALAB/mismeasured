@@ -857,14 +857,15 @@ coef.mcglm <- function(object, method = NULL, ...) {
 #' @return A \eqn{p \times p} sandwich variance-covariance matrix.
 #' @export
 vcov.mcglm <- function(object, method = NULL, ...) {
-  if (is.null(object$vcov)) {
+  vcov_list <- object[["vcov", exact = TRUE]]
+  if (is.null(vcov_list)) {
     # backwards-compat (older fits stored only vcov_onestep)
-    return(object$vcov_onestep)
+    return(object[["vcov_onestep", exact = TRUE]])
   }
   if (is.null(method)) method <- .mcglm_default_method(object)
-  if (!method %in% names(object$vcov))
+  if (!method %in% names(vcov_list))
     stop("No variance available for method '", method, "'.")
-  object$vcov[[method]]
+  vcov_list[[method]]
 }
 
 

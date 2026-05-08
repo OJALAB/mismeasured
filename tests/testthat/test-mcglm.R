@@ -484,6 +484,31 @@ test_that("logLik / AIC / BIC / nobs / family / model.matrix work", {
   expect_equal(dim(M), c(n, 3L))
 })
 
+test_that("mcglm S3 methods cover error and backwards-compatibility branches", {
+  set.seed(12)
+  n <- 120
+  x <- cbind(1, rnorm(n))
+  z <- rbinom(n, 1, 0.4)
+  y <- rpois(n, exp(-0.2 + 0.5 * x[, 2] + 0.7 * z))
+  fit <- mcglm(y, z_hat = z, x = x, family = "poisson", method = "naive",
+               p01 = 0.05, p10 = 0.05, pi_z = 0.4)
+
+  expect_error(coef(fit, method = "cs"), "was not fit")
+  expect_error(vcov(fit, method = "cs"), "No variance")
+  expect_error(predict(fit, newdata = data.frame(x = 1)), "newdata")
+  expect_error(logLik(fit, method = "cs"), "not defined")
+  expect_null(formula(fit))
+
+  old_fit <- fit
+  old_fit$vcov <- NULL
+  old_fit$vcov_onestep <- diag(3)
+  expect_equal(vcov(old_fit), diag(3))
+
+  old_fit$se <- NULL
+  old_fit$vcov <- list(naive = diag(3))
+  expect_equal(se.mcglm(old_fit, method = "naive"), rep(1, 3))
+})
+
 test_that("Wald CI coverage is reasonable for naive Poisson", {
   skip_on_cran()
   set.seed(101)

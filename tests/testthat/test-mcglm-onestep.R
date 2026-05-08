@@ -159,3 +159,45 @@ test_that("logLik / AIC / BIC work for onestep fits", {
   expect_true(is.finite(AIC(fit, method = "onestep")))
   expect_true(is.finite(BIC(fit, method = "onestep")))
 })
+
+test_that("one-step optimizer and Hessian fallbacks stay finite", {
+  gr_calls <- 0L
+  obj <- list(
+    par = c(1, -1),
+    fn = function(par) sum(par^2),
+    gr = function(par) {
+      gr_calls <<- gr_calls + 1L
+      if (gr_calls == 1L) stop("gradient unavailable")
+      2 * par
+    }
+  )
+  expect_warning(
+    opt <- mismeasured:::.mcglm_run_nlminb(obj),
+    "BFGS fallback"
+  )
+  expect_equal(opt$convergence, 0)
+
+  obj_hessian_error <- list(
+    par = c(1, 2),
+    fn = function(par) sum(par^2),
+    he = function(par) stop("hessian unavailable")
+  )
+  expect_warning(
+    V <- mismeasured:::.mcglm_vcov_onestep(obj_hessian_error,
+                                           list(par = c(1, 2)), d = 2),
+    "Hessian computation failed"
+  )
+  expect_true(all(is.finite(V)))
+  expect_equal(dim(V), c(2L, 2L))
+
+  obj_bad_hessian <- list(
+    par = c(1, 2),
+    fn = function(par) sum(par^2),
+    he = function(par) matrix(c(Inf, 0, 0, 1), 2, 2)
+  )
+  suppressWarnings(
+    V_bad <- mismeasured:::.mcglm_vcov_onestep(obj_bad_hessian,
+                                               list(par = c(1, 2)), d = 2)
+  )
+  expect_true(all(is.finite(V_bad)))
+})

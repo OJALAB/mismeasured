@@ -146,6 +146,18 @@ test_that("cs_akn rejects multinomial responses", {
   )
 })
 
+test_that("cs_akn helper reports non-identification clearly", {
+  expect_error(
+    mismeasured:::.akn_build_Q(diag(2), K = 3),
+    "K x K"
+  )
+  expect_warning(
+    expect_error(mismeasured:::.akn_build_Q(matrix(0.5, 2, 2), K = 2),
+                 "singular"),
+    "near-singular"
+  )
+})
+
 # ---- weights ----
 
 test_that("cs_akn handles frequency weights", {
@@ -157,6 +169,23 @@ test_that("cs_akn handles frequency weights", {
   expect_true(all(is.finite(cf)))
   V <- vcov(fit, method = "cs_akn")
   expect_true(all(is.finite(V)))
+})
+
+test_that("cs_akn weighted Gaussian uses the closed-form branch", {
+  set.seed(11)
+  n <- 200
+  Pi <- matrix(c(0.9, 0.1, 0.15, 0.85), 2, 2)
+  z <- rbinom(n, 1, 0.4)
+  z_hat <- z
+  z_hat[z == 0] <- rbinom(sum(z == 0), 1, 0.1)
+  z_hat[z == 1] <- 1 - rbinom(sum(z == 1), 1, 0.15)
+  x1 <- rnorm(n)
+  y <- 0.6 * z - 0.3 + 0.4 * x1 + rnorm(n, sd = 0.5)
+  w <- runif(n, 0.5, 1.5)
+
+  fit <- mcglm(y, z_hat = z_hat, x = cbind(1, x1), family = "gaussian",
+               method = "cs_akn", Pi = Pi, weights = w)
+  expect_true(all(is.finite(coef(fit, method = "cs_akn"))))
 })
 
 # ---- agreement with cs as n grows ----

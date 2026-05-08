@@ -204,6 +204,55 @@ test_that("lambda='optimal' errors for K-level improved mc()", {
   )
 })
 
+test_that("binary improved MC-SIMEX helper edge cases are explicit", {
+  Pi <- matrix(c(0.9, 0.1, 0.15, 0.85), 2, 2)
+
+  expect_equal(mismeasured:::.estimate_pi_x(rep(0L, 5), Pi), 1e-6)
+  expect_error(
+    mismeasured:::.estimate_pi_x(c(0L, 1L), matrix(0.5, 2, 2)),
+    "degenerate"
+  )
+
+  expect_error(
+    mismeasured:::.estimate_pi_vec(c(0L, 1L), diag(2), wt = c(0, 0)),
+    "positive total mass"
+  )
+  expect_error(
+    mismeasured:::.estimate_pi_vec(c(0L, 1L), matrix(0.5, 2, 2)),
+    "singular"
+  )
+
+  pi_vec <- mismeasured:::.estimate_pi_vec(rep(0L, 4), diag(2))
+  expect_equal(sum(pi_vec), 1)
+  expect_true(all(pi_vec > 0))
+
+  ic <- mismeasured:::.compute_intercept_correction(Pi, pi_x = 0.4,
+                                                    lambda = c(0, 1))
+  expect_true(all(is.finite(ic)))
+  expect_equal(length(ic), 2L)
+})
+
+test_that("fixed-Pi improved MC-SIMEX variance helpers cover singleton and invalid grids", {
+  naive_refit <- stats::glm(y ~ x, data = data.frame(y = rnorm(8),
+                                                      x = rnorm(8)))
+  transform <- diag(2)
+  V <- mismeasured:::.variance_k_improved(
+    theta_list = list(matrix(c(1, 2), nrow = 1)),
+    naive_refit = naive_refit,
+    transform = transform,
+    lambda = 1,
+    B = 1,
+    p = 2
+  )
+  expect_equal(V, unname(stats::vcov(naive_refit)))
+
+  expect_error(
+    mismeasured:::.find_optimal_lambda(matrix(0.5, 2, 2), pi_x = 0.4,
+                                       grid = c(0.5, 1)),
+    "Cannot find valid lambda"
+  )
+})
+
 test_that("S3 methods work for mc()-based simex", {
   set.seed(42)
   n <- 500

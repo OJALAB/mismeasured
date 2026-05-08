@@ -76,3 +76,58 @@ test_that("heteroscedastic me() with column name works", {
   parsed <- parse_simex_formula(y ~ me(x, sd_x), df, globalenv())
   expect_length(parsed$me_terms[[1]]$sd, 20)
 })
+
+test_that("parse_simex_formula rejects unsupported or ambiguous error terms", {
+  Pi <- diag(2)
+  df <- data.frame(
+    y = rnorm(8),
+    x = rnorm(8),
+    z = factor(rep(0:1, 4)),
+    bad_sd = letters[1:8]
+  )
+
+  expect_error(
+    parse_simex_formula(me(y, 0.1) ~ x, df, environment()),
+    "Response measurement error"
+  )
+  expect_error(
+    parse_simex_formula(y ~ me(x, 0.1):z, df, environment()),
+    "cannot appear inside interactions"
+  )
+  expect_error(
+    parse_simex_formula(y ~ I(mc(z, Pi)), df, environment()),
+    "cannot appear inside I"
+  )
+  expect_error(
+    parse_simex_formula(y ~ me(x, bad_sd), df, environment()),
+    "must be numeric"
+  )
+  expect_error(
+    parse_simex_formula(y ~ me(x, -1), df, environment()),
+    "non-negative"
+  )
+  expect_error(
+    parse_simex_formula(y ~ mc(z, matrix(1, nrow = 2, ncol = 3)), df,
+                        environment()),
+    "must be square"
+  )
+})
+
+test_that("response mc() formula path validates factors and matrix columns", {
+  Pi <- diag(2)
+  df_num <- data.frame(y = rep(0:1, 4), x = rnorm(8))
+
+  expect_warning(
+    parsed <- parse_simex_formula(mc(y, Pi) ~ x, df_num, environment()),
+    "not a factor"
+  )
+  expect_equal(parsed$error_type, "mc")
+  expect_equal(parsed$response_mc$variable, "y")
+
+  df_fac <- data.frame(y = factor(rep(0:1, 4)), x = rnorm(8))
+  Pi_bad <- matrix(c(0.9, 0.1, 0.2, 0.7), 2, 2)
+  expect_error(
+    parse_simex_formula(mc(y, Pi_bad) ~ x, df_fac, environment()),
+    "response matrix must sum to 1"
+  )
+})

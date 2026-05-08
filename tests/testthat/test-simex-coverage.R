@@ -82,6 +82,15 @@ test_that("simex with extrapolation='linear' produces different estimates", {
   expect_false(isTRUE(all.equal(coef(fit_lin)["x"], coef(fit_quad)["x"])))
 })
 
+test_that("loglinear extrapolation covers the offset branch", {
+  estimates <- matrix(c(-1.5, -1.1, -0.8), ncol = 1)
+  colnames(estimates) <- "beta"
+  fit <- extrapolate_simex(lambda = c(0, 1, 2), estimates = estimates,
+                           method = "loglinear")
+  expect_true(is.finite(fit$coefficients[["beta"]]))
+  expect_gt(attr(fit$model[["beta"]], "loglinear_offset"), 0)
+})
+
 # ==========================================================================
 # Mixed me() + mc() in one formula
 # ==========================================================================
