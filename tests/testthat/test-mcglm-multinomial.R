@@ -78,6 +78,8 @@ test_that("multinomial onestep runs and produces vcov (K=2, fix_omega=TRUE)", {
   expect_true(all(is.finite(fit$coefficients$onestep)))
   V <- vcov(fit, method = "onestep")
   expect_true(is.matrix(V) && all(is.finite(V)))
+  expect_equal(attr(logLik(fit, method = "onestep"), "df"),
+               (d$J - 1) * ((d$K - 1) + ncol(d$x)))
 })
 
 test_that("multinomial onestep with default fix_omega=FALSE estimates weights", {
@@ -88,6 +90,8 @@ test_that("multinomial onestep with default fix_omega=FALSE estimates weights", 
   fit <- mcglm(d$y, z_hat = d$z_hat, x = d$x, family = "multinomial",
                method = "onestep", K = d$K, J = d$J)
   expect_true(all(is.finite(fit$coefficients$onestep)))
+  expect_equal(attr(logLik(fit, method = "onestep"), "df"),
+               (d$J - 1) * ((d$K - 1) + ncol(d$x)) + d$K * d$K - 1)
 })
 
 # ==========================================================================

@@ -109,7 +109,9 @@ auto-detected).}
 
 \item{homoskedastic}{Logical. For one-step Gaussian fits, assume a
 single residual variance across mixture components; if
-\code{FALSE}, separate variances are estimated.}
+\code{FALSE}, binary fits estimate one variance per latent class,
+while \eqn{K > 2} fits estimate one baseline variance and one
+pooled nonbaseline variance.}
 
 \item{optim_control}{List of control parameters passed to
 \code{\link[stats]{nlminb}} for the one-step estimator.}
@@ -135,8 +137,9 @@ An object of class \code{"mcglm"} with components:
     \item{method, family, K, n, p}{Metadata.}
     \item{weights}{Frequency weights used (\code{NULL} if
       unweighted).}
-    \item{loglik_onestep, vcov_onestep}{One-step log-likelihood
-      and variance (when \code{onestep} is fit).}
+    \item{loglik_onestep, npar_onestep, vcov_onestep}{One-step
+      log-likelihood, full optimized parameter count, and variance
+      (when \code{onestep} is fit).}
     \item{call, formula}{The matched call and the formula
       (\code{NULL} if the matrix interface was used).}
   }

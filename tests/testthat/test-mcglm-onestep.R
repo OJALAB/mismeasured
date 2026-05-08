@@ -55,6 +55,8 @@ test_that("K=3 onestep runs with fix_omega=TRUE (Poisson)", {
   V <- vcov(fit, method = "onestep")
   expect_equal(dim(V), rep(length(os), 2))
   expect_true(all(is.finite(V)))
+  expect_equal(attr(logLik(fit, method = "onestep"), "df"),
+               (3 - 1) + ncol(d$x))
 })
 
 test_that("K=3 onestep with fix_omega=FALSE estimates mixture jointly", {
@@ -74,6 +76,8 @@ test_that("K=3 onestep with fix_omega=FALSE estimates mixture jointly", {
   # The reported coefficient block has length (K-1) + r; the K*K - 1
   # mixture parameters live inside vcov_onestep, not in coefficients.
   expect_length(os, (3 - 1) + ncol(d$x))
+  expect_equal(attr(logLik(fit, method = "onestep"), "df"),
+               (3 - 1) + ncol(d$x) + 3 * 3 - 1)
 })
 
 # ==========================================================================
@@ -89,6 +93,8 @@ test_that("binary onestep fix_omega=FALSE runs without supplying p01/p10", {
                method = "onestep", fix_omega = FALSE)
   expect_true(all(is.finite(fit$coefficients$onestep)))
   expect_length(fit$coefficients$onestep, 1 + ncol(d$x))
+  expect_equal(attr(logLik(fit, method = "onestep"), "df"),
+               1 + ncol(d$x) + 2 * 2 - 1)
 })
 
 # ==========================================================================
@@ -107,6 +113,8 @@ test_that("Gaussian onestep with homoskedastic=TRUE recovers parameters", {
   expect_true(all(is.finite(os)))
   # gamma should be in the right ballpark of 0.8
   expect_lt(abs(os[1] - 0.8), 0.3)
+  expect_equal(attr(logLik(fit, method = "onestep"), "df"),
+               1 + ncol(d$x) + 1)
 })
 
 test_that("Gaussian onestep with homoskedastic=FALSE runs", {
@@ -118,6 +126,21 @@ test_that("Gaussian onestep with homoskedastic=FALSE runs", {
                p01 = d$p01, p10 = d$p10, pi_z = d$pi_z,
                fix_omega = TRUE, homoskedastic = FALSE)
   expect_true(all(is.finite(fit$coefficients$onestep)))
+  expect_equal(attr(logLik(fit, method = "onestep"), "df"),
+               1 + ncol(d$x) + 2)
+})
+
+test_that("K=3 Gaussian onestep heteroskedastic pools nonbaseline scales", {
+  skip_if_not_installed("RTMB")
+  d <- .simulate_K_os(600, K = 3, family = "gaussian", seed = 87)
+
+  fit <- mcglm(d$y, z_hat = d$z_hat, x = d$x, family = "gaussian",
+               method = "onestep",
+               Pi = d$Pi, pi_z = d$pi_z,
+               fix_omega = TRUE, homoskedastic = FALSE)
+  expect_true(all(is.finite(fit$coefficients$onestep)))
+  expect_equal(attr(logLik(fit, method = "onestep"), "df"),
+               (3 - 1) + ncol(d$x) + 2)
 })
 
 # ==========================================================================

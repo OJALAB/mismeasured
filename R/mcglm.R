@@ -168,7 +168,9 @@
 #'   auto-detected).
 #' @param homoskedastic Logical. For one-step Gaussian fits, assume a
 #'   single residual variance across mixture components; if
-#'   \code{FALSE}, separate variances are estimated.
+#'   \code{FALSE}, binary fits estimate one variance per latent class,
+#'   while \eqn{K > 2} fits estimate one baseline variance and one
+#'   pooled nonbaseline variance.
 #' @param optim_control List of control parameters passed to
 #'   \code{\link[stats]{nlminb}} for the one-step estimator.
 #' @param z_hat Integer vector of observed proxy values
@@ -190,8 +192,9 @@
 #'     \item{method, family, K, n, p}{Metadata.}
 #'     \item{weights}{Frequency weights used (\code{NULL} if
 #'       unweighted).}
-#'     \item{loglik_onestep, vcov_onestep}{One-step log-likelihood
-#'       and variance (when \code{onestep} is fit).}
+#'     \item{loglik_onestep, npar_onestep, vcov_onestep}{One-step
+#'       log-likelihood, full optimized parameter count, and variance
+#'       (when \code{onestep} is fit).}
 #'     \item{call, formula}{The matched call and the formula
 #'       (\code{NULL} if the matrix interface was used).}
 #'   }
@@ -560,6 +563,7 @@ mcglm <- function(formula, data = NULL, family = "poisson",
   results <- list()
   onestep_vcov   <- NULL
   onestep_loglik <- NULL
+  onestep_npar   <- NULL
   naive_glm_fit  <- NULL
 
   if (is_multinomial) {
@@ -577,6 +581,7 @@ mcglm <- function(formula, data = NULL, family = "poisson",
       results$onestep <- os$coefficients
       onestep_vcov    <- os$vcov
       onestep_loglik  <- os$loglik
+      onestep_npar    <- os$npar
     }
 
   } else if (is_binary) {
@@ -606,6 +611,7 @@ mcglm <- function(formula, data = NULL, family = "poisson",
       results$onestep <- os$coefficients
       onestep_vcov    <- os$vcov
       onestep_loglik  <- os$loglik
+      onestep_npar    <- os$npar
     }
 
   } else {
@@ -637,6 +643,7 @@ mcglm <- function(formula, data = NULL, family = "poisson",
       results$onestep <- os$coefficients
       onestep_vcov    <- os$vcov
       onestep_loglik  <- os$loglik
+      onestep_npar    <- os$npar
     }
   }
 
@@ -758,6 +765,7 @@ mcglm <- function(formula, data = NULL, family = "poisson",
   if (!is.null(onestep_vcov)) {
     out$vcov_onestep   <- onestep_vcov  # kept for backwards compatibility
     out$loglik_onestep <- onestep_loglik
+    out$npar_onestep   <- onestep_npar
   }
 
   structure(out, class = "mcglm")
@@ -1113,7 +1121,11 @@ logLik.mcglm <- function(object, method = NULL, ...) {
     method <- if ("onestep" %in% object$method) "onestep" else "naive"
   if (method == "onestep" && !is.null(object$loglik_onestep)) {
     val <- object$loglik_onestep
-    df  <- length(coef(object, method = "onestep"))
+    df  <- if (!is.null(object$npar_onestep)) {
+      object$npar_onestep
+    } else {
+      length(coef(object, method = "onestep"))
+    }
     attr(val, "df")   <- df
     attr(val, "nobs") <- object$n
     class(val) <- "logLik"

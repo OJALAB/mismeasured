@@ -17,6 +17,7 @@ test_that("simex with mc() improved (default) corrects attenuation (linear)", {
   expect_s3_class(fit, "simex")
   expect_equal(fit$error.type, "mc")
   expect_equal(fit$method, "improved")
+  expect_match(fit$vcov.assumption, "fixed Pi")
 
   # Improved MC-SIMEX should correct toward true z coefficient (2.0)
   naive_bias <- abs(fit$naive.coefficients[1] - 2.0)
@@ -50,6 +51,34 @@ test_that(".mat_power_r handles asymmetric Pi with complex eigenvalues", {
   P_half <- mismeasured:::.mat_power_r(Pi, 0.5)
   expect_true(all(is.finite(P_half)))
   expect_equal(P_half %*% P_half, Pi, tolerance = 1e-6)
+})
+
+test_that("standard MC-SIMEX C++ path handles complex-eigen Pi", {
+  set.seed(20260508)
+  n <- 1200
+  Pi <- matrix(c(
+    0.72, 0.05, 0.23,
+    0.22, 0.70, 0.08,
+    0.06, 0.25, 0.69
+  ), nrow = 3, byrow = FALSE)
+  expect_true(any(abs(Im(eigen(Pi)$values)) > 1e-6))
+
+  z <- sample(0:2, n, replace = TRUE, prob = c(0.45, 0.35, 0.20))
+  z_star <- vapply(z, function(zi) {
+    sample(0:2, 1, prob = Pi[, zi + 1L])
+  }, integer(1))
+  x <- rnorm(n)
+  eta <- 0.2 + 1.0 * (z == 1) - 0.8 * (z == 2) + 0.3 * x
+  y <- rpois(n, exp(eta))
+  df <- data.frame(y = y, z = factor(z_star, levels = 0:2), x = x)
+
+  fit <- simex(y ~ mc(z, Pi) + x, family = poisson(), data = df,
+               method = "standard", lambda = 0.5, B = 8,
+               extrapolation = "linear", jackknife = FALSE, seed = 42)
+
+  expect_true(all(is.finite(fit$SIMEX.estimates)))
+  expect_true(all(is.finite(coef(fit))))
+  expect_gt(abs(fit$SIMEX.estimates["lambda_0.5", "1"]), 0.05)
 })
 
 test_that("improved MC-SIMEX handles K=4 estimated Pi without crashing", {

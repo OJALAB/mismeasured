@@ -65,7 +65,10 @@ The function auto-detects the error type from the formula:
     MC-SIMEX algorithm. With \code{method = "improved"} (default), the exact
     fixed-matrix correction of Sevilimedu and Yu (2026) and its K-level
     dummy-vector extension are applied for one misclassified covariate,
-    requiring only B = 1 replicate. With \code{method = "standard"}, the original
+    requiring only B = 1 replicate. Its variance treats the supplied
+    misclassification matrix as fixed/known; if \code{Pi} was estimated from
+    validation or audit data, reported standard errors are conditional on
+    that plug-in matrix. With \code{method = "standard"}, the original
     Kuchenhoff et al. (2006) extrapolation-based approach is used.
 }
 }

@@ -97,7 +97,7 @@
   names(b_hat) <- nms
   colnames(V) <- rownames(V) <- nms
 
-  list(coefficients = b_hat, vcov = V,
+  list(coefficients = b_hat, vcov = V, npar = length(opt$par),
        loglik = -opt$objective, convergence = opt$convergence)
 }
 
@@ -174,7 +174,7 @@
   names(b_hat) <- nms
   colnames(V) <- rownames(V) <- nms
 
-  list(coefficients = b_hat, vcov = V,
+  list(coefficients = b_hat, vcov = V, npar = length(opt$par),
        loglik = -opt$objective, convergence = opt$convergence)
 }
 
@@ -256,7 +256,7 @@
   names(b_hat) <- nms
   colnames(V) <- rownames(V) <- nms
 
-  list(coefficients = b_hat, vcov = V,
+  list(coefficients = b_hat, vcov = V, npar = length(opt$par),
        loglik = -opt$objective, convergence = opt$convergence)
 }
 

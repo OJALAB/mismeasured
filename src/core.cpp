@@ -9,12 +9,15 @@
 //   - mcsimex_sim_cpp: MC-SIMEX simulation loop for misclassification
 
 #include <RcppEigen.h>
+#include <complex>
 #include <random>
 
 // [[Rcpp::depends(RcppEigen)]]
 
 using Eigen::MatrixXd;
+using Eigen::MatrixXcd;
 using Eigen::VectorXd;
+using Eigen::VectorXcd;
 using Eigen::VectorXi;
 
 // =========================================================================
@@ -111,22 +114,81 @@ VectorXd irls_fit(const VectorXd& y, const MatrixXd& X,
 // =========================================================================
 // Pi = V * diag(d) * V^{-1}  =>  Pi^lambda = V * diag(d^lambda) * V^{-1}
 
-MatrixXd mat_power(const MatrixXd& Pi, double lambda) {
-  int K = Pi.rows();
-  if (lambda == 0.0) return MatrixXd::Identity(K, K);
-  if (lambda == 1.0) return Pi;
+MatrixXd validate_transition_matrix(const MatrixXd& P,
+                                    const char* context) {
+  const double neg_tol = 1e-10;
+  const double col_tol = 1e-6;
+  int K = P.rows();
+  if (P.cols() != K) Rcpp::stop("%s must be square.", context);
 
-  Eigen::EigenSolver<MatrixXd> es(Pi);
-  MatrixXd V  = es.eigenvectors().real();
-  VectorXd d  = es.eigenvalues().real();
-
-  VectorXd d_pow(K);
-  for (int k = 0; k < K; k++) {
-    d_pow(k) = std::pow(std::abs(d(k)), lambda);
-    if (d(k) < 0) d_pow(k) = -d_pow(k);
+  MatrixXd out = P;
+  for (int j = 0; j < K; j++) {
+    double colsum = 0.0;
+    for (int i = 0; i < K; i++) {
+      double val = out(i, j);
+      if (!std::isfinite(val)) {
+        Rcpp::stop("%s contains non-finite entries.", context);
+      }
+      if (val < -neg_tol) {
+        Rcpp::stop("%s contains negative probabilities.", context);
+      }
+      if (val < 0.0) val = 0.0;
+      out(i, j) = val;
+      colsum += val;
+    }
+    if (!std::isfinite(colsum) || colsum <= neg_tol) {
+      Rcpp::stop("%s contains an invalid probability column.", context);
+    }
+    if (std::abs(colsum - 1.0) > col_tol) {
+      Rcpp::stop("%s columns must sum to one.", context);
+    }
+    out.col(j) /= colsum;
   }
 
-  return V * d_pow.asDiagonal() * V.inverse();
+  return out;
+}
+
+MatrixXd mat_power(const MatrixXd& Pi, double lambda) {
+  int K = Pi.rows();
+  MatrixXd Pi_valid = validate_transition_matrix(Pi, "Misclassification matrix");
+  if (lambda == 0.0) return MatrixXd::Identity(K, K);
+  if (lambda == 1.0) return Pi_valid;
+
+  double lambda_round = std::round(lambda);
+  if (std::abs(lambda - lambda_round) < 1e-12 && lambda_round >= 1.0) {
+    MatrixXd Pp = MatrixXd::Identity(K, K);
+    for (int p = 0; p < static_cast<int>(lambda_round); p++) {
+      Pp = (Pp * Pi_valid).eval();
+    }
+    return validate_transition_matrix(Pp, "Powered misclassification matrix");
+  }
+
+  Eigen::EigenSolver<MatrixXd> es(Pi_valid);
+  MatrixXcd V = es.eigenvectors();
+  VectorXcd d = es.eigenvalues();
+
+  VectorXcd d_pow(K);
+  for (int k = 0; k < K; k++) {
+    d_pow(k) = std::pow(d(k), lambda);
+  }
+
+  MatrixXcd P_complex = V * d_pow.asDiagonal() * V.inverse();
+  MatrixXd P_real = P_complex.real();
+
+  double imag_scale = 0.0;
+  double real_scale = 0.0;
+  for (int j = 0; j < K; j++) {
+    for (int i = 0; i < K; i++) {
+      imag_scale = std::max(imag_scale, std::abs(P_complex(i, j).imag()));
+      real_scale = std::max(real_scale, std::abs(P_real(i, j)));
+    }
+  }
+  if (!std::isfinite(imag_scale) ||
+      imag_scale > 1e-8 * std::max(1.0, real_scale)) {
+    Rcpp::stop("Pi^lambda has a non-negligible imaginary part.");
+  }
+
+  return validate_transition_matrix(P_real, "Powered misclassification matrix");
 }
 
 
