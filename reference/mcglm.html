@@ -21,7 +21,7 @@ supported."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">mismeasured</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.6.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.6.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -216,7 +216,9 @@ auto-detected).</p></dd>
 <dt id="arg-homoskedastic">homoskedastic<a class="anchor" aria-label="anchor" href="#arg-homoskedastic"></a></dt>
 <dd><p>Logical. For one-step Gaussian fits, assume a
 single residual variance across mixture components; if
-<code>FALSE</code>, separate variances are estimated.</p></dd>
+<code>FALSE</code>, binary fits estimate one variance per latent class,
+while \(K &gt; 2\) fits estimate one baseline variance and one
+pooled nonbaseline variance.</p></dd>
 
 
 <dt id="arg-optim-control">optim_control<a class="anchor" aria-label="anchor" href="#arg-optim-control"></a></dt>
@@ -260,9 +262,10 @@ desired (matrix interface only).</p></dd>
 <dd><p>Frequency weights used (<code>NULL</code> if
       unweighted).</p></dd>
 
-    <dt>loglik_onestep, vcov_onestep</dt>
-<dd><p>One-step log-likelihood
-      and variance (when <code>onestep</code> is fit).</p></dd>
+    <dt>loglik_onestep, npar_onestep, vcov_onestep</dt>
+<dd><p>One-step
+      log-likelihood, full optimized parameter count, and variance
+      (when <code>onestep</code> is fit).</p></dd>
 
     <dt>call, formula</dt>
 <dd><p>The matched call and the formula

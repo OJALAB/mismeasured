@@ -1,5 +1,26 @@
 # Changelog
 
+## mismeasured 0.6.2
+
+### Bug fixes
+
+- **Standard MC-SIMEX now handles asymmetric K-level misclassification
+  matrices with complex eigenvalues**. The C++ matrix-power routine now
+  uses complex-safe eigendecomposition and validates powered transition
+  matrices before resampling.
+
+- **One-step [`logLik()`](https://rdrr.io/r/stats/logLik.html) now
+  reports the full optimized parameter count** for AIC/BIC penalties,
+  including estimated mixture weights and Gaussian residual scale
+  parameters.
+
+### Documentation
+
+- Clarified that improved MC-SIMEX variance is conditional on the
+  supplied, fixed misclassification matrix, and that K \> 2 Gaussian
+  one-step heteroskedastic fits use a baseline versus pooled-nonbaseline
+  variance parameterization.
+
 ## mismeasured 0.6.1
 
 ### Documentation

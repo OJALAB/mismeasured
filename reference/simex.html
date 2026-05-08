@@ -15,7 +15,7 @@ me (continuous measurement error) or mc
 
     <a class="navbar-brand me-2" href="../index.html">mismeasured</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.6.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.6.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -135,7 +135,10 @@ Ignored for <code><a href="me.html">me()</a></code> terms. See Details.</p></dd>
     MC-SIMEX algorithm. With <code>method = "improved"</code> (default), the exact
     fixed-matrix correction of Sevilimedu and Yu (2026) and its K-level
     dummy-vector extension are applied for one misclassified covariate,
-    requiring only B = 1 replicate. With <code>method = "standard"</code>, the original
+    requiring only B = 1 replicate. Its variance treats the supplied
+    misclassification matrix as fixed/known; if <code>Pi</code> was estimated from
+    validation or audit data, reported standard errors are conditional on
+    that plug-in matrix. With <code>method = "standard"</code>, the original
     Kuchenhoff et al. (2006) extrapolation-based approach is used.</p></li>
 </ul></div>
     <div class="section level2">

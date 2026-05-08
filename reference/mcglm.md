@@ -154,8 +154,9 @@ mcglm(
 - homoskedastic:
 
   Logical. For one-step Gaussian fits, assume a single residual variance
-  across mixture components; if `FALSE`, separate variances are
-  estimated.
+  across mixture components; if `FALSE`, binary fits estimate one
+  variance per latent class, while \\K \> 2\\ fits estimate one baseline
+  variance and one pooled nonbaseline variance.
 
 - optim_control:
 
@@ -204,9 +205,10 @@ An object of class `"mcglm"` with components:
 
   Frequency weights used (`NULL` if unweighted).
 
-- loglik_onestep, vcov_onestep:
+- loglik_onestep, npar_onestep, vcov_onestep:
 
-  One-step log-likelihood and variance (when `onestep` is fit).
+  One-step log-likelihood, full optimized parameter count, and variance
+  (when `onestep` is fit).
 
 - call, formula:
 

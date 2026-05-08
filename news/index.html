@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">mismeasured</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.6.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.6.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -38,6 +38,18 @@
       <small>Source: <a href="https://github.com/OJALAB/mismeasured/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.6.2" id="mismeasured-062">mismeasured 0.6.2<a class="anchor" aria-label="anchor" href="#mismeasured-062"></a></h2>
+<div class="section level3">
+<h3 id="bug-fixes-0-6-2">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-0-6-2"></a></h3>
+<ul><li><p><strong>Standard MC-SIMEX now handles asymmetric K-level misclassification matrices with complex eigenvalues</strong>. The C++ matrix-power routine now uses complex-safe eigendecomposition and validates powered transition matrices before resampling.</p></li>
+<li><p><strong>One-step <code><a href="https://rdrr.io/r/stats/logLik.html" class="external-link">logLik()</a></code> now reports the full optimized parameter count</strong> for AIC/BIC penalties, including estimated mixture weights and Gaussian residual scale parameters.</p></li>
+</ul></div>
+<div class="section level3">
+<h3 id="documentation-0-6-2">Documentation<a class="anchor" aria-label="anchor" href="#documentation-0-6-2"></a></h3>
+<ul><li>Clarified that improved MC-SIMEX variance is conditional on the supplied, fixed misclassification matrix, and that K &gt; 2 Gaussian one-step heteroskedastic fits use a baseline versus pooled-nonbaseline variance parameterization.</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.6.1" id="mismeasured-061">mismeasured 0.6.1<a class="anchor" aria-label="anchor" href="#mismeasured-061"></a></h2>
 <div class="section level3">
