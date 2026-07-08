@@ -364,8 +364,15 @@ Matrix exponentiation for $\Pi^\lambda$ uses eigendecomposition.
   is then extrapolated to $\lambda = -1$.
 - **MC-SIMEX standard.** The same jackknife approach with sandwich variance at
   the mean estimate per lambda.
-- **MC-SIMEX improved.** Scaled model-based variance:
-  $V_{\mathrm{corrected}} = c(\lambda)^2 V_{\mathrm{model}}$.
+- **MC-SIMEX improved.** Transform-sandwich variance. For each $\lambda_l$
+  the correction is a linear map $T_l$ (for binary $z$ its leading entry is
+  $c(\lambda_l)$), and the sampling variance is the average of
+  $T_l\, V\!\big(\hat\theta(\lambda_l)\big)\, T_l^{\top}$ over the lambda
+  grid, where $V\!\big(\hat\theta(\lambda_l)\big)$ is the model-based
+  variance of a refit on a $\Pi^{\lambda_l}$-resampled design. With
+  $n_\lambda B > 1$ replicates, the between-replicate covariance is
+  subtracted and its $1/(n_\lambda B)$ Monte-Carlo share added back, so
+  reported standard errors are stable in $B$.
 
 ## When to use what
 
