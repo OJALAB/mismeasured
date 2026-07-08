@@ -9,3 +9,5 @@ README.html
 /Meta/
 .DS_Store
 docs/
+simulations/
+mismeasured_*.tar.gz
