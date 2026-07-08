@@ -60,3 +60,43 @@ test_that("grouped binomial cbind(succ, fail) uses trial counts (plan 2.2)", {
   expect_equal(sqrt(diag(fit$vcov)), sqrt(diag(fit_e2$vcov)),
                tolerance = 0.25)
 })
+
+test_that("mcglm matrix interface validates z_hat coding (plan 2.3)", {
+  set.seed(5)
+  n <- 200
+  z <- rbinom(n, 1, 0.4)
+  x <- cbind(1, rnorm(n))
+  y <- 1 + 2 * z + rnorm(n)
+  Pi <- matrix(c(0.9, 0.1, 0.12, 0.88), 2, 2)
+
+  # 1-based coding must be rejected, not silently distorted
+  expect_error(
+    mcglm(y, z_hat = z + 1L, x = x, family = gaussian(), Pi = Pi,
+          method = "cs"),
+    "0, ..., K-1", fixed = TRUE
+  )
+  expect_error(
+    mcglm(y, z_hat = factor(z), x = x, family = gaussian(), Pi = Pi,
+          method = "cs"),
+    "factor"
+  )
+  expect_error(
+    mcglm(y, z_hat = z + 0.5, x = x, family = gaussian(), Pi = Pi,
+          method = "cs"),
+    "integer"
+  )
+
+  # K comes from Pi when a category is unobserved
+  Pi3 <- matrix(c(0.9, 0.05, 0.05,
+                  0.05, 0.9, 0.05,
+                  0.05, 0.05, 0.9), 3, 3)
+  z3 <- ifelse(z == 1, 2L, 0L)  # category 1 unobserved
+  # The all-zero dummy makes the naive vcov singular; mcglm warns about
+  # that (correctly) -- the pin here is that K comes from Pi, not from
+  # length(unique(z_hat)) which would give 2 and misindex categories.
+  suppressWarnings(
+    fit <- mcglm(y, z_hat = z3, x = x, family = gaussian(), Pi = Pi3,
+                 method = "naive")
+  )
+  expect_identical(fit$K, 3L)
+})

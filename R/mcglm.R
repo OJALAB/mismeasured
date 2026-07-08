@@ -334,7 +334,8 @@ mcglm <- function(formula, data = NULL, family = "poisson",
 
   # --- Estimate pi_z from observed data + Pi if not supplied ---
   if (is.null(pi_z) && !is.null(Pi) && !is.null(z_hat)) {
-    pi_z <- .mcglm_estimate_pi_z(z_hat, Pi)
+    .mcglm_check_z_hat(z_hat)
+    pi_z <- .mcglm_estimate_pi_z(as.integer(z_hat), Pi)
   }
 
   # --- Derive c1/c2 from (p01, p10, pi_z) if not supplied directly ---
@@ -358,6 +359,19 @@ mcglm <- function(formula, data = NULL, family = "poisson",
   out
 }
 
+
+#' Validate z_hat coding for the mcglm matrix interface
+#' @keywords internal
+.mcglm_check_z_hat <- function(z_hat) {
+  if (is.factor(z_hat))
+    stop("z_hat must be an integer vector coded 0, ..., K-1, not a factor ",
+         "(as.integer(factor) is 1-based and would distort the estimates).",
+         call. = FALSE)
+  if (any(!is.finite(z_hat)) || any(z_hat != round(z_hat)))
+    stop("z_hat must contain finite integer codes 0, ..., K-1.",
+         call. = FALSE)
+  invisible(TRUE)
+}
 
 #' Parse mcglm formula extracting mc() term
 #' @keywords internal
@@ -467,6 +481,7 @@ mcglm <- function(formula, data = NULL, family = "poisson",
 
   # --- input validation ---
   y     <- as.numeric(y)
+  .mcglm_check_z_hat(z_hat)
   z_hat <- as.integer(z_hat)
   x     <- as.matrix(x)
   n     <- length(y)
@@ -503,16 +518,23 @@ mcglm <- function(formula, data = NULL, family = "poisson",
       stop("For multinomial, y must be integers in {0, ..., J-1}")
   }
 
-  # Determine binary vs multicategory
+  # Determine binary vs multicategory. Prefer Pi: length(unique(z_hat))
+  # undercounts K when a category is unobserved in the sample.
   if (is.null(K)) {
-    unique_z <- sort(unique(z_hat))
-    if (is.null(Pi) && all(unique_z %in% c(0L, 1L))) {
-      K <- 2L
+    if (!is.null(Pi)) {
+      K <- nrow(Pi)
     } else {
-      K <- length(unique_z)
+      unique_z <- sort(unique(z_hat))
+      K <- if (all(unique_z %in% c(0L, 1L))) 2L else length(unique_z)
     }
   }
   is_binary <- (K == 2L)
+
+  if (any(z_hat < 0L) || any(z_hat >= K))
+    stop("z_hat must be coded 0, ..., K-1 (K = ", K, "); got values in [",
+         min(z_hat), ", ", max(z_hat), "]. 1-based coding silently ",
+         "distorts binary estimates and indexes out of bounds for K > 2.",
+         call. = FALSE)
 
   # --- validate misclassification parameters ---
   needs_correction <- any(method %in% c("bca", "bcm", "cs", "cs_akn", "onestep"))
