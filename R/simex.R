@@ -902,7 +902,12 @@ predict.simex <- function(object, newdata = NULL, type = "response", ...) {
     # Enforce training factor levels for all mc variables
     for (sv in mc_vars) {
       if (!is.null(z_levels) && sv %in% names(z_levels)) {
-        newdata[[sv]] <- factor(newdata[[sv]], levels = z_levels[[sv]])
+        orig <- as.character(newdata[[sv]])
+        newdata[[sv]] <- factor(orig, levels = z_levels[[sv]])
+        if (anyNA(newdata[[sv]]) && !anyNA(orig))
+          stop("newdata has level(s) of '", sv, "' not seen in training: ",
+               paste(setdiff(unique(orig), z_levels[[sv]]), collapse = ", "),
+               call. = FALSE)
       } else if (!is.factor(newdata[[sv]])) {
         newdata[[sv]] <- factor(newdata[[sv]])
       }
@@ -912,7 +917,8 @@ predict.simex <- function(object, newdata = NULL, type = "response", ...) {
       sv <- mc_vars[1]
       z_new <- as.integer(newdata[[sv]]) - 1L
       K <- nrow(object$mc.matrix[[sv]])
-      xm <- .build_x_mat(object$clean.formula, sv, newdata)
+      xm <- .build_x_mat(object$clean.formula, sv, newdata,
+                         xlev = object$naive.model$xlevels)
       X_new <- .build_xi_hat(z_new, xm$x_mat, K)
     } else {
       # Multi-mc: use same manual design matrix construction as fitting
@@ -923,13 +929,17 @@ predict.simex <- function(object, newdata = NULL, type = "response", ...) {
         z_hats_new[[j]] <- as.integer(newdata[[sv]]) - 1L
         K_vec[j] <- nrow(object$mc.matrix[[sv]])
       }
-      xm <- .build_x_mat(object$clean.formula, mc_vars, newdata)
+      xm <- .build_x_mat(object$clean.formula, mc_vars, newdata,
+                         xlev = object$naive.model$xlevels)
       X_new <- .build_multi_xi_hat(z_hats_new, K_vec, xm$x_mat)
     }
   } else {
-    # ME predict: use model.matrix from clean formula
+    # ME predict: use model.matrix from clean formula, enforcing the
+    # training factor levels so unseen/reordered/character levels cannot
+    # silently shift the contrasts.
     tt <- delete.response(terms(object$clean.formula))
-    mf <- model.frame(tt, data = newdata)
+    mf <- model.frame(tt, data = newdata,
+                      xlev = object$naive.model$xlevels)
     X_new <- model.matrix(tt, mf)
   }
 

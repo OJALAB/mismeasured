@@ -207,3 +207,43 @@ test_that("default method is improved for gaussian, standard otherwise", {
     "standard"
   )
 })
+
+test_that("predict.simex enforces training factor levels", {
+  Pi <- matrix(c(0.9, 0.1, 0.12, 0.88), 2, 2)
+  df <- .make_mc_df(n = 400)
+  fit <- simex(y ~ mc(z, Pi), data = df, B = 5, seed = 1)
+
+  base <- predict(fit, newdata = data.frame(z = factor(c("0", "1"))))
+
+  # character and reordered-level input give identical predictions
+  expect_equal(predict(fit, newdata = data.frame(z = c("0", "1"))), base)
+  expect_equal(
+    predict(fit,
+            newdata = data.frame(z = factor(c("0", "1"),
+                                            levels = c("1", "0")))),
+    base
+  )
+  # unseen level errors instead of silently returning NA
+  expect_error(
+    predict(fit, newdata = data.frame(z = factor(c("0", "2")))),
+    "not seen in training"
+  )
+
+  # me path with a clean factor covariate: xlevels are enforced
+  set.seed(2)
+  df2 <- data.frame(
+    y = rnorm(300), xs = rnorm(300),
+    g = factor(sample(c("a", "b", "c"), 300, replace = TRUE))
+  )
+  fit2 <- simex(y ~ me(xs, 0.3) + g, data = df2, B = 10, seed = 1)
+  base2 <- predict(fit2, newdata = data.frame(xs = 0, g = "b"))
+  expect_equal(
+    predict(fit2, newdata = data.frame(
+      xs = 0, g = factor("b", levels = c("c", "b", "a")))),
+    base2
+  )
+  expect_error(
+    predict(fit2, newdata = data.frame(xs = 0, g = "zzz")),
+    "level"
+  )
+})
