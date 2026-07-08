@@ -112,6 +112,25 @@ simex <- function(formula, family = gaussian(), data,
          "refits would ignore the offset and give biased estimates.",
          call. = FALSE)
 
+  # One NA policy for all code paths: drop incomplete rows up front.
+  # The naive glm() na.omits internally while the design/z matrices were
+  # built from the full data (na.pass), silently misaligning rows.
+  model_vars <- intersect(all.vars(parsed$clean_formula), names(data))
+  complete <- stats::complete.cases(data[model_vars])
+  if (!all(complete)) {
+    warning(sum(!complete), " row(s) with missing values in model ",
+            "variables were dropped.", call. = FALSE)
+    data <- data[complete, , drop = FALSE]
+    if (!is.null(weights)) {
+      if (length(weights) == length(complete)) {
+        weights <- weights[complete]
+      } else {
+        stop("'weights' must have one entry per row of 'data'.",
+             call. = FALSE)
+      }
+    }
+  }
+
   # --- dispatch ---
   if (parsed$error_type == "me") {
     if (!is.null(method))

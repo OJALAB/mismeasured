@@ -125,3 +125,39 @@ test_that("non-canonical links are rejected (plan 2.4)", {
                seed = 1)
   expect_true(all(is.finite(coef(fit))))
 })
+
+test_that("rows with NAs are dropped consistently up front (plan 2.5)", {
+  Pi <- matrix(c(0.9, 0.1, 0.12, 0.88), 2, 2)
+  df <- .make_mc_df(n = 400)
+  df$x <- rnorm(nrow(df))
+  df_na <- df
+  df_na$x[c(5, 50)] <- NA
+  df_na$y[100] <- NA
+  df_na$z[200] <- NA
+
+  expect_warning(
+    fit_na <- simex(y ~ mc(z, Pi) + x, data = df_na, B = 5, seed = 9),
+    "dropped"
+  )
+  fit_cc <- simex(y ~ mc(z, Pi) + x,
+                  data = df_na[complete.cases(df_na), ], B = 5, seed = 9)
+  expect_equal(coef(fit_na), coef(fit_cc))
+  expect_identical(fit_na$n, nrow(df_na) - 4L)
+
+  # me() path too
+  df_me <- df
+  df_me$xs <- df_me$x + rnorm(nrow(df_me), sd = 0.3)
+  df_me$xs[10] <- NA
+  expect_warning(
+    fit_me <- simex(y ~ me(xs, 0.3), data = df_me, B = 10, seed = 9),
+    "dropped"
+  )
+  expect_true(all(is.finite(coef(fit_me))))
+
+  # mismatched weights after NA drop must error, not recycle
+  expect_error(
+    suppressWarnings(simex(y ~ mc(z, Pi) + x, data = df_na, B = 5,
+                           weights = rep(1, 10))),
+    "weights"
+  )
+})
