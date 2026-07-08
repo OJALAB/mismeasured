@@ -112,6 +112,22 @@ simex <- function(formula, family = gaussian(), data,
          "refits would ignore the offset and give biased estimates.",
          call. = FALSE)
 
+  # me()/mc() variables must appear only as bare main effects: any other
+  # term (interaction, I(), log(), poly(), ...) is built from the
+  # unperturbed column, so the simulation would silently not apply there.
+  err_vars <- vapply(c(parsed$me_terms, parsed$mc_terms), `[[`,
+                     character(1), "variable")
+  tls <- attr(terms(parsed$clean_formula, data = data), "term.labels")
+  for (tl in tls) {
+    tl_vars <- all.vars(str2lang(tl))
+    bad <- intersect(tl_vars, err_vars)
+    if (length(bad) && !identical(tl, bad))
+      stop("me()/mc() variable(s) ", paste0("'", bad, "'", collapse = ", "),
+           " may only enter the formula as a bare main effect; the term '",
+           tl, "' would use the unperturbed values and silently bypass ",
+           "the correction.", call. = FALSE)
+  }
+
   # One NA policy for all code paths: drop incomplete rows up front.
   # The naive glm() na.omits internally while the design/z matrices were
   # built from the full data (na.pass), silently misaligning rows.

@@ -161,3 +161,32 @@ test_that("rows with NAs are dropped consistently up front (plan 2.5)", {
     "weights"
   )
 })
+
+test_that("me()/mc() variables in non-main-effect terms are rejected (plan 2.6)", {
+  Pi <- matrix(c(0.9, 0.1, 0.12, 0.88), 2, 2)
+  df <- .make_mc_df(n = 300)
+  df$x <- rnorm(nrow(df))
+  df$xs <- df$x + rnorm(nrow(df), sd = 0.3)
+
+  expect_error(
+    simex(y ~ mc(z, Pi) + x:z, data = df),
+    "bare main effect"
+  )
+  expect_error(
+    simex(y ~ me(xs, 0.3) + xs:x, data = df),
+    "bare main effect"
+  )
+  expect_error(
+    simex(y ~ me(xs, 0.3) + I(xs^2), data = df),
+    "bare main effect"
+  )
+  expect_error(
+    simex(y ~ me(xs, 0.3) + log(abs(xs)), data = df),
+    "bare main effect"
+  )
+
+  # interactions among clean covariates stay allowed
+  df$w <- rnorm(nrow(df))
+  fit <- simex(y ~ mc(z, Pi) + x * w, data = df, B = 5, seed = 1)
+  expect_true(all(is.finite(coef(fit))))
+})
