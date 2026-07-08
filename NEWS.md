@@ -128,6 +128,12 @@
   Gaussian / Berkson / loglinear extrapolation paths in `simex()`, and the
   S3 surface (`plot`/`print`/`summary`/`formula`) of both estimators.
 
+# mismeasured 0.5.3
+
+* Interim build (source tarball only; never tagged in the repository).
+  Introduced the analytical Jacobian for K-class drift in `mcglm()`,
+  released and documented under 0.5.4 above.
+
 # mismeasured 0.5.2
 
 ## Bug fixes
