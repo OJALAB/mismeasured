@@ -338,9 +338,21 @@
     return(V_sampling)
   }
 
+  # T_l V_l T_l' is the variance of a single corrected replicate: data
+  # sampling noise plus one full share of Monte-Carlo resampling noise.
+  # Averaging over n_lambda * B replicates keeps the data noise but shrinks
+  # the MC share to 1/(n_lambda * B), so subtract the between-replicate
+  # covariance and add back its averaged share.
   all_corrected <- do.call(rbind, theta_list)
-  V_mc <- cov(all_corrected) / (n_lambda * B)
-  V_sampling + V_mc
+  S_mc <- cov(all_corrected)
+  V <- V_sampling - S_mc * (1 - 1 / (n_lambda * B))
+
+  # Guard against a non-PSD result when S_mc overshoots in finite samples.
+  ev <- eigen(V, symmetric = TRUE)
+  if (any(ev$values < 0)) {
+    V <- ev$vectors %*% diag(pmax(ev$values, 0), p) %*% t(ev$vectors)
+  }
+  V
 }
 
 #' Find optimal lambda that minimizes |c_lambda|
@@ -350,26 +362,4 @@
   valid <- !is.na(c_values) & is.finite(c_values)
   if (!any(valid)) stop("Cannot find valid lambda for the improved method")
   grid[valid][which.min(abs(c_values[valid]))]
-}
-
-#' Variance estimation for the improved MC-SIMEX
-#' @keywords internal
-.variance_improved <- function(theta_list, corrected_coefs, c_lam_vec,
-                               n_lambda, B, p, naive_fit, xi_hat, y, wt, fam) {
-  N <- sum(wt)
-  n <- length(y)
-  if (n_lambda * B == 1) {
-    psi_mean <- corrected_coefs
-    eta_m <- as.numeric(xi_hat %*% psi_mean)
-    w_m <- fam$mu_dot(eta_m)
-    eps_m <- y - fam$mu(eta_m)
-    A_m <- crossprod(xi_hat * (wt * w_m), xi_hat) / N
-    C_m <- crossprod(xi_hat * (wt * eps_m), xi_hat * eps_m) / N
-    A_m_inv <- tryCatch(solve(A_m), error = function(e) MASS::ginv(A_m))
-    V_model <- A_m_inv %*% C_m %*% A_m_inv / N
-    V_scaled <- V_model * c_lam_vec[1]^2
-    return(V_scaled)
-  }
-  all_corrected <- do.call(rbind, theta_list)
-  cov(all_corrected) / (n_lambda * B)
 }
