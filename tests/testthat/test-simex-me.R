@@ -78,23 +78,28 @@ test_that("refit changes extrapolation for me() simex", {
 # Berkson error
 # =========================================================================
 
-test_that("Berkson SIMEX corrects Berkson attenuation", {
-  set.seed(42)
-  n <- 3000
-  # Berkson model: X_true = W + U, we observe W
-  w <- rnorm(n)          # observed (assigned/planned value)
-  u <- rnorm(n, sd = 0.5) # Berkson error
-  x_true <- w + u       # true value
-  y <- 1 + 2 * x_true + rnorm(n, sd = 0.5)
+test_that("Berkson SIMEX corrects logistic attenuation under a true Berkson DGP", {
+  # In a *linear* model Berkson error leaves the OLS slope unbiased, so a
+  # gaussian DGP has nothing to correct; the bias shows up in nonlinear
+  # models. Logistic with X = W + U, U independent of the assigned W:
+  set.seed(7)
+  n <- 8000
+  w <- rnorm(n)            # observed (assigned) value
+  u <- rnorm(n, sd = 0.7)  # Berkson error
+  x_true <- w + u
+  y <- rbinom(n, 1, plogis(0.5 + 1.5 * x_true))
   df <- data.frame(y = y, x = w)
 
-  # Naive regression of y on w is biased (Berkson inflates variance, not attenuates)
-  # But SIMEX with type="berkson" should still correct
-  fit <- simex(y ~ me(x, 0.5, type = "berkson"), data = df, B = 100, seed = 42)
+  naive <- glm(y ~ x, family = binomial(), data = df)
+  fit <- simex(y ~ me(x, 0.7, type = "berkson"), data = df,
+               family = binomial(), B = 100, seed = 42,
+               extrapolation = "linear")
 
-  expect_s3_class(fit, "simex")
-  # The SIMEX correction should produce a different result from naive
-  expect_false(identical(coef(fit)["x"], fit$naive.coefficients["x"]))
+  # naive slope is visibly attenuated ...
+  expect_gt(abs(coef(naive)["x"] - 1.5), 0.15)
+  # ... and the Berkson correction recovers the truth
+  # (observed: naive 1.27, corrected 1.54)
+  expect_lt(abs(coef(fit)["x"] - 1.5), 0.15)
 })
 
 test_that("Berkson type='classical' gives different result from type='berkson'", {
