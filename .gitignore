@@ -11,3 +11,8 @@ README.html
 docs/
 simulations/
 mismeasured_*.tar.gz
+node_modules/
+package.json
+package-lock.json
+*.Rcheck/
+..Rcheck/

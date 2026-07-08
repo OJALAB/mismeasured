@@ -16,6 +16,10 @@
 ^\.\.Rcheck$
 ^mismeasured\.Rcheck$
 ^mismeasured_.*\.tar\.gz$
+^node_modules$
+^package\.json$
+^package-lock\.json$
+^AGENTS\.md$
 ^_pkgdown\.yml$
 ^docs$
 ^pkgdown$

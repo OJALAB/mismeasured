@@ -12,6 +12,10 @@
 \item{mc_variables}{character vector of mc variable names to exclude}
 
 \item{data}{the data frame}
+
+\item{xlev}{a named list of factor levels to enforce (as in
+\code{\link[stats]{model.frame}}); used by \code{predict.simex} so newdata
+is coded with the training levels}
 }
 \value{
 a list with x_mat (the non-mc part of the model matrix) and

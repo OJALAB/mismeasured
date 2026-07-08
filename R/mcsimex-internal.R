@@ -11,6 +11,9 @@
 #' @param clean_formula the formula with mc() wrappers stripped (bare variable names remain)
 #' @param mc_variables character vector of mc variable names to exclude
 #' @param data the data frame
+#' @param xlev a named list of factor levels to enforce (as in
+#'   \code{\link[stats]{model.frame}}); used by \code{predict.simex} so newdata
+#'   is coded with the training levels
 #' @return a list with x_mat (the non-mc part of the model matrix) and
 #'   x_terms (the terms object, for use in predict)
 #' @keywords internal
