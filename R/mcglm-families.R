@@ -19,6 +19,8 @@
     )
   }
 
+  .check_canonical_link(family)
+
   mu     <- family$linkinv
   mu_eta <- family$mu.eta
 

@@ -100,3 +100,28 @@ test_that("mcglm matrix interface validates z_hat coding (plan 2.3)", {
   )
   expect_identical(fit$K, 3L)
 })
+
+test_that("non-canonical links are rejected (plan 2.4)", {
+  Pi <- matrix(c(0.9, 0.1, 0.12, 0.88), 2, 2)
+  df <- .make_mc_df()
+  df$yb <- rbinom(nrow(df), 1, 0.5)
+
+  expect_error(
+    simex(yb ~ mc(z, Pi), data = df, family = binomial("probit")),
+    "canonical"
+  )
+  expect_error(
+    mcglm(yb ~ mc(z, Pi), data = df, family = binomial("probit"),
+          method = "cs"),
+    "canonical"
+  )
+  expect_error(
+    simex(y ~ mc(z, Pi), data = df, family = gaussian("log")),
+    "canonical"
+  )
+
+  # canonical links keep working
+  fit <- simex(yb ~ mc(z, Pi), data = df, family = binomial(), B = 5,
+               seed = 1)
+  expect_true(all(is.finite(coef(fit))))
+})

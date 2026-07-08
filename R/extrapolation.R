@@ -204,11 +204,30 @@ jackknife_variance_simex <- function(theta_list, naive_fit, lambda,
 #' @keywords internal
 family_to_dist_code <- function(family_obj) {
   fam_name <- family_obj$family
-  switch(fam_name,
+  code <- switch(fam_name,
     gaussian = 1L,
     poisson  = 2L,
     binomial = 3L,
     stop("Unsupported family: ", fam_name,
          ". Supported: gaussian, poisson, binomial.")
   )
+  # The C++ refits receive only this code and always use the canonical
+  # link, so a non-canonical link (e.g. probit) would silently be fitted
+  # as the canonical one.
+  .check_canonical_link(family_obj)
+  code
+}
+
+#' Reject non-canonical links (fitting code assumes the canonical score)
+#' @keywords internal
+.check_canonical_link <- function(family_obj) {
+  canonical <- switch(family_obj$family,
+    gaussian = "identity", poisson = "log", binomial = "logit",
+    NULL)
+  if (!is.null(canonical) && !identical(family_obj$link, canonical))
+    stop("Non-canonical link '", family_obj$link, "' for family '",
+         family_obj$family, "' is not supported; the correction methods ",
+         "assume the canonical link ('", canonical, "') and would ",
+         "silently fit it instead.", call. = FALSE)
+  invisible(TRUE)
 }
