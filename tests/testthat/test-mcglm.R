@@ -281,12 +281,10 @@ test_that("BCA/BCM/CS reduce bias for binary Poisson", {
                method = c("naive", "bca", "bcm", "cs"),
                p01 = p01, p10 = p10, pi_z = 0.4)
 
-  bias_naive <- abs(fit$coefficients$naive[1] - psi0[1])
-  bias_bca   <- abs(fit$coefficients$bca[1] - psi0[1])
-  bias_cs    <- abs(fit$coefficients$cs[1] - psi0[1])
-
-  expect_lt(bias_bca, bias_naive)
-  expect_lt(bias_cs, bias_naive)
+  # Absolute-error bounds to truth (observed: bca ~0.06, cs ~0.01;
+  # naive bias ~0.21)
+  expect_lt(abs(fit$coefficients$bca[1] - psi0[1]), 0.15)
+  expect_lt(abs(fit$coefficients$cs[1] - psi0[1]), 0.1)
 })
 
 # --- Binomial family ---

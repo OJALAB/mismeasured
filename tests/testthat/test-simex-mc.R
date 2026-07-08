@@ -19,10 +19,8 @@ test_that("simex with mc() improved (default) corrects attenuation (linear)", {
   expect_equal(fit$method, "improved")
   expect_match(fit$vcov.assumption, "fixed Pi")
 
-  # Improved MC-SIMEX should correct toward true z coefficient (2.0)
-  naive_bias <- abs(fit$naive.coefficients[1] - 2.0)
-  simex_bias <- abs(coef(fit)[1] - 2.0)
-  expect_lt(simex_bias, naive_bias)
+  # Absolute-error bound to truth (observed error ~0.03; naive bias ~0.4)
+  expect_lt(abs(coef(fit)[1] - 2.0), 0.1)
 })
 
 test_that(".mat_power_r handles asymmetric Pi with complex eigenvalues", {
@@ -148,9 +146,8 @@ test_that("simex with K-level mc() improved corrects dummy attenuation", {
   expect_equal(dim(fit$correction.matrix$lambda_0), c(2L, 2L))
 
   truth <- c(B = 1.5, C = -1.0)
-  naive_bias <- abs(fit$naive.coefficients[names(truth)] - truth)
-  simex_bias <- abs(coef(fit)[names(truth)] - truth)
-  expect_lt(max(simex_bias), max(naive_bias))
+  # Absolute-error bound to truth (observed error ~0.06; naive bias ~0.4)
+  expect_lt(max(abs(coef(fit)[names(truth)] - truth)), 0.15)
 })
 
 test_that("simex with mc() standard method works", {
@@ -334,10 +331,8 @@ test_that("simex with two mc() terms (standard) corrects attenuation", {
   # Should have coefficients for both z factors + x + intercept
   expect_length(coef(fit), 4)
 
-  # SIMEX correction should reduce bias for z1 coefficient
-  naive_z1_bias <- abs(fit$naive.coefficients["z11"] - 2.0)
-  simex_z1_bias <- abs(coef(fit)["z11"] - 2.0)
-  expect_lt(simex_z1_bias, naive_z1_bias)
+  # Absolute-error bound to truth (observed error ~0.03; naive bias ~0.5)
+  expect_lt(abs(coef(fit)["z11"] - 2.0), 0.1)
 })
 
 test_that("multi-mc defaults to standard method", {
@@ -459,9 +454,8 @@ test_that("response mc corrects attenuation (logistic)", {
   expect_equal(fit$method, "standard")
   expect_false(is.null(fit$response.mc))
 
-  naive_bias <- abs(fit$naive.coefficients["x"] - 1.2)
-  simex_bias <- abs(coef(fit)["x"] - 1.2)
-  expect_lt(simex_bias, naive_bias)
+  # Absolute-error bound to truth (observed error ~0.16; naive bias ~0.46)
+  expect_lt(abs(coef(fit)["x"] - 1.2), 0.3)
 })
 
 test_that("response mc + covariate mc works together", {
