@@ -108,19 +108,13 @@ test_that("simex supports me() + mc() mixed in one formula", {
   df <- data.frame(y = y, x = x_true + rnorm(n, sd = 0.5),
                    z = factor(z_hat))
 
-  fit <- tryCatch(
+  # Pin the supported behavior: mixed me() + mc() is rejected with a
+  # clear error (a tryCatch-either-way here could never fail).
+  expect_error(
     simex(y ~ me(x, 0.5) + mc(z, Pi), data = df, B = 30, seed = 1,
           jackknife = FALSE),
-    error = function(e) e
+    "not yet supported"
   )
-  if (inherits(fit, "error")) {
-    # Document current behavior: mixed me() + mc() may not be supported.
-    expect_match(conditionMessage(fit), "mc|me|mixed|both",
-                 ignore.case = TRUE)
-  } else {
-    expect_s3_class(fit, "simex")
-    expect_true(all(is.finite(coef(fit))))
-  }
 })
 
 # ==========================================================================
