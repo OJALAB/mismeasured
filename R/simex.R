@@ -39,10 +39,15 @@
 #'     the error-prone variable, the model is refitted B times per lambda level,
 #'     and coefficients are extrapolated to lambda = -1.
 #'   \item \strong{Discrete misclassification} (\code{mc()} terms): Uses the
-#'     MC-SIMEX algorithm. With \code{method = "improved"} (default), the exact
-#'     fixed-matrix correction of Sevilimedu and Yu (2026) and its K-level
-#'     dummy-vector extension are applied for one misclassified covariate,
-#'     requiring only B = 1 replicate. Its variance treats the supplied
+#'     MC-SIMEX algorithm. With \code{method = "improved"} (the default for
+#'     \code{gaussian()}), the fixed-matrix correction of Sevilimedu and Yu
+#'     (2026) and its K-level dummy-vector extension are applied for one
+#'     misclassified covariate, requiring only B = 1 replicate. The
+#'     correction is exact for identity-link linear models; for other links
+#'     it is a first-order approximation that can be visibly biased when the
+#'     misclassified variable's effect is large \eqn{--} for logistic or
+#'     Poisson models with strong effects, consider \code{\link{mcglm}} with
+#'     \code{method = "cs"} or \code{"cs_akn"} as a consistent alternative. Its variance treats the supplied
 #'     misclassification matrix as fixed/known; if \code{Pi} was estimated from
 #'     validation or audit data, reported standard errors are conditional on
 #'     that plug-in matrix. With \code{method = "standard"}, the original
@@ -581,7 +586,7 @@ simex <- function(formula, family = gaussian(), data,
       n                   = n,
       p                   = p,
       naive.model         = naive_fit,
-      extrapolation.method = "exact (improved)",
+      extrapolation.method = "closed-form (improved)",
       method              = "improved",
       c.lambda            = if (!is.null(c_lam_vec))
         setNames(c_lam_vec, paste0("lambda_", lambda)) else NULL,

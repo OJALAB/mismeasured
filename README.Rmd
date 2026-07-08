@@ -34,7 +34,7 @@ The `mismeasured` package provides two complementary approaches for correcting b
 
 - `me()` terms for continuous measurement error, `mc()` terms for discrete misclassification
 - C++ simulation engine via Rcpp/RcppEigen (100--300x faster than pure-R implementations)
-- Standard and improved MC-SIMEX (Sevilimedu & Yu, 2026) with exact fixed-matrix correction
+- Standard and improved MC-SIMEX (Sevilimedu & Yu, 2026) with closed-form fixed-matrix correction (exact for identity-link linear models)
 
 **`mcglm()`** --- Analytical bias correction for GLMs with misclassified covariates (Battaglia, Christensen, Hansen & Sacher, 2025):
 

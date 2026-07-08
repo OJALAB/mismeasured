@@ -30,8 +30,9 @@ formula interface:
   discrete misclassification
 - C++ simulation engine via Rcpp/RcppEigen (100–300x faster than pure-R
   implementations)
-- Standard and improved MC-SIMEX (Sevilimedu & Yu, 2026) with exact
-  fixed-matrix correction
+- Standard and improved MC-SIMEX (Sevilimedu & Yu, 2026) with
+  closed-form fixed-matrix correction (exact for identity-link linear
+  models)
 
 **`mcglm()`** — Analytical bias correction for GLMs with misclassified
 covariates (Battaglia, Christensen, Hansen & Sacher, 2025):
@@ -121,7 +122,7 @@ summary(fit_mc)
 #> Family: poisson 
 #> MC-SIMEX variable: z 
 #> Method: improved 
-#> Extrapolation: exact (improved) 
+#> Extrapolation: closed-form (improved) 
 #> Lambda grid: 0, 1 
 #> B = 1 , n = 2000 
 #> Estimated P(X=1): 0.4187 
