@@ -48,7 +48,7 @@ on the clean formula and removes columns belonging to mc variables.</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">.build_x_mat</span><span class="op">(</span><span class="va">clean_formula</span>, <span class="va">mc_variables</span>, <span class="va">data</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">.build_x_mat</span><span class="op">(</span><span class="va">clean_formula</span>, <span class="va">mc_variables</span>, <span class="va">data</span>, xlev <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -65,6 +65,12 @@ on the clean formula and removes columns belonging to mc variables.</p>
 
 <dt id="arg-data">data<a class="anchor" aria-label="anchor" href="#arg-data"></a></dt>
 <dd><p>the data frame</p></dd>
+
+
+<dt id="arg-xlev">xlev<a class="anchor" aria-label="anchor" href="#arg-xlev"></a></dt>
+<dd><p>a named list of factor levels to enforce (as in
+<code><a href="https://rdrr.io/r/stats/model.frame.html" class="external-link">model.frame</a></code>); used by <code>predict.simex</code> so newdata
+is coded with the training levels</p></dd>
 
 </dl></div>
     <div class="section level2">

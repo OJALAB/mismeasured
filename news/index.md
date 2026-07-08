@@ -36,6 +36,21 @@
   warning; previously the naive fit and the simulated refits could
   silently misalign rows.
 
+### Minor fixes
+
+- `confint.simex()` now uses t quantiles on `n - p` degrees of freedom,
+  consistent with the t-based p-values in `summary.simex()`.
+- `misclass(..., k = 0)` now returns the data unchanged; previously an
+  elementwise `d^0` turned the eigenvalue matrix into a matrix of ones.
+- The C++ gaussian dispersion estimate divides by `n - p` (matching
+  [`stats::glm`](https://rdrr.io/r/stats/glm.html) residual df) instead
+  of `sum(weights) - p`.
+- Jackknife variance for MC-SIMEX uses the sample covariance across
+  replicates, matching the continuous SIMEX jackknife.
+- [`mcglm()`](https://ojalab.github.io/mismeasured/reference/mcglm.md)
+  gives an informative error when `Pi` is singular and `pi_z` must be
+  estimated; estimated `pi_z` is now clamped on both sides.
+
 ### New guards (previously silent misbehavior)
 
 - [`offset()`](https://rdrr.io/r/stats/offset.html) terms are rejected
@@ -49,6 +64,9 @@
 - [`mcglm()`](https://ojalab.github.io/mismeasured/reference/mcglm.md)
   validates `z_hat` coding (integers in `{0, ..., K-1}`; no factors; `K`
   taken from `Pi` when a category is unobserved).
+- [`mc()`](https://ojalab.github.io/mismeasured/reference/mc.md)
+  matrices are checked against the factor: `Pi` must be K x K for a
+  K-level factor, and column names (when present) must match the levels.
 - [`me()`](https://ojalab.github.io/mismeasured/reference/me.md)/[`mc()`](https://ojalab.github.io/mismeasured/reference/mc.md)
   variables may enter the formula only as bare main effects;
   interactions or transforms of them are rejected instead of silently
@@ -157,6 +175,13 @@
   [`simex()`](https://ojalab.github.io/mismeasured/reference/simex.md),
   and the S3 surface (`plot`/`print`/`summary`/`formula`) of both
   estimators.
+
+## mismeasured 0.5.3
+
+- Interim build (source tarball only; never tagged in the repository).
+  Introduced the analytical Jacobian for K-class drift in
+  [`mcglm()`](https://ojalab.github.io/mismeasured/reference/mcglm.md),
+  released and documented under 0.5.4 above.
 
 ## mismeasured 0.5.2
 

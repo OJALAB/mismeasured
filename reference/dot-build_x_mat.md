@@ -7,7 +7,7 @@ variables.
 ## Usage
 
 ``` r
-.build_x_mat(clean_formula, mc_variables, data)
+.build_x_mat(clean_formula, mc_variables, data, xlev = NULL)
 ```
 
 ## Arguments
@@ -23,6 +23,12 @@ variables.
 - data:
 
   the data frame
+
+- xlev:
+
+  a named list of factor levels to enforce (as in
+  [`model.frame`](https://rdrr.io/r/stats/model.frame.html)); used by
+  `predict.simex` so newdata is coded with the training levels
 
 ## Value
 

@@ -227,8 +227,8 @@ in place of the parametric extrapolation.</p>
 <span><span class="co">#&gt; Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/stats/confint.html" class="external-link">confint</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span>
 <span><span class="co">#&gt;                 2.5 %   97.5 %</span></span>
-<span><span class="co">#&gt; (Intercept) 0.9420865 1.036866</span></span>
-<span><span class="co">#&gt; x           1.8671012 1.963252</span></span></code></pre></div>
+<span><span class="co">#&gt; (Intercept) 0.9420577 1.036895</span></span>
+<span><span class="co">#&gt; x           1.8670721 1.963281</span></span></code></pre></div>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></code></pre></div>
 <p><img src="simex_files/figure-html/me-plot-1.png" class="r-plt" alt="" width="576"><img src="simex_files/figure-html/me-plot-2.png" class="r-plt" alt="" width="576"></p>
@@ -402,9 +402,9 @@ absolute correction factor:</p>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; MC-SIMEX corrected coefficients:</span></span>
 <span><span class="co">#&gt;             Estimate Std. Error t value Pr(&gt;|t|)    </span></span>
-<span><span class="co">#&gt; z11          2.05372    0.08077   25.43   &lt;2e-16 ***</span></span>
-<span><span class="co">#&gt; z21          1.53946    0.07239   21.27   &lt;2e-16 ***</span></span>
-<span><span class="co">#&gt; (Intercept)  0.95523    0.06339   15.07   &lt;2e-16 ***</span></span>
+<span><span class="co">#&gt; z11          2.05372    0.08087   25.39   &lt;2e-16 ***</span></span>
+<span><span class="co">#&gt; z21          1.53946    0.07246   21.24   &lt;2e-16 ***</span></span>
+<span><span class="co">#&gt; (Intercept)  0.95523    0.06346   15.05   &lt;2e-16 ***</span></span>
 <span><span class="co">#&gt; ---</span></span>
 <span><span class="co">#&gt; Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</span></span></code></pre></div>
 <p>With multiple <code><a href="../reference/mc.html">mc()</a></code> terms, the standard method is used
@@ -474,9 +474,9 @@ misclassification:</p>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; MC-SIMEX corrected coefficients:</span></span>
 <span><span class="co">#&gt;             Estimate Std. Error t value Pr(&gt;|t|)    </span></span>
-<span><span class="co">#&gt; z1           0.75905    0.13445   5.646 1.88e-08 ***</span></span>
-<span><span class="co">#&gt; (Intercept) -0.35817    0.07936  -4.513 6.76e-06 ***</span></span>
-<span><span class="co">#&gt; x            0.39681    0.05843   6.791 1.46e-11 ***</span></span>
+<span><span class="co">#&gt; z1           0.75905    0.13461   5.639 1.96e-08 ***</span></span>
+<span><span class="co">#&gt; (Intercept) -0.35817    0.07945  -4.508 6.91e-06 ***</span></span>
+<span><span class="co">#&gt; x            0.39681    0.05847   6.786 1.51e-11 ***</span></span>
 <span><span class="co">#&gt; ---</span></span>
 <span><span class="co">#&gt; Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</span></span></code></pre></div>
 </div>
@@ -567,8 +567,8 @@ alternative.</p>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; MC-SIMEX corrected coefficients:</span></span>
 <span><span class="co">#&gt;             Estimate Std. Error t value Pr(&gt;|t|)    </span></span>
-<span><span class="co">#&gt; 1            0.75059    0.04151   18.08   &lt;2e-16 ***</span></span>
-<span><span class="co">#&gt; (Intercept)  0.53507    0.02892   18.50   &lt;2e-16 ***</span></span>
+<span><span class="co">#&gt; 1            0.75059    0.04155   18.06   &lt;2e-16 ***</span></span>
+<span><span class="co">#&gt; (Intercept)  0.53507    0.02894   18.49   &lt;2e-16 ***</span></span>
 <span><span class="co">#&gt; ---</span></span>
 <span><span class="co">#&gt; Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</span></span></code></pre></div>
 </div>
@@ -649,7 +649,7 @@ uses eigendecomposition.</p>
 <ul>
 <li>
 <strong>ME-SIMEX.</strong> Jackknife variance following Stefanski
-&amp; Cook (1994). The model-based variance
+&amp; Cook (1995). The model-based variance
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>V</mi><mo accent="true">‾</mo></mover><mrow><mi mathvariant="normal">m</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">d</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">l</mi></mrow></msub><mo stretchy="false" form="prefix">(</mo><mi>λ</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\bar V_{\mathrm{model}}(\lambda)</annotation></semantics></math>
 is the average of
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><msubsup><mi>X</mi><mrow><mi mathvariant="normal">s</mi><mi mathvariant="normal">i</mi><mi mathvariant="normal">m</mi></mrow><mo>′</mo></msubsup><mi>W</mi><msub><mi>X</mi><mrow><mi mathvariant="normal">s</mi><mi mathvariant="normal">i</mi><mi mathvariant="normal">m</mi></mrow></msub><msup><mo stretchy="false" form="postfix">)</mo><mrow><mi>−</mi><mn>1</mn></mrow></msup><mi>ϕ</mi></mrow><annotation encoding="application/x-tex">(X_{\mathrm{sim}}'WX_{\mathrm{sim}})^{-1}\phi</annotation></semantics></math>
@@ -732,7 +732,7 @@ simulation extrapolation (MC-SIMEX) algorithm. <em>Statistics in
 Medicine</em> 45, e70418. </p>
 <p>Stefanski, L. A. and Cook, J. R. (1995). Simulation-extrapolation:
 the measurement error jackknife. <em>J. Amer. Statist. Assoc.</em>
-90(432), 1247–1256.</p>
+90(432), 1247–1256. </p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

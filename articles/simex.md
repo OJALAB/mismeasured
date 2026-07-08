@@ -107,8 +107,8 @@ summary(fit)
 #> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 confint(fit)
 #>                 2.5 %   97.5 %
-#> (Intercept) 0.9420865 1.036866
-#> x           1.8671012 1.963252
+#> (Intercept) 0.9420577 1.036895
+#> x           1.8670721 1.963281
 ```
 
 ``` r
@@ -285,9 +285,9 @@ summary(fit5)
 #> 
 #> MC-SIMEX corrected coefficients:
 #>             Estimate Std. Error t value Pr(>|t|)    
-#> z11          2.05372    0.08077   25.43   <2e-16 ***
-#> z21          1.53946    0.07239   21.27   <2e-16 ***
-#> (Intercept)  0.95523    0.06339   15.07   <2e-16 ***
+#> z11          2.05372    0.08087   25.39   <2e-16 ***
+#> z21          1.53946    0.07246   21.24   <2e-16 ***
+#> (Intercept)  0.95523    0.06346   15.05   <2e-16 ***
 #> ---
 #> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 ```
@@ -366,9 +366,9 @@ summary(fit6b)
 #> 
 #> MC-SIMEX corrected coefficients:
 #>             Estimate Std. Error t value Pr(>|t|)    
-#> z1           0.75905    0.13445   5.646 1.88e-08 ***
-#> (Intercept) -0.35817    0.07936  -4.513 6.76e-06 ***
-#> x            0.39681    0.05843   6.791 1.46e-11 ***
+#> z1           0.75905    0.13461   5.639 1.96e-08 ***
+#> (Intercept) -0.35817    0.07945  -4.508 6.91e-06 ***
+#> x            0.39681    0.05847   6.786 1.51e-11 ***
 #> ---
 #> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 ```
@@ -463,8 +463,8 @@ summary(fit9)
 #> 
 #> MC-SIMEX corrected coefficients:
 #>             Estimate Std. Error t value Pr(>|t|)    
-#> 1            0.75059    0.04151   18.08   <2e-16 ***
-#> (Intercept)  0.53507    0.02892   18.50   <2e-16 ***
+#> 1            0.75059    0.04155   18.06   <2e-16 ***
+#> (Intercept)  0.53507    0.02894   18.49   <2e-16 ***
 #> ---
 #> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 ```
@@ -536,7 +536,7 @@ eigendecomposition.
 
 ### Variance estimation
 
-- **ME-SIMEX.** Jackknife variance following Stefanski & Cook (1994).
+- **ME-SIMEX.** Jackknife variance following Stefanski & Cook (1995).
   The model-based variance $`\bar V_{\mathrm{model}}(\lambda)`$ is the
   average of $`(X_{\mathrm{sim}}'WX_{\mathrm{sim}})^{-1}\phi`$ across
   $`B`$ refits, computed in C++.

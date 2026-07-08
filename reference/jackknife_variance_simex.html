@@ -62,7 +62,8 @@ extrapolates to lambda = -1.</p>
 
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>This follows the Stefanski &amp; Cook (1994) approach where Var_model at each
+    <p>This follows the Stefanski &amp; Cook (1995) measurement-error jackknife,
+where Var_model at each
 lambda is the average of vcov(glm_b) across the B simulation replicates.
 The per-lambda model vcov averages are computed in C++ and passed in via
 <code>vcov_model_list</code>.</p>

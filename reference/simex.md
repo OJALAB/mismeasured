@@ -111,7 +111,7 @@ The function auto-detects the error type from the formula:
   variance treats the supplied misclassification matrix as fixed/known;
   if `Pi` was estimated from validation or audit data, reported standard
   errors are conditional on that plug-in matrix. With
-  `method = "standard"`, the original Kuchenhoff et al. (2006)
+  `method = "standard"`, the original Kuechenhoff et al. (2006)
   extrapolation-based approach is used.
 
 ## References
@@ -120,7 +120,7 @@ Cook, J.R. and Stefanski, L.A. (1994). Simulation-extrapolation
 estimation in parametric measurement error models. *JASA*, 89,
 1314–1328.
 
-Kuchenhoff, H., Mwalili, S.M. and Lesaffre, E. (2006). A general method
+Kuechenhoff, H., Mwalili, S.M. and Lesaffre, E. (2006). A general method
 for dealing with misclassification in regression: The misclassification
 SIMEX. *Biometrics*, 62(1), 85–96.
 
@@ -199,9 +199,9 @@ summary(fit_mc)
 #> 
 #> MC-SIMEX corrected coefficients:
 #>             Estimate Std. Error t value Pr(>|t|)    
-#> 1            0.67768    0.08557   7.920 1.57e-14 ***
-#> (Intercept)  0.60318    0.05755  10.482  < 2e-16 ***
-#> x            0.28533    0.03092   9.229  < 2e-16 ***
+#> 1            0.67768    0.08567   7.910 1.68e-14 ***
+#> (Intercept)  0.60318    0.05759  10.473  < 2e-16 ***
+#> x            0.28533    0.03092   9.227  < 2e-16 ***
 #> ---
 #> Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 #> 

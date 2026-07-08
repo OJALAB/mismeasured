@@ -55,12 +55,25 @@
 <li><p><strong><code>NA</code> handling</strong>: <code><a href="../reference/simex.html">simex()</a></code> drops incomplete rows (and their weights) once, up front, with a warning; previously the naive fit and the simulated refits could silently misalign rows.</p></li>
 </ul></div>
 <div class="section level3">
+<h3 id="minor-fixes-0-7-0">Minor fixes<a class="anchor" aria-label="anchor" href="#minor-fixes-0-7-0"></a></h3>
+<ul><li>
+<code>confint.simex()</code> now uses t quantiles on <code>n - p</code> degrees of freedom, consistent with the t-based p-values in <code>summary.simex()</code>.</li>
+<li>
+<code>misclass(..., k = 0)</code> now returns the data unchanged; previously an elementwise <code>d^0</code> turned the eigenvalue matrix into a matrix of ones.</li>
+<li>The C++ gaussian dispersion estimate divides by <code>n - p</code> (matching <code><a href="https://rdrr.io/r/stats/glm.html" class="external-link">stats::glm</a></code> residual df) instead of <code>sum(weights) - p</code>.</li>
+<li>Jackknife variance for MC-SIMEX uses the sample covariance across replicates, matching the continuous SIMEX jackknife.</li>
+<li>
+<code><a href="../reference/mcglm.html">mcglm()</a></code> gives an informative error when <code>Pi</code> is singular and <code>pi_z</code> must be estimated; estimated <code>pi_z</code> is now clamped on both sides.</li>
+</ul></div>
+<div class="section level3">
 <h3 id="new-guards-previously-silent-misbehavior-0-7-0">New guards (previously silent misbehavior)<a class="anchor" aria-label="anchor" href="#new-guards-previously-silent-misbehavior-0-7-0"></a></h3>
 <ul><li>
 <code><a href="https://rdrr.io/r/stats/offset.html" class="external-link">offset()</a></code> terms are rejected by <code><a href="../reference/simex.html">simex()</a></code> and <code><a href="../reference/mcglm.html">mcglm()</a></code> (they were honored by the naive fit but dropped by every refit).</li>
 <li>Non-canonical links (e.g. <code>binomial("probit")</code>) are rejected; they were silently fitted with the canonical link.</li>
 <li>
 <code><a href="../reference/mcglm.html">mcglm()</a></code> validates <code>z_hat</code> coding (integers in <code>{0, ..., K-1}</code>; no factors; <code>K</code> taken from <code>Pi</code> when a category is unobserved).</li>
+<li>
+<code><a href="../reference/mc.html">mc()</a></code> matrices are checked against the factor: <code>Pi</code> must be K x K for a K-level factor, and column names (when present) must match the levels.</li>
 <li>
 <code><a href="../reference/me.html">me()</a></code>/<code><a href="../reference/mc.html">mc()</a></code> variables may enter the formula only as bare main effects; interactions or transforms of them are rejected instead of silently using the unperturbed values.</li>
 </ul></div>
@@ -110,6 +123,10 @@
 <ul><li>Line coverage raised from 73.3% to 91.3%. New tests cover frequency weights across all <code><a href="../reference/mcglm.html">mcglm()</a></code> methods and families, <code>vcov_corrected = TRUE</code>, the multinomial response family, the multicategory one-step estimator, <code>iterate = TRUE</code> for K  3, the direct <code>c1</code>/<code>c2</code> path, Gaussian / Berkson / loglinear extrapolation paths in <code><a href="../reference/simex.html">simex()</a></code>, and the S3 surface (<code>plot</code>/<code>print</code>/<code>summary</code>/<code>formula</code>) of both estimators.</li>
 </ul></div>
 </div>
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.5.3" id="mismeasured-053">mismeasured 0.5.3<a class="anchor" aria-label="anchor" href="#mismeasured-053"></a></h2>
+<ul><li>Interim build (source tarball only; never tagged in the repository). Introduced the analytical Jacobian for K-class drift in <code><a href="../reference/mcglm.html">mcglm()</a></code>, released and documented under 0.5.4 above.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.5.2" id="mismeasured-052">mismeasured 0.5.2<a class="anchor" aria-label="anchor" href="#mismeasured-052"></a></h2>
 <div class="section level3">

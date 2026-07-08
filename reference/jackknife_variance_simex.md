@@ -18,7 +18,7 @@ jackknife_variance_simex(
 
 ## Details
 
-This follows the Stefanski & Cook (1994) approach where Var_model at
-each lambda is the average of vcov(glm_b) across the B simulation
-replicates. The per-lambda model vcov averages are computed in C++ and
-passed in via `vcov_model_list`.
+This follows the Stefanski & Cook (1995) measurement-error jackknife,
+where Var_model at each lambda is the average of vcov(glm_b) across the
+B simulation replicates. The per-lambda model vcov averages are computed
+in C++ and passed in via `vcov_model_list`.

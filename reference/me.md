@@ -2,8 +2,10 @@
 
 Use inside a
 [`simex`](https://ojalab.github.io/mismeasured/reference/simex.md)
-formula to mark a covariate (or response) as measured with additive
-Gaussian error.
+formula to mark a covariate as measured with additive Gaussian error.
+Response measurement error (`me()` on the left-hand side) is not
+supported; response *misclassification* is available via
+[`mc`](https://ojalab.github.io/mismeasured/reference/mc.md).
 
 ## Usage
 
