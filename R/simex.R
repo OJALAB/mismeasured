@@ -189,7 +189,10 @@ simex <- function(formula, family = gaussian(), data,
   p_names <- colnames(X)
   psi_naive <- unname(coef(naive_fit))
   names(psi_naive) <- p_names
-  wt <- if (is.null(weights)) rep(1.0, n) else as.numeric(weights)
+  # prior.weights covers both user weights and grouped-binomial
+  # cbind(succ, fail) responses, where glm() folds the trial counts into
+  # the weights and naive_fit$y is the success proportion.
+  wt <- as.numeric(naive_fit$prior.weights)
 
   lambda <- sort(as.numeric(lambda))
   B <- as.integer(B)
@@ -352,7 +355,10 @@ simex <- function(formula, family = gaussian(), data,
 
   y <- naive_fit$y
   n <- length(y)
-  wt <- if (is.null(weights)) rep(1.0, n) else as.numeric(weights)
+  # prior.weights covers both user weights and grouped-binomial
+  # cbind(succ, fail) responses (glm() folds trial counts into weights
+  # and y becomes the success proportion).
+  wt <- as.numeric(naive_fit$prior.weights)
   B <- as.integer(B)
   fam <- get_link_funs(family)
 
