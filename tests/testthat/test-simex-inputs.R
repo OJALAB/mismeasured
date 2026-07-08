@@ -247,3 +247,29 @@ test_that("predict.simex enforces training factor levels", {
     "level"
   )
 })
+
+test_that("Pi dimnames must match factor levels; misc consistency fixes", {
+  Pi <- matrix(c(0.9, 0.1, 0.12, 0.88), 2, 2)
+  df <- .make_mc_df(n = 300)
+
+  Pi_named <- Pi
+  colnames(Pi_named) <- c("1", "0")  # wrong order
+  expect_error(simex(y ~ mc(z, Pi_named), data = df), "do not match")
+
+  Pi3 <- diag(3)
+  expect_error(simex(y ~ mc(z, Pi3), data = df), "level")
+
+  # confint uses t quantiles consistent with summary's t p-values
+  fit <- simex(y ~ mc(z, Pi), data = df, B = 5, seed = 1)
+  ci <- confint(fit)
+  se <- sqrt(diag(fit$vcov))
+  expect_equal(unname(ci[, 2] - coef(fit)),
+               unname(qt(0.975, fit$n - fit$p) * se))
+
+  # singular Pi gives an informative pi_z error
+  expect_error(
+    mismeasured:::.mcglm_estimate_pi_z(rbinom(50, 1, 0.5),
+                                       matrix(0.5, 2, 2)),
+    "singular"
+  )
+})

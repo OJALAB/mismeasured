@@ -17,10 +17,14 @@
   tab <- tabulate(z_hat + 1L, nbins = K)
   pi_obs <- tab / sum(tab)
   # Invert: pi_z = Pi^{-1} %*% pi_obs
-  pi_z <- as.numeric(solve(Pi) %*% pi_obs)
-  # Clamp to valid range
-
-  pi_z <- pmax(pi_z, 0.01)
+  pi_z <- tryCatch(
+    as.numeric(solve(Pi) %*% pi_obs),
+    error = function(e)
+      stop("Cannot estimate pi_z: the misclassification matrix Pi is ",
+           "singular. Supply pi_z directly.", call. = FALSE)
+  )
+  # Clamp to valid range (two-sided) and renormalize
+  pi_z <- pmin(pmax(pi_z, 0.01), 0.99)
   pi_z <- pi_z / sum(pi_z)
   if (K == 2L) return(pi_z[2])  # scalar for binary case
   pi_z

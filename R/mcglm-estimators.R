@@ -83,10 +83,6 @@
 #' @keywords internal
 .mcglm_fit_cs_bin <- function(psi_init, y, xi_hat, x, family, c1, c2,
                               wt = NULL) {
-  if (!requireNamespace("nleqslv", quietly = TRUE))
-    stop("Package 'nleqslv' is required for the corrected-score method. ",
-         "Install with: install.packages('nleqslv')")
-
   fam <- .mcglm_get_link_funs(family)
   n   <- length(y)
   N   <- if (is.null(wt)) n else sum(wt)
@@ -209,10 +205,6 @@
                                 Pi, pi_z, wt = NULL,
                                 jacobian = c("analytical", "numerical")) {
   jacobian <- match.arg(jacobian)
-  if (!requireNamespace("nleqslv", quietly = TRUE))
-    stop("Package 'nleqslv' is required for the corrected-score method. ",
-         "Install with: install.packages('nleqslv')")
-
   fam <- .mcglm_get_link_funs(family)
   n   <- length(y)
   N   <- if (is.null(wt)) n else sum(wt)

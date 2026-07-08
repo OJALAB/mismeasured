@@ -42,8 +42,14 @@ misclass <- function(data.org, mc.matrix, k = 1) {
   for (j in names(mc.matrix)) {
     evalue <- ev[[j]]$values
     evectors <- ev[[j]]$vectors
-    d <- diag(evalue)
-    mc <- zapsmall(evectors %*% d^k %*% solve(evectors))
+    if (k == 0) {
+      # d^0 elementwise would turn the diagonal eigenvalue matrix into a
+      # matrix of ones; Pi^0 is the identity (no misclassification).
+      mc <- diag(nrow(mc.matrix[[j]]))
+    } else {
+      d <- diag(evalue)
+      mc <- zapsmall(evectors %*% d^k %*% solve(evectors))
+    }
     dimnames(mc) <- dimnames(mc.matrix[[j]])
     for (i in factors[[j]]) {
       data.mc[[j]][data.org[[j]] == i] <- sample(

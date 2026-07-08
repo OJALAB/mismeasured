@@ -91,8 +91,9 @@ jackknife_variance_mcsimex <- function(theta_list, psi_naive, naive_fit,
     theta_mat <- theta_list[[l]]
     B_l <- nrow(theta_mat)
 
-    # Empirical covariance of B estimates (population)
-    Var_sim <- cov(theta_mat) * (B_l - 1) / B_l
+    # Empirical covariance of B estimates (sample, matching
+    # jackknife_variance_simex)
+    Var_sim <- cov(theta_mat)
 
     # Approximate model variance at mean estimate via sandwich
     psi_mean <- colMeans(theta_mat)

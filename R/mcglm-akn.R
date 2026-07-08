@@ -22,7 +22,7 @@
 
 #' Build inverse Q matrix and baseline probability vector
 #'
-#' Q = [p_1 - p_0, ..., p_{K-1} - p_0] is (K-1) x (K-1) where
+#' Q = [p_1 - p_0, ..., p_(K-1) - p_0] is (K-1) x (K-1) where
 #' p_l = (Pi[2, l+1], ..., Pi[K, l+1])^T = E[u | Z = l] and u is the
 #' (K-1)-dim dummy encoding of Z_hat with baseline 0.
 #'
@@ -178,10 +178,6 @@
 
   if (identical(fam_str, "gaussian"))
     return(.akn_fit_gaussian_closed(y, x_akn, x, K, wt = wt))
-
-  if (!requireNamespace("nleqslv", quietly = TRUE))
-    stop("Package 'nleqslv' is required for the cs_akn method. ",
-         "Install with: install.packages('nleqslv')")
 
   score_mean <- function(psi) {
     Phi <- .akn_phi(psi, y, x_akn, x, K, fam)

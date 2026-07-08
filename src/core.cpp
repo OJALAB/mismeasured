@@ -491,8 +491,9 @@ MatrixXd glm_vcov(const VectorXd& beta, const MatrixXd& X,
   MatrixXd XtWX = (X.array().colwise() * w_irls.array()).matrix().transpose() * X;
   MatrixXd XtWX_inv = XtWX.ldlt().solve(MatrixXd::Identity(p, p));
 
-  // Dispersion: 1 for Poisson/Binomial, Pearson estimate for Gaussian
-  double phi = (dist_code == 1) ? pearson_sum / (wt_sum - p) : 1.0;
+  // Dispersion: 1 for Poisson/Binomial, Pearson estimate for Gaussian.
+  // Divisor n - p matches stats::glm's residual df with prior weights.
+  double phi = (dist_code == 1) ? pearson_sum / (n - p) : 1.0;
 
   return XtWX_inv * phi;
 }

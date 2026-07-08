@@ -27,6 +27,19 @@
   once, up front, with a warning; previously the naive fit and the
   simulated refits could silently misalign rows.
 
+## Minor fixes
+
+* `confint.simex()` now uses t quantiles on `n - p` degrees of freedom,
+  consistent with the t-based p-values in `summary.simex()`.
+* `misclass(..., k = 0)` now returns the data unchanged; previously an
+  elementwise `d^0` turned the eigenvalue matrix into a matrix of ones.
+* The C++ gaussian dispersion estimate divides by `n - p` (matching
+  `stats::glm` residual df) instead of `sum(weights) - p`.
+* Jackknife variance for MC-SIMEX uses the sample covariance across
+  replicates, matching the continuous SIMEX jackknife.
+* `mcglm()` gives an informative error when `Pi` is singular and `pi_z`
+  must be estimated; estimated `pi_z` is now clamped on both sides.
+
 ## New guards (previously silent misbehavior)
 
 * `offset()` terms are rejected by `simex()` and `mcglm()` (they were
@@ -35,6 +48,8 @@
   silently fitted with the canonical link.
 * `mcglm()` validates `z_hat` coding (integers in `{0, ..., K-1}`; no
   factors; `K` taken from `Pi` when a category is unobserved).
+* `mc()` matrices are checked against the factor: `Pi` must be K x K for a
+  K-level factor, and column names (when present) must match the levels.
 * `me()`/`mc()` variables may enter the formula only as bare main effects;
   interactions or transforms of them are rejected instead of silently
   using the unperturbed values.

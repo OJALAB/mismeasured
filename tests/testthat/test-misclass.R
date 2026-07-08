@@ -94,6 +94,15 @@ test_that("check.mc.matrix handles K=3 matrices", {
   expect_type(res, "logical")
 })
 
+test_that("misclass() with k = 0 leaves data unchanged", {
+  set.seed(7)
+  x <- factor(sample(letters[1:3], 100, replace = TRUE))
+  P <- matrix(0.05, 3, 3); diag(P) <- 0.9
+  colnames(P) <- rownames(P) <- levels(x)
+  out <- misclass(data.frame(x = x), list(x = P), k = 0)
+  expect_identical(out$x, x)
+})
+
 # --- diag.block ---
 
 test_that("diag.block(list) builds block-diagonal matrix from a list", {

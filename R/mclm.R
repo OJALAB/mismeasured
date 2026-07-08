@@ -46,7 +46,7 @@ mclm <- function(formula, data = NULL,
 
   cl <- match.call()
   mcall <- cl
-  mcall[[1L]] <- quote(mcglm)
+  mcall[[1L]] <- quote(mismeasured::mcglm)
   mcall$family <- "gaussian"
   out <- eval(mcall, parent.frame())
   out$call <- cl

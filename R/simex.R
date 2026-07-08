@@ -364,6 +364,17 @@ simex <- function(formula, family = gaussian(), data,
   for (sv in SIMEXvariables) {
     if (!is.factor(data[[sv]]))
       data[[sv]] <- factor(data[[sv]])
+    lv <- levels(data[[sv]])
+    M <- mc_list[[sv]]
+    if (nrow(M) != length(lv))
+      stop("mc(", sv, "): Pi is ", nrow(M), "x", ncol(M), " but '", sv,
+           "' has ", length(lv), " level(s).", call. = FALSE)
+    cn <- colnames(M)
+    if (!is.null(cn) && !identical(cn, lv))
+      stop("mc(", sv, "): column names of Pi (", paste(cn, collapse = ", "),
+           ") do not match the factor levels of '", sv, "' (",
+           paste(lv, collapse = ", "), "). Order columns as the levels.",
+           call. = FALSE)
   }
 
   # Single-mc: extract for C++ fast path
@@ -977,7 +988,8 @@ confint.simex <- function(object, parm, level = 0.95, ...) {
 
   ses <- sqrt(pmax(diag(object$vcov), 0))
   a <- (1 - level) / 2
-  fac <- qnorm(c(a, 1 - a))
+  # t quantiles on n - p df, matching the p-values in summary.simex
+  fac <- qt(c(a, 1 - a), df = object$n - object$p)
 
   pnames <- names(cf)
   if (missing(parm)) parm <- pnames
