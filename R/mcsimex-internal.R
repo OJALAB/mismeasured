@@ -300,14 +300,20 @@
 #' @keywords internal
 .variance_k_improved <- function(theta_list, naive_refit, transform,
                                  lambda, B, p) {
+  V <- unname(vcov(naive_refit))
+  V_sampling <- transform %*% V %*% t(transform)
   if (length(lambda) * B == 1L) {
-    V <- vcov(naive_refit)
-    V <- unname(V)
-    return(transform %*% V %*% t(transform))
+    return(V_sampling)
   }
 
+  # Sampling variance plus the Monte-Carlo error of the averaged estimator.
+  # cov(all_corrected) alone is only the between-replicate (resampling)
+  # variability; dividing it by n_lambda * B measures how precisely the
+  # average is estimated, not the sampling variance of the estimator, and
+  # would shrink the reported SEs to zero as B grows.
   all_corrected <- do.call(rbind, theta_list)
-  cov(all_corrected) / (length(lambda) * B)
+  V_mc <- cov(all_corrected) / (length(lambda) * B)
+  V_sampling + V_mc
 }
 
 #' Find optimal lambda that minimizes |c_lambda|
