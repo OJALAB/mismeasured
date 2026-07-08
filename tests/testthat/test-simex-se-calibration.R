@@ -1,4 +1,4 @@
-# SE calibration for the improved MC-SIMEX (improvement plan 1.4).
+# SE calibration for the improved MC-SIMEX.
 # The mean reported SE must track the Monte-Carlo SD of the estimator;
 # a ratio outside [0.8, 1.25] means the variance formula is mis-calibrated
 # (e.g. SEs shrinking with B, or using the naive vcov at lambda = 0).

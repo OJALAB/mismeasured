@@ -1,5 +1,4 @@
-# Coverage for the improved MC-SIMEX variance machinery
-# (improvement plan 1.1-1.2 regression pins).
+# Regression pins for the improved MC-SIMEX variance machinery.
 
 .make_mc_df <- function(n = 500, seed = 1) {
   set.seed(seed)

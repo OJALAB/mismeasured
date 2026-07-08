@@ -1,4 +1,4 @@
-# Input validation: silent-misbehavior guards (improvement plan Phase 2).
+# Input validation: guards against silent misbehavior on valid inputs.
 
 .make_mc_df <- function(n = 500, seed = 1) {
   set.seed(seed)
@@ -7,7 +7,7 @@
   z_star <- ifelse(z == 1, 1 - rbinom(n, 1, 0.12), rbinom(n, 1, 0.1))
   data.frame(y = y, z = factor(z_star))
 }
-test_that("offset() terms are rejected loudly (plan 2.1)", {
+test_that("offset() terms are rejected", {
   Pi <- matrix(c(0.9, 0.1, 0.12, 0.88), 2, 2)
   df <- .make_mc_df()
   df$expo <- runif(nrow(df), 1, 2)
@@ -23,7 +23,7 @@ test_that("offset() terms are rejected loudly (plan 2.1)", {
   )
 })
 
-test_that("grouped binomial cbind(succ, fail) uses trial counts (plan 2.2)", {
+test_that("grouped binomial cbind(succ, fail) uses trial counts", {
   Pi <- matrix(c(0.9, 0.1, 0.12, 0.88), 2, 2)
   set.seed(3)
   n_grp <- 60
@@ -61,7 +61,7 @@ test_that("grouped binomial cbind(succ, fail) uses trial counts (plan 2.2)", {
                tolerance = 0.25)
 })
 
-test_that("mcglm matrix interface validates z_hat coding (plan 2.3)", {
+test_that("mcglm matrix interface validates z_hat coding", {
   set.seed(5)
   n <- 200
   z <- rbinom(n, 1, 0.4)
@@ -101,7 +101,7 @@ test_that("mcglm matrix interface validates z_hat coding (plan 2.3)", {
   expect_identical(fit$K, 3L)
 })
 
-test_that("non-canonical links are rejected (plan 2.4)", {
+test_that("non-canonical links are rejected", {
   Pi <- matrix(c(0.9, 0.1, 0.12, 0.88), 2, 2)
   df <- .make_mc_df()
   df$yb <- rbinom(nrow(df), 1, 0.5)
@@ -126,7 +126,7 @@ test_that("non-canonical links are rejected (plan 2.4)", {
   expect_true(all(is.finite(coef(fit))))
 })
 
-test_that("rows with NAs are dropped consistently up front (plan 2.5)", {
+test_that("rows with NAs are dropped consistently up front", {
   Pi <- matrix(c(0.9, 0.1, 0.12, 0.88), 2, 2)
   df <- .make_mc_df(n = 400)
   df$x <- rnorm(nrow(df))
@@ -162,7 +162,7 @@ test_that("rows with NAs are dropped consistently up front (plan 2.5)", {
   )
 })
 
-test_that("me()/mc() variables in non-main-effect terms are rejected (plan 2.6)", {
+test_that("me()/mc() variables in non-main-effect terms are rejected", {
   Pi <- matrix(c(0.9, 0.1, 0.12, 0.88), 2, 2)
   df <- .make_mc_df(n = 300)
   df$x <- rnorm(nrow(df))
