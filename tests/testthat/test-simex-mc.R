@@ -238,8 +238,8 @@ test_that("fixed-Pi improved MC-SIMEX variance helpers cover singleton and inval
   transform <- diag(2)
   V <- mismeasured:::.variance_k_improved(
     theta_list = list(matrix(c(1, 2), nrow = 1)),
-    naive_refit = naive_refit,
-    transform = transform,
+    vcov_list = list(stats::vcov(naive_refit)),
+    transform_list = list(transform),
     lambda = 1,
     B = 1,
     p = 2

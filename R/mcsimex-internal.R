@@ -296,23 +296,50 @@
   T
 }
 
-#' Variance estimation for fixed-Pi K-level improved MC-SIMEX
+#' Resample misclassified categories at inflation level lambda
+#'
+#' Draws z* | z_hat from the columns of Pi^lambda, replicating the
+#' simulation step of MC-SIMEX so that a refit on z* estimates
+#' Var(theta(lambda)) rather than Var(theta(0)).
 #' @keywords internal
-.variance_k_improved <- function(theta_list, naive_refit, transform,
+.resample_z_lambda <- function(z_hat, Pi, lambda, K) {
+  if (lambda == 0) return(z_hat)
+  Pi_lam <- .mat_power_r(Pi, lambda)
+  z_star <- integer(length(z_hat))
+  for (j in seq_len(K)) {
+    idx <- which(z_hat == j - 1L)
+    if (length(idx))
+      z_star[idx] <- sample.int(K, length(idx), replace = TRUE,
+                                prob = Pi_lam[, j]) - 1L
+  }
+  z_star
+}
+
+#' Variance estimation for fixed-Pi K-level improved MC-SIMEX
+#'
+#' Sampling variance: average over lambda of T_l V(theta(lambda_l)) T_l',
+#' where V(theta(lambda_l)) is the vcov of a refit on a Pi^lambda_l
+#' resampled design (Sevilimedu & Yu 2026, eq. 4, generalised to the
+#' K-level transform). For n_lambda * B > 1 a between-replicate
+#' Monte-Carlo term is added; cov(all_corrected) alone is only the
+#' resampling variability of the mean and would shrink to zero as B grows.
+#' @keywords internal
+.variance_k_improved <- function(theta_list, vcov_list, transform_list,
                                  lambda, B, p) {
-  V <- unname(vcov(naive_refit))
-  V_sampling <- transform %*% V %*% t(transform)
-  if (length(lambda) * B == 1L) {
+  n_lambda <- length(lambda)
+  V_sampling <- matrix(0, p, p)
+  for (l in seq_len(n_lambda)) {
+    T_l <- transform_list[[l]]
+    V_sampling <- V_sampling + T_l %*% unname(vcov_list[[l]]) %*% t(T_l)
+  }
+  V_sampling <- V_sampling / n_lambda
+
+  if (n_lambda * B == 1L) {
     return(V_sampling)
   }
 
-  # Sampling variance plus the Monte-Carlo error of the averaged estimator.
-  # cov(all_corrected) alone is only the between-replicate (resampling)
-  # variability; dividing it by n_lambda * B measures how precisely the
-  # average is estimated, not the sampling variance of the estimator, and
-  # would shrink the reported SEs to zero as B grows.
   all_corrected <- do.call(rbind, theta_list)
-  V_mc <- cov(all_corrected) / (length(lambda) * B)
+  V_mc <- cov(all_corrected) / (n_lambda * B)
   V_sampling + V_mc
 }
 

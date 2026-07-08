@@ -488,13 +488,22 @@ simex <- function(formula, family = gaussian(), data,
 
     vcov_imp <- NULL
     if (!isFALSE(jackknife)) {
-      transform <- .k_improved_transform(
-        p,
-        correction_components[[1]]$C,
-        correction_components[[1]]$alpha,
-        intercept_idx
-      )
-      vcov_imp <- .variance_k_improved(theta_list, naive_refit, transform,
+      transform_list <- lapply(correction_components, function(cc)
+        .k_improved_transform(p, cc$C, cc$alpha, intercept_idx))
+      # Var(theta(lambda_l)): vcov of a refit on a Pi^lambda_l resampled
+      # design, matching the estimator C(lambda) theta(lambda); the naive
+      # (lambda = 0) vcov understates the resampling noise in theta(lambda).
+      set.seed(seed)
+      vcov_list <- lapply(lambda, function(lam) {
+        if (lam == 0) return(unname(vcov(naive_refit)))
+        z_star <- .resample_z_lambda(z_hat, Pi, lam, K)
+        xi_star <- .build_xi_hat(z_star, x_mat, K)
+        dat_star <- data.frame(y = y, .wt = wt, xi_star)
+        refit_l <- glm(y ~ . - .wt - 1, data = dat_star, family = family,
+                       weights = .wt)
+        unname(vcov(refit_l))
+      })
+      vcov_imp <- .variance_k_improved(theta_list, vcov_list, transform_list,
                                        lambda, B, p)
       rownames(vcov_imp) <- colnames(vcov_imp) <- nms
     }
