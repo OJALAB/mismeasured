@@ -26,7 +26,9 @@ See Examples.}
 \item{data}{a data frame.}
 
 \item{method}{character: correction method for \code{mc()} terms.
-\code{NULL} (default) auto-selects \code{"improved"}.
+\code{NULL} (default) auto-selects \code{"improved"} for
+\code{gaussian()} models with a single misclassified covariate (where
+the correction is exact) and \code{"standard"} otherwise.
 Ignored for \code{me()} terms. See Details.}
 
 \item{lambda}{numeric vector of SIMEX exponents, or \code{"optimal"}
@@ -84,7 +86,7 @@ df <- data.frame(y = y, x = x_obs)
 fit_me <- simex(y ~ me(x, 0.5), data = df, B = 50)
 summary(fit_me)
 
-# --- Misclassification (improved, default) ---
+# --- Misclassification (standard MC-SIMEX by default for non-gaussian) ---
 Pi <- matrix(c(0.9, 0.1, 0.15, 0.85), 2, 2)
 z <- rbinom(n, 1, 0.4)
 y2 <- rpois(n, exp(0.5 + 0.8 * z + 0.3 * x_true))

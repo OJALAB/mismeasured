@@ -43,20 +43,23 @@ test_that("grouped binomial cbind(succ, fail) uses trial counts", {
   # lambda = 0 makes the improved fit deterministic (Pi^0 = I), so the
   # grouped and expanded representations must agree exactly.
   fit_g <- simex(cbind(succ, fail) ~ mc(z, Pi), data = grouped,
-                 family = binomial(), lambda = 0, B = 1, jackknife = FALSE)
+                 family = binomial(), method = "improved",
+                 lambda = 0, B = 1, jackknife = FALSE)
   fit_e <- simex(y ~ mc(z, Pi), data = expanded,
-                 family = binomial(), lambda = 0, B = 1, jackknife = FALSE)
+                 family = binomial(), method = "improved",
+                 lambda = 0, B = 1, jackknife = FALSE)
   expect_equal(coef(fit_g), coef(fit_e), tolerance = 1e-6)
 
   # General path (resampling + variance) runs and is sane.
   fit <- simex(cbind(succ, fail) ~ mc(z, Pi), data = grouped,
-               family = binomial(), B = 20, seed = 42)
+               family = binomial(), method = "improved", B = 20, seed = 42)
   expect_true(all(is.finite(coef(fit))))
   expect_true(all(is.finite(fit$vcov)))
   # Ignoring trial counts (weight 1 per group) would inflate SEs by
   # roughly sqrt(mean(trials)); pin against the expanded-data fit.
   fit_e2 <- simex(y ~ mc(z, Pi), data = expanded,
-                  family = binomial(), B = 20, seed = 42)
+                  family = binomial(), method = "improved", B = 20,
+                  seed = 42)
   expect_equal(sqrt(diag(fit$vcov)), sqrt(diag(fit_e2$vcov)),
                tolerance = 0.25)
 })
@@ -189,4 +192,18 @@ test_that("me()/mc() variables in non-main-effect terms are rejected", {
   df$w <- rnorm(nrow(df))
   fit <- simex(y ~ mc(z, Pi) + x * w, data = df, B = 5, seed = 1)
   expect_true(all(is.finite(coef(fit))))
+})
+
+test_that("default method is improved for gaussian, standard otherwise", {
+  Pi <- matrix(c(0.9, 0.1, 0.12, 0.88), 2, 2)
+  df <- .make_mc_df(n = 300)
+  df$yb <- rbinom(nrow(df), 1, plogis(df$y - 1))
+
+  expect_identical(simex(y ~ mc(z, Pi), data = df, B = 1)$method,
+                   "improved")
+  expect_identical(
+    simex(yb ~ mc(z, Pi), data = df, family = binomial(), B = 10,
+          jackknife = FALSE)$method,
+    "standard"
+  )
 })

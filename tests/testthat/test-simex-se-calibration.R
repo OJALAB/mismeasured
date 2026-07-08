@@ -7,7 +7,8 @@
   res <- t(vapply(seq_len(n_rep), function(r) {
     df <- gen(r)
     fit <- simex(y ~ mc(z, attr(df, "Pi")), data = df,
-                 family = attr(df, "family"), B = B, seed = r)
+                 family = attr(df, "family"), method = "improved",
+                 B = B, seed = r)
     c(coef(fit), sqrt(diag(fit$vcov)))
   }, numeric(4)))
   p <- 2L

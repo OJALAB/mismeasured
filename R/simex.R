@@ -15,7 +15,9 @@
 #' @param family a GLM family (default: \code{gaussian()}).
 #' @param data a data frame.
 #' @param method character: correction method for \code{mc()} terms.
-#'   \code{NULL} (default) auto-selects \code{"improved"}.
+#'   \code{NULL} (default) auto-selects \code{"improved"} for
+#'   \code{gaussian()} models with a single misclassified covariate (where
+#'   the correction is exact) and \code{"standard"} otherwise.
 #'   Ignored for \code{me()} terms. See Details.
 #' @param lambda numeric vector of SIMEX exponents, or \code{"optimal"}
 #'   (improved MC-SIMEX only). Default: auto-set based on error type.
@@ -71,7 +73,7 @@
 #' fit_me <- simex(y ~ me(x, 0.5), data = df, B = 50)
 #' summary(fit_me)
 #'
-#' # --- Misclassification (improved, default) ---
+#' # --- Misclassification (standard MC-SIMEX by default for non-gaussian) ---
 #' Pi <- matrix(c(0.9, 0.1, 0.15, 0.85), 2, 2)
 #' z <- rbinom(n, 1, 0.4)
 #' y2 <- rpois(n, exp(0.5 + 0.8 * z + 0.3 * x_true))
@@ -163,7 +165,11 @@ simex <- function(formula, family = gaussian(), data,
     has_response_mc <- !is.null(parsed$response_mc)
 
     if (is.null(method)) {
-      method <- if (n_mc == 1L && !has_response_mc) "improved" else "standard"
+      # The improved correction is exact only for identity-link gaussian
+      # models; for other families it is a first-order approximation that
+      # can be visibly biased, so it must be opted into explicitly.
+      method <- if (n_mc == 1L && !has_response_mc &&
+                    family$family == "gaussian") "improved" else "standard"
     }
     method <- match.arg(method, c("standard", "improved"))
 
