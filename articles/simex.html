@@ -7,8 +7,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>SIMEX and MC-SIMEX with mismeasured • mismeasured</title>
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="SIMEX and MC-SIMEX with mismeasured">
 </head>
@@ -62,7 +62,7 @@
                         <h4 data-toc-skip class="author">Maciej
 Beresewicz</h4>
             
-            <h4 data-toc-skip class="date">2026-05-08</h4>
+            <h4 data-toc-skip class="date">2026-07-08</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/OJALAB/mismeasured/blob/main/vignettes/simex.Rmd" class="external-link"><code>vignettes/simex.Rmd</code></a></small>
       <div class="d-none name"><code>simex.Rmd</code></div>
@@ -388,18 +388,18 @@ absolute correction factor:</p>
 <span><span class="co">#&gt; B = 200 , n = 2000 </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Residuals:</span></span>
-<span><span class="co">#&gt;       Min        1Q    Median        3Q       Max </span></span>
-<span><span class="co">#&gt; -4.421865 -0.789852  0.005384  0.824377  4.935690 </span></span>
+<span><span class="co">#&gt;      Min       1Q   Median       3Q      Max </span></span>
+<span><span class="co">#&gt; -5.04944 -0.79086  0.06307  0.86372  5.21285 </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Naive coefficients:</span></span>
 <span><span class="co">#&gt;         z11         z21 (Intercept) </span></span>
-<span><span class="co">#&gt;      1.4812      1.2013      1.4261 </span></span>
+<span><span class="co">#&gt;      1.5543      1.2123      1.3934 </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; MC-SIMEX corrected coefficients:</span></span>
 <span><span class="co">#&gt;             Estimate Std. Error t value Pr(&gt;|t|)    </span></span>
-<span><span class="co">#&gt; z11          1.91470    0.08737   21.91   &lt;2e-16 ***</span></span>
-<span><span class="co">#&gt; z21          1.47276    0.08430   17.47   &lt;2e-16 ***</span></span>
-<span><span class="co">#&gt; (Intercept)  1.08076    0.06494   16.64   &lt;2e-16 ***</span></span>
+<span><span class="co">#&gt; z11          2.05372    0.08077   25.43   &lt;2e-16 ***</span></span>
+<span><span class="co">#&gt; z21          1.53946    0.07239   21.27   &lt;2e-16 ***</span></span>
+<span><span class="co">#&gt; (Intercept)  0.95523    0.06339   15.07   &lt;2e-16 ***</span></span>
 <span><span class="co">#&gt; ---</span></span>
 <span><span class="co">#&gt; Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</span></span></code></pre></div>
 <p>With multiple <code><a href="../reference/mc.html">mc()</a></code> terms, the standard method is used
@@ -556,8 +556,8 @@ with
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; MC-SIMEX corrected coefficients:</span></span>
 <span><span class="co">#&gt;             Estimate Std. Error t value Pr(&gt;|t|)    </span></span>
-<span><span class="co">#&gt; 1            0.76194    0.05151   14.79   &lt;2e-16 ***</span></span>
-<span><span class="co">#&gt; (Intercept)  0.57505    0.02762   20.82   &lt;2e-16 ***</span></span>
+<span><span class="co">#&gt; 1            0.76194    0.05144   14.81   &lt;2e-16 ***</span></span>
+<span><span class="co">#&gt; (Intercept)  0.57505    0.02712   21.20   &lt;2e-16 ***</span></span>
 <span><span class="co">#&gt; ---</span></span>
 <span><span class="co">#&gt; Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</span></span></code></pre></div>
 </div>
@@ -711,7 +711,7 @@ the measurement error jackknife. <em>J. Amer. Statist. Assoc.</em>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

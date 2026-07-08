@@ -1,11 +1,11 @@
 pandoc: 3.8.3
-pkgdown: 2.2.0
+pkgdown: 2.2.1
 pkgdown_sha: ~
 articles:
   mcglm: mcglm.html
   mismeasured: mismeasured.html
   simex: simex.html
-last_built: 2026-05-08T06:57Z
+last_built: 2026-07-08T09:19Z
 urls:
   reference: https://ojalab.github.io/mismeasured/reference
   article: https://ojalab.github.io/mismeasured/articles
