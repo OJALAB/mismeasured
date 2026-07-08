@@ -309,6 +309,12 @@ mcglm <- function(formula, data = NULL, family = "poisson",
   if (inherits(formula, "formula")) {
     formula_obj <- formula
     caller_env <- parent.frame()
+    # Offsets are never plumbed into the corrected estimators; reject
+    # rather than silently fit without them.
+    if (!is.null(attr(terms(formula, data = data), "offset")))
+      stop("offset() terms are not supported by mcglm(); the corrected ",
+           "estimators would ignore the offset and give biased estimates.",
+           call. = FALSE)
     parsed <- .mcglm_parse_formula(formula, data, caller_env)
     y     <- parsed$y
     z_hat <- parsed$z_hat

@@ -105,6 +105,13 @@ simex <- function(formula, family = gaussian(), data,
   # --- parse formula ---
   parsed <- parse_simex_formula(formula, data, parent.frame())
 
+  # Offsets are honored by the naive fit but silently dropped by every
+  # simulated refit, so results would be wrong; reject until supported.
+  if (!is.null(attr(terms(parsed$clean_formula, data = data), "offset")))
+    stop("offset() terms are not supported by simex(); the simulated ",
+         "refits would ignore the offset and give biased estimates.",
+         call. = FALSE)
+
   # --- dispatch ---
   if (parsed$error_type == "me") {
     if (!is.null(method))
