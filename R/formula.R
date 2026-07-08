@@ -7,8 +7,10 @@
 
 #' Specify a variable measured with error
 #'
-#' Use inside a \code{\link{simex}} formula to mark a covariate (or response)
-#' as measured with additive Gaussian error.
+#' Use inside a \code{\link{simex}} formula to mark a covariate as measured
+#' with additive Gaussian error. Response measurement error (\code{me()} on
+#' the left-hand side) is not supported; response \emph{misclassification}
+#' is available via \code{\link{mc}}.
 #'
 #' @param variable bare name of the variable in the data.
 #' @param sd measurement error standard deviation. Can be a scalar

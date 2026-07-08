@@ -26,8 +26,10 @@ An object of class \code{"me_term"} (used internally by
   \code{\link{simex}}; not intended to be called directly).
 }
 \description{
-Use inside a \code{\link{simex}} formula to mark a covariate (or response)
-as measured with additive Gaussian error.
+Use inside a \code{\link{simex}} formula to mark a covariate as measured
+with additive Gaussian error. Response measurement error (\code{me()} on
+the left-hand side) is not supported; response \emph{misclassification}
+is available via \code{\link{mc}}.
 }
 \examples{
 \dontrun{
