@@ -1,5 +1,59 @@
 # Changelog
 
+## mismeasured 0.7.0
+
+### Breaking changes
+
+- **[`simex()`](https://ojalab.github.io/mismeasured/reference/simex.md)
+  default `method` is now family-dependent**: `method = NULL` resolves
+  to `"improved"` only for
+  [`gaussian()`](https://rdrr.io/r/stats/family.html) models with a
+  single misclassified covariate, where the Sevilimedu & Yu (2026)
+  correction is exact, and to `"standard"` otherwise. For non-identity
+  links the improved correction is a first-order approximation that can
+  be visibly biased when the misclassified variable’s effect is large;
+  request it explicitly with `method = "improved"` if you want the
+  previous behavior.
+
+### Bug fixes
+
+- **Improved MC-SIMEX variance rewritten.** The reported vcov previously
+
+  1.  shrank to zero as `B` grew, (b) used the naive (lambda = 0) vcov
+      instead of `Var(theta(lambda))`, and (c) applied only the first
+      lambda’s correction transform. It is now the average over lambda
+      of `T_l V(theta(lambda_l)) T_l'` (with per-lambda refits on
+      `Pi^lambda` resampled designs) plus a between-replicate
+      Monte-Carlo correction. SE/Monte-Carlo-SD calibration is ~1.0 for
+      gaussian and binomial.
+
+- **Grouped binomial `cbind(succ, fail)` responses** now propagate trial
+  counts into every refit instead of fitting proportions with weight 1.
+
+- **`NA` handling**:
+  [`simex()`](https://ojalab.github.io/mismeasured/reference/simex.md)
+  drops incomplete rows (and their weights) once, up front, with a
+  warning; previously the naive fit and the simulated refits could
+  silently misalign rows.
+
+### New guards (previously silent misbehavior)
+
+- [`offset()`](https://rdrr.io/r/stats/offset.html) terms are rejected
+  by
+  [`simex()`](https://ojalab.github.io/mismeasured/reference/simex.md)
+  and
+  [`mcglm()`](https://ojalab.github.io/mismeasured/reference/mcglm.md)
+  (they were honored by the naive fit but dropped by every refit).
+- Non-canonical links (e.g. `binomial("probit")`) are rejected; they
+  were silently fitted with the canonical link.
+- [`mcglm()`](https://ojalab.github.io/mismeasured/reference/mcglm.md)
+  validates `z_hat` coding (integers in `{0, ..., K-1}`; no factors; `K`
+  taken from `Pi` when a category is unobserved).
+- [`me()`](https://ojalab.github.io/mismeasured/reference/me.md)/[`mc()`](https://ojalab.github.io/mismeasured/reference/mc.md)
+  variables may enter the formula only as bare main effects;
+  interactions or transforms of them are rejected instead of silently
+  using the unperturbed values.
+
 ## mismeasured 0.6.2
 
 ### Bug fixes

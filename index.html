@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="index.html">mismeasured</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.6.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.7.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -76,7 +76,7 @@
 <li>
 <code><a href="reference/me.html">me()</a></code> terms for continuous measurement error, <code><a href="reference/mc.html">mc()</a></code> terms for discrete misclassification</li>
 <li>C++ simulation engine via Rcpp/RcppEigen (100–300x faster than pure-R implementations)</li>
-<li>Standard and improved MC-SIMEX (Sevilimedu &amp; Yu, 2026) with exact fixed-matrix correction</li>
+<li>Standard and improved MC-SIMEX (Sevilimedu &amp; Yu, 2026) with closed-form fixed-matrix correction (exact for identity-link linear models)</li>
 </ul>
 <p><strong><code><a href="reference/mcglm.html">mcglm()</a></code></strong> — Analytical bias correction for GLMs with misclassified covariates (Battaglia, Christensen, Hansen &amp; Sacher, 2025):</p>
 <ul>
@@ -164,7 +164,7 @@
 <span><span class="co">#&gt; Family: poisson </span></span>
 <span><span class="co">#&gt; MC-SIMEX variable: z </span></span>
 <span><span class="co">#&gt; Method: improved </span></span>
-<span><span class="co">#&gt; Extrapolation: exact (improved) </span></span>
+<span><span class="co">#&gt; Extrapolation: closed-form (improved) </span></span>
 <span><span class="co">#&gt; Lambda grid: 0, 1 </span></span>
 <span><span class="co">#&gt; B = 1 , n = 2000 </span></span>
 <span><span class="co">#&gt; Estimated P(X=1): 0.4187 </span></span>

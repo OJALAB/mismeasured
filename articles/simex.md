@@ -203,14 +203,18 @@ cat("MC-SIMEX z effect:", round(coef(fit3)[1], 3), "\n")
 #> MC-SIMEX z effect: 1.962
 ```
 
-## Example 4: Improved MC-SIMEX (exact correction)
+## Example 4: Improved MC-SIMEX (closed-form correction)
 
-The improved method (Sevilimedu & Yu, 2026) computes an exact
+The improved method (Sevilimedu & Yu, 2026) computes a closed-form
 fixed-matrix correction instead of extrapolation. It needs only
 $`B = 1`$ replicate and is the default for a single misclassified
-covariate. For binary covariates the correction factor is reported as
-`c.lambda`; for $`K`$-level factors the dummy-coefficient correction
-matrix is stored in `correction.matrix`.
+covariate in [`gaussian()`](https://rdrr.io/r/stats/family.html) models,
+where the correction is exact. For other links it is a first-order
+approximation that can be visibly biased when the misclassified
+variable’s effect is large, so non-gaussian families default to
+`method = "standard"`; see Example 9. For binary covariates the
+correction factor is reported as `c.lambda`; for $`K`$-level factors the
+dummy-coefficient correction matrix is stored in `correction.matrix`.
 
 ``` r
 
@@ -415,6 +419,16 @@ cat("Non-zero mean SIMEX:           ", round(coef(fit8_nzm)["x"], 3), "\n")
 
 ## Example 9: Poisson regression with misclassification
 
+For non-gaussian families
+[`simex()`](https://ojalab.github.io/mismeasured/reference/simex.md)
+defaults to the standard MC-SIMEX. You can still request
+`method = "improved"`, but for non-identity links the closed-form
+correction is only a first-order approximation and its bias grows with
+the effect size of the misclassified variable. For logistic or Poisson
+models with strong effects,
+[`mcglm()`](https://ojalab.github.io/mismeasured/reference/mcglm.md)
+with `method = "cs"` or `"cs_akn"` is the consistent alternative.
+
 ``` r
 
 z9 <- rbinom(n, 1, 0.4)
@@ -434,16 +448,14 @@ summary(fit9)
 #> 
 #> Family: poisson 
 #> MC-SIMEX variable: z 
-#> Method: improved 
-#> Extrapolation: exact (improved) 
-#> Lambda grid: 0, 1 
-#> B = 1 , n = 2000 
-#> Estimated P(X=1): 0.3807 
-#> Correction factor(s): 1.7925 
+#> Method: standard 
+#> Extrapolation: quadratic 
+#> Lambda grid: 0, 0.5, 1, 1.5, 2 
+#> B = 200 , n = 2000 
 #> 
 #> Residuals:
 #>     Min      1Q  Median      3Q     Max 
-#> -3.8076 -1.7772  0.1924  1.1924  7.2228 
+#> -3.6171 -1.6171  0.2924  1.2924  7.2924 
 #> 
 #> Naive coefficients:
 #>           1 (Intercept) 
@@ -451,8 +463,8 @@ summary(fit9)
 #> 
 #> MC-SIMEX corrected coefficients:
 #>             Estimate Std. Error t value Pr(>|t|)    
-#> 1            0.76194    0.05144   14.81   <2e-16 ***
-#> (Intercept)  0.57505    0.02712   21.20   <2e-16 ***
+#> 1            0.75059    0.04151   18.08   <2e-16 ***
+#> (Intercept)  0.53507    0.02892   18.50   <2e-16 ***
 #> ---
 #> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 ```
@@ -532,8 +544,16 @@ eigendecomposition.
   is then extrapolated to $`\lambda = -1`$.
 - **MC-SIMEX standard.** The same jackknife approach with sandwich
   variance at the mean estimate per lambda.
-- **MC-SIMEX improved.** Scaled model-based variance:
-  $`V_{\mathrm{corrected}} = c(\lambda)^2 V_{\mathrm{model}}`$.
+- **MC-SIMEX improved.** Transform-sandwich variance. For each
+  $`\lambda_l`$ the correction is a linear map $`T_l`$ (for binary $`z`$
+  its leading entry is $`c(\lambda_l)`$), and the sampling variance is
+  the average of
+  $`T_l\, V\!\big(\hat\theta(\lambda_l)\big)\, T_l^{\top}`$ over the
+  lambda grid, where $`V\!\big(\hat\theta(\lambda_l)\big)`$ is the
+  model-based variance of a refit on a $`\Pi^{\lambda_l}`$-resampled
+  design. With $`n_\lambda B > 1`$ replicates, the between-replicate
+  covariance is subtracted and its $`1/(n_\lambda B)`$ Monte-Carlo share
+  added back, so reported standard errors are stable in $`B`$.
 
 ## When to use what
 
@@ -542,10 +562,14 @@ eigendecomposition.
   for stability when the curvature is poorly estimated.
 - **Berkson assignment error.** `me(x, sd, type = "berkson")`.
 - **Systematic bias on top of additive noise.** `me(x, sd, mean = mu)`.
-- **Single misclassified factor.** `mc(z, Pi)`. Default is the improved
-  fixed-matrix correction; use `method = "standard"` for the original
-  Kuechenhoff et al. extrapolation if your downstream tooling expects
-  it.
+- **Single misclassified factor.** `mc(z, Pi)`. For
+  [`gaussian()`](https://rdrr.io/r/stats/family.html) models the default
+  is the improved fixed-matrix correction (exact there); other families
+  default to the standard Kuechenhoff et al. extrapolation, since the
+  improved correction is only a first-order approximation for
+  non-identity links. For logistic/Poisson models with strong effects,
+  [`mcglm()`](https://ojalab.github.io/mismeasured/reference/mcglm.md)
+  with `method = "cs"` or `"cs_akn"` is a consistent alternative.
 - **Multiple misclassified factors or misclassified response.**
   [`simex()`](https://ojalab.github.io/mismeasured/reference/simex.md)
   automatically falls back to the standard MC-SIMEX path.

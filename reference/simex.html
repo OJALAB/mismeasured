@@ -15,7 +15,7 @@ me (continuous measurement error) or mc
 
     <a class="navbar-brand me-2" href="../index.html">mismeasured</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.6.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.7.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -90,7 +90,9 @@ See Examples.</p></dd>
 
 <dt id="arg-method">method<a class="anchor" aria-label="anchor" href="#arg-method"></a></dt>
 <dd><p>character: correction method for <code><a href="mc.html">mc()</a></code> terms.
-<code>NULL</code> (default) auto-selects <code>"improved"</code>.
+<code>NULL</code> (default) auto-selects <code>"improved"</code> for
+<code><a href="https://rdrr.io/r/stats/family.html" class="external-link">gaussian()</a></code> models with a single misclassified covariate (where
+the correction is exact) and <code>"standard"</code> otherwise.
 Ignored for <code><a href="me.html">me()</a></code> terms. See Details.</p></dd>
 
 
@@ -132,10 +134,15 @@ Ignored for <code><a href="me.html">me()</a></code> terms. See Details.</p></dd>
     the error-prone variable, the model is refitted B times per lambda level,
     and coefficients are extrapolated to lambda = -1.</p></li>
 <li><p><strong>Discrete misclassification</strong> (<code><a href="mc.html">mc()</a></code> terms): Uses the
-    MC-SIMEX algorithm. With <code>method = "improved"</code> (default), the exact
-    fixed-matrix correction of Sevilimedu and Yu (2026) and its K-level
-    dummy-vector extension are applied for one misclassified covariate,
-    requiring only B = 1 replicate. Its variance treats the supplied
+    MC-SIMEX algorithm. With <code>method = "improved"</code> (the default for
+    <code><a href="https://rdrr.io/r/stats/family.html" class="external-link">gaussian()</a></code>), the fixed-matrix correction of Sevilimedu and Yu
+    (2026) and its K-level dummy-vector extension are applied for one
+    misclassified covariate, requiring only B = 1 replicate. The
+    correction is exact for identity-link linear models; for other links
+    it is a first-order approximation that can be visibly biased when the
+    misclassified variable's effect is large \(--\) for logistic or
+    Poisson models with strong effects, consider <code><a href="mcglm.html">mcglm</a></code> with
+    <code>method = "cs"</code> or <code>"cs_akn"</code> as a consistent alternative. Its variance treats the supplied
     misclassification matrix as fixed/known; if <code>Pi</code> was estimated from
     validation or audit data, reported standard errors are conditional on
     that plug-in matrix. With <code>method = "standard"</code>, the original
@@ -191,7 +198,7 @@ e70418.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># --- Misclassification (improved, default) ---</span></span></span>
+<span class="r-in"><span><span class="co"># --- Misclassification (standard MC-SIMEX by default for non-gaussian) ---</span></span></span>
 <span class="r-in"><span><span class="va">Pi</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.9</span>, <span class="fl">0.1</span>, <span class="fl">0.15</span>, <span class="fl">0.85</span><span class="op">)</span>, <span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">z</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="va">n</span>, <span class="fl">1</span>, <span class="fl">0.4</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">y2</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Poisson.html" class="external-link">rpois</a></span><span class="op">(</span><span class="va">n</span>, <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="fl">0.5</span> <span class="op">+</span> <span class="fl">0.8</span> <span class="op">*</span> <span class="va">z</span> <span class="op">+</span> <span class="fl">0.3</span> <span class="op">*</span> <span class="va">x_true</span><span class="op">)</span><span class="op">)</span></span></span>
@@ -208,16 +215,14 @@ e70418.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Family: poisson </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> MC-SIMEX variable: z </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Method: improved </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Extrapolation: exact (improved) </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Lambda grid: 0, 1 </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> B = 1 , n = 500 </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Estimated P(X=1): 0.416 </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Correction factor(s): 1.7688 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Method: standard </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Extrapolation: quadratic </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Lambda grid: 0, 0.5, 1, 1.5, 2 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> B = 200 , n = 500 </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Residuals:</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     Min      1Q  Median      3Q     Max </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> -4.7607 -1.3396 -0.2456  0.9407  6.3076 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> -4.3669 -1.2547 -0.2293  0.9761  6.2984 </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Naive coefficients:</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>           1 (Intercept)           x </span>
@@ -225,9 +230,9 @@ e70418.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> MC-SIMEX corrected coefficients:</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>             Estimate Std. Error t value Pr(&gt;|t|)    </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1            0.74272    0.09765   7.606 1.43e-13 ***</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> (Intercept)  0.59943    0.05458  10.982  &lt; 2e-16 ***</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> x            0.29214    0.02814  10.382  &lt; 2e-16 ***</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1            0.67768    0.08557   7.920 1.57e-14 ***</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> (Intercept)  0.60318    0.05755  10.482  &lt; 2e-16 ***</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> x            0.28533    0.03092   9.229  &lt; 2e-16 ***</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> ---</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>

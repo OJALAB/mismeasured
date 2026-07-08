@@ -47,7 +47,10 @@ simex(
 
   character: correction method for
   [`mc()`](https://ojalab.github.io/mismeasured/reference/mc.md) terms.
-  `NULL` (default) auto-selects `"improved"`. Ignored for
+  `NULL` (default) auto-selects `"improved"` for
+  [`gaussian()`](https://rdrr.io/r/stats/family.html) models with a
+  single misclassified covariate (where the correction is exact) and
+  `"standard"` otherwise. Ignored for
   [`me()`](https://ojalab.github.io/mismeasured/reference/me.md) terms.
   See Details.
 
@@ -94,15 +97,22 @@ The function auto-detects the error type from the formula:
 
 - **Discrete misclassification**
   ([`mc()`](https://ojalab.github.io/mismeasured/reference/mc.md)
-  terms): Uses the MC-SIMEX algorithm. With `method = "improved"`
-  (default), the exact fixed-matrix correction of Sevilimedu and
-  Yu (2026) and its K-level dummy-vector extension are applied for one
-  misclassified covariate, requiring only B = 1 replicate. Its variance
-  treats the supplied misclassification matrix as fixed/known; if `Pi`
-  was estimated from validation or audit data, reported standard errors
-  are conditional on that plug-in matrix. With `method = "standard"`,
-  the original Kuchenhoff et al. (2006) extrapolation-based approach is
-  used.
+  terms): Uses the MC-SIMEX algorithm. With `method = "improved"` (the
+  default for [`gaussian()`](https://rdrr.io/r/stats/family.html)), the
+  fixed-matrix correction of Sevilimedu and Yu (2026) and its K-level
+  dummy-vector extension are applied for one misclassified covariate,
+  requiring only B = 1 replicate. The correction is exact for
+  identity-link linear models; for other links it is a first-order
+  approximation that can be visibly biased when the misclassified
+  variable's effect is large \\--\\ for logistic or Poisson models with
+  strong effects, consider
+  [`mcglm`](https://ojalab.github.io/mismeasured/reference/mcglm.md)
+  with `method = "cs"` or `"cs_akn"` as a consistent alternative. Its
+  variance treats the supplied misclassification matrix as fixed/known;
+  if `Pi` was estimated from validation or audit data, reported standard
+  errors are conditional on that plug-in matrix. With
+  `method = "standard"`, the original Kuchenhoff et al. (2006)
+  extrapolation-based approach is used.
 
 ## References
 
@@ -157,7 +167,7 @@ summary(fit_me)
 #> Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 #> 
 
-# --- Misclassification (improved, default) ---
+# --- Misclassification (standard MC-SIMEX by default for non-gaussian) ---
 Pi <- matrix(c(0.9, 0.1, 0.15, 0.85), 2, 2)
 z <- rbinom(n, 1, 0.4)
 y2 <- rpois(n, exp(0.5 + 0.8 * z + 0.3 * x_true))
@@ -174,16 +184,14 @@ summary(fit_mc)
 #> 
 #> Family: poisson 
 #> MC-SIMEX variable: z 
-#> Method: improved 
-#> Extrapolation: exact (improved) 
-#> Lambda grid: 0, 1 
-#> B = 1 , n = 500 
-#> Estimated P(X=1): 0.416 
-#> Correction factor(s): 1.7688 
+#> Method: standard 
+#> Extrapolation: quadratic 
+#> Lambda grid: 0, 0.5, 1, 1.5, 2 
+#> B = 200 , n = 500 
 #> 
 #> Residuals:
 #>     Min      1Q  Median      3Q     Max 
-#> -4.7607 -1.3396 -0.2456  0.9407  6.3076 
+#> -4.3669 -1.2547 -0.2293  0.9761  6.2984 
 #> 
 #> Naive coefficients:
 #>           1 (Intercept)           x 
@@ -191,9 +199,9 @@ summary(fit_mc)
 #> 
 #> MC-SIMEX corrected coefficients:
 #>             Estimate Std. Error t value Pr(>|t|)    
-#> 1            0.74272    0.09765   7.606 1.43e-13 ***
-#> (Intercept)  0.59943    0.05458  10.982  < 2e-16 ***
-#> x            0.29214    0.02814  10.382  < 2e-16 ***
+#> 1            0.67768    0.08557   7.920 1.57e-14 ***
+#> (Intercept)  0.60318    0.05755  10.482  < 2e-16 ***
+#> x            0.28533    0.03092   9.229  < 2e-16 ***
 #> ---
 #> Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 #> 

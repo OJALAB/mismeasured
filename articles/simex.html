@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">mismeasured</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.6.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.7.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -321,14 +321,19 @@ is misclassified with known matrix
 <span><span class="co">#&gt; MC-SIMEX z effect: 1.962</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="example-4-improved-mc-simex-exact-correction">Example 4: Improved MC-SIMEX (exact correction)<a class="anchor" aria-label="anchor" href="#example-4-improved-mc-simex-exact-correction"></a>
+<h2 id="example-4-improved-mc-simex-closed-form-correction">Example 4: Improved MC-SIMEX (closed-form correction)<a class="anchor" aria-label="anchor" href="#example-4-improved-mc-simex-closed-form-correction"></a>
 </h2>
-<p>The improved method (Sevilimedu &amp; Yu, 2026) computes an exact
-fixed-matrix correction instead of extrapolation. It needs only
+<p>The improved method (Sevilimedu &amp; Yu, 2026) computes a
+closed-form fixed-matrix correction instead of extrapolation. It needs
+only
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">B = 1</annotation></semantics></math>
-replicate and is the default for a single misclassified covariate. For
-binary covariates the correction factor is reported as
-<code>c.lambda</code>; for
+replicate and is the default for a single misclassified covariate in
+<code><a href="https://rdrr.io/r/stats/family.html" class="external-link">gaussian()</a></code> models, where the correction is exact. For other
+links it is a first-order approximation that can be visibly biased when
+the misclassified variable’s effect is large, so non-gaussian families
+default to <code>method = "standard"</code>; see Example 9. For binary
+covariates the correction factor is reported as <code>c.lambda</code>;
+for
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>K</mi><annotation encoding="application/x-tex">K</annotation></semantics></math>-level
 factors the dummy-coefficient correction matrix is stored in
 <code>correction.matrix</code>.</p>
@@ -521,6 +526,14 @@ with
 <div class="section level2">
 <h2 id="example-9-poisson-regression-with-misclassification">Example 9: Poisson regression with misclassification<a class="anchor" aria-label="anchor" href="#example-9-poisson-regression-with-misclassification"></a>
 </h2>
+<p>For non-gaussian families <code><a href="../reference/simex.html">simex()</a></code> defaults to the
+standard MC-SIMEX. You can still request
+<code>method = "improved"</code>, but for non-identity links the
+closed-form correction is only a first-order approximation and its bias
+grows with the effect size of the misclassified variable. For logistic
+or Poisson models with strong effects, <code><a href="../reference/mcglm.html">mcglm()</a></code> with
+<code>method = "cs"</code> or <code>"cs_akn"</code> is the consistent
+alternative.</p>
 <div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">z9</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="va">n</span>, <span class="fl">1</span>, <span class="fl">0.4</span><span class="op">)</span></span>
 <span><span class="va">y9</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Poisson.html" class="external-link">rpois</a></span><span class="op">(</span><span class="va">n</span>, <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="fl">0.5</span> <span class="op">+</span> <span class="fl">0.8</span> <span class="op">*</span> <span class="va">z9</span><span class="op">)</span><span class="op">)</span></span>
@@ -539,16 +552,14 @@ with
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Family: poisson </span></span>
 <span><span class="co">#&gt; MC-SIMEX variable: z </span></span>
-<span><span class="co">#&gt; Method: improved </span></span>
-<span><span class="co">#&gt; Extrapolation: exact (improved) </span></span>
-<span><span class="co">#&gt; Lambda grid: 0, 1 </span></span>
-<span><span class="co">#&gt; B = 1 , n = 2000 </span></span>
-<span><span class="co">#&gt; Estimated P(X=1): 0.3807 </span></span>
-<span><span class="co">#&gt; Correction factor(s): 1.7925 </span></span>
+<span><span class="co">#&gt; Method: standard </span></span>
+<span><span class="co">#&gt; Extrapolation: quadratic </span></span>
+<span><span class="co">#&gt; Lambda grid: 0, 0.5, 1, 1.5, 2 </span></span>
+<span><span class="co">#&gt; B = 200 , n = 2000 </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Residuals:</span></span>
 <span><span class="co">#&gt;     Min      1Q  Median      3Q     Max </span></span>
-<span><span class="co">#&gt; -3.8076 -1.7772  0.1924  1.1924  7.2228 </span></span>
+<span><span class="co">#&gt; -3.6171 -1.6171  0.2924  1.2924  7.2924 </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Naive coefficients:</span></span>
 <span><span class="co">#&gt;           1 (Intercept) </span></span>
@@ -556,8 +567,8 @@ with
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; MC-SIMEX corrected coefficients:</span></span>
 <span><span class="co">#&gt;             Estimate Std. Error t value Pr(&gt;|t|)    </span></span>
-<span><span class="co">#&gt; 1            0.76194    0.05144   14.81   &lt;2e-16 ***</span></span>
-<span><span class="co">#&gt; (Intercept)  0.57505    0.02712   21.20   &lt;2e-16 ***</span></span>
+<span><span class="co">#&gt; 1            0.75059    0.04151   18.08   &lt;2e-16 ***</span></span>
+<span><span class="co">#&gt; (Intercept)  0.53507    0.02892   18.50   &lt;2e-16 ***</span></span>
 <span><span class="co">#&gt; ---</span></span>
 <span><span class="co">#&gt; Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</span></span></code></pre></div>
 </div>
@@ -652,8 +663,27 @@ is then extrapolated to
 <strong>MC-SIMEX standard.</strong> The same jackknife approach with
 sandwich variance at the mean estimate per lambda.</li>
 <li>
-<strong>MC-SIMEX improved.</strong> Scaled model-based variance:
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>V</mi><mrow><mi mathvariant="normal">c</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">r</mi><mi mathvariant="normal">r</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">c</mi><mi mathvariant="normal">t</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">d</mi></mrow></msub><mo>=</mo><mi>c</mi><mo stretchy="false" form="prefix">(</mo><mi>λ</mi><msup><mo stretchy="false" form="postfix">)</mo><mn>2</mn></msup><msub><mi>V</mi><mrow><mi mathvariant="normal">m</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">d</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">l</mi></mrow></msub></mrow><annotation encoding="application/x-tex">V_{\mathrm{corrected}} = c(\lambda)^2 V_{\mathrm{model}}</annotation></semantics></math>.</li>
+<strong>MC-SIMEX improved.</strong> Transform-sandwich variance. For
+each
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>λ</mi><mi>l</mi></msub><annotation encoding="application/x-tex">\lambda_l</annotation></semantics></math>
+the correction is a linear map
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>T</mi><mi>l</mi></msub><annotation encoding="application/x-tex">T_l</annotation></semantics></math>
+(for binary
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>z</mi><annotation encoding="application/x-tex">z</annotation></semantics></math>
+its leading entry is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>c</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>λ</mi><mi>l</mi></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">c(\lambda_l)</annotation></semantics></math>),
+and the sampling variance is the average of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>T</mi><mi>l</mi></msub><mspace width="0.167em"></mspace><mi>V</mi><mspace width="-0.167em"></mspace><mo minsize="120%" maxsize="120%" stretchy="true" form="prefix">(</mo><mover><mi>θ</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="prefix">(</mo><msub><mi>λ</mi><mi>l</mi></msub><mo stretchy="false" form="postfix">)</mo><mo minsize="120%" maxsize="120%" stretchy="true" form="postfix">)</mo><mspace width="0.167em"></mspace><msubsup><mi>T</mi><mi>l</mi><mi>⊤</mi></msubsup></mrow><annotation encoding="application/x-tex">T_l\, V\!\big(\hat\theta(\lambda_l)\big)\, T_l^{\top}</annotation></semantics></math>
+over the lambda grid, where
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>V</mi><mspace width="-0.167em"></mspace><mo minsize="120%" maxsize="120%" stretchy="true" form="prefix">(</mo><mover><mi>θ</mi><mo accent="true">̂</mo></mover><mo stretchy="false" form="prefix">(</mo><msub><mi>λ</mi><mi>l</mi></msub><mo stretchy="false" form="postfix">)</mo><mo minsize="120%" maxsize="120%" stretchy="true" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">V\!\big(\hat\theta(\lambda_l)\big)</annotation></semantics></math>
+is the model-based variance of a refit on a
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi mathvariant="normal">Π</mi><msub><mi>λ</mi><mi>l</mi></msub></msup><annotation encoding="application/x-tex">\Pi^{\lambda_l}</annotation></semantics></math>-resampled
+design. With
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>n</mi><mi>λ</mi></msub><mi>B</mi><mo>&gt;</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">n_\lambda B &gt; 1</annotation></semantics></math>
+replicates, the between-replicate covariance is subtracted and its
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mi>/</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>n</mi><mi>λ</mi></msub><mi>B</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">1/(n_\lambda B)</annotation></semantics></math>
+Monte-Carlo share added back, so reported standard errors are stable in
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>B</mi><annotation encoding="application/x-tex">B</annotation></semantics></math>.</li>
 </ul>
 </div>
 </div>
@@ -675,9 +705,13 @@ is poorly estimated.</li>
 <code>me(x, sd, mean = mu)</code>.</li>
 <li>
 <strong>Single misclassified factor.</strong>
-<code>mc(z, Pi)</code>. Default is the improved fixed-matrix correction;
-use <code>method = "standard"</code> for the original Kuechenhoff et
-al. extrapolation if your downstream tooling expects it.</li>
+<code>mc(z, Pi)</code>. For <code><a href="https://rdrr.io/r/stats/family.html" class="external-link">gaussian()</a></code> models the default
+is the improved fixed-matrix correction (exact there); other families
+default to the standard Kuechenhoff et al. extrapolation, since the
+improved correction is only a first-order approximation for non-identity
+links. For logistic/Poisson models with strong effects,
+<code><a href="../reference/mcglm.html">mcglm()</a></code> with <code>method = "cs"</code> or
+<code>"cs_akn"</code> is a consistent alternative.</li>
 <li>
 <strong>Multiple misclassified factors or misclassified
 response.</strong> <code><a href="../reference/simex.html">simex()</a></code> automatically falls back to the

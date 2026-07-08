@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">mismeasured</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.6.2</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.7.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -38,6 +38,33 @@
       <small>Source: <a href="https://github.com/OJALAB/mismeasured/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.7.0" id="mismeasured-070">mismeasured 0.7.0<a class="anchor" aria-label="anchor" href="#mismeasured-070"></a></h2>
+<div class="section level3">
+<h3 id="breaking-changes-0-7-0">Breaking changes<a class="anchor" aria-label="anchor" href="#breaking-changes-0-7-0"></a></h3>
+<ul><li>
+<strong><code><a href="../reference/simex.html">simex()</a></code> default <code>method</code> is now family-dependent</strong>: <code>method = NULL</code> resolves to <code>"improved"</code> only for <code><a href="https://rdrr.io/r/stats/family.html" class="external-link">gaussian()</a></code> models with a single misclassified covariate, where the Sevilimedu &amp; Yu (2026) correction is exact, and to <code>"standard"</code> otherwise. For non-identity links the improved correction is a first-order approximation that can be visibly biased when the misclassified variable’s effect is large; request it explicitly with <code>method = "improved"</code> if you want the previous behavior.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="bug-fixes-0-7-0">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-0-7-0"></a></h3>
+<ul><li>
+<p><strong>Improved MC-SIMEX variance rewritten.</strong> The reported vcov previously</p>
+<ol style="list-style-type: lower-alpha"><li>shrank to zero as <code>B</code> grew, (b) used the naive (lambda = 0) vcov instead of <code>Var(theta(lambda))</code>, and (c) applied only the first lambda’s correction transform. It is now the average over lambda of <code>T_l V(theta(lambda_l)) T_l'</code> (with per-lambda refits on <code>Pi^lambda</code> resampled designs) plus a between-replicate Monte-Carlo correction. SE/Monte-Carlo-SD calibration is ~1.0 for gaussian and binomial.</li>
+</ol></li>
+<li><p><strong>Grouped binomial <code>cbind(succ, fail)</code> responses</strong> now propagate trial counts into every refit instead of fitting proportions with weight 1.</p></li>
+<li><p><strong><code>NA</code> handling</strong>: <code><a href="../reference/simex.html">simex()</a></code> drops incomplete rows (and their weights) once, up front, with a warning; previously the naive fit and the simulated refits could silently misalign rows.</p></li>
+</ul></div>
+<div class="section level3">
+<h3 id="new-guards-previously-silent-misbehavior-0-7-0">New guards (previously silent misbehavior)<a class="anchor" aria-label="anchor" href="#new-guards-previously-silent-misbehavior-0-7-0"></a></h3>
+<ul><li>
+<code><a href="https://rdrr.io/r/stats/offset.html" class="external-link">offset()</a></code> terms are rejected by <code><a href="../reference/simex.html">simex()</a></code> and <code><a href="../reference/mcglm.html">mcglm()</a></code> (they were honored by the naive fit but dropped by every refit).</li>
+<li>Non-canonical links (e.g. <code>binomial("probit")</code>) are rejected; they were silently fitted with the canonical link.</li>
+<li>
+<code><a href="../reference/mcglm.html">mcglm()</a></code> validates <code>z_hat</code> coding (integers in <code>{0, ..., K-1}</code>; no factors; <code>K</code> taken from <code>Pi</code> when a category is unobserved).</li>
+<li>
+<code><a href="../reference/me.html">me()</a></code>/<code><a href="../reference/mc.html">mc()</a></code> variables may enter the formula only as bare main effects; interactions or transforms of them are rejected instead of silently using the unperturbed values.</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.6.2" id="mismeasured-062">mismeasured 0.6.2<a class="anchor" aria-label="anchor" href="#mismeasured-062"></a></h2>
 <div class="section level3">
