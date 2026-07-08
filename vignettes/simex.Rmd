@@ -356,7 +356,7 @@ Matrix exponentiation for $\Pi^\lambda$ uses eigendecomposition.
 
 ### Variance estimation
 
-- **ME-SIMEX.** Jackknife variance following Stefanski & Cook (1994). The
+- **ME-SIMEX.** Jackknife variance following Stefanski & Cook (1995). The
   model-based variance $\bar V_{\mathrm{model}}(\lambda)$ is the average of
   $(X_{\mathrm{sim}}'WX_{\mathrm{sim}})^{-1}\phi$ across $B$ refits, computed
   in C++.
@@ -406,3 +406,4 @@ extrapolation (MC-SIMEX) algorithm. *Statistics in Medicine* 45, e70418.
 
 Stefanski, L. A. and Cook, J. R. (1995). Simulation-extrapolation: the
 measurement error jackknife. *J. Amer. Statist. Assoc.* 90(432), 1247--1256.
+\doi{10.1080/01621459.1995.10476629}

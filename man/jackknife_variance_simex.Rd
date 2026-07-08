@@ -18,7 +18,8 @@ Computes Var_model (mean of model-based vcov across B refits) minus Var_sim
 extrapolates to lambda = -1.
 }
 \details{
-This follows the Stefanski & Cook (1994) approach where Var_model at each
+This follows the Stefanski & Cook (1995) measurement-error jackknife,
+where Var_model at each
 lambda is the average of vcov(glm_b) across the B simulation replicates.
 The per-lambda model vcov averages are computed in C++ and passed in via
 \code{vcov_model_list}.

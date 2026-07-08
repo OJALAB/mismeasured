@@ -4,7 +4,7 @@
 \alias{.build_x_mat}
 \title{Build x_mat from a clean formula, preserving I(), interactions, offsets, etc.}
 \usage{
-.build_x_mat(clean_formula, mc_variables, data)
+.build_x_mat(clean_formula, mc_variables, data, xlev = NULL)
 }
 \arguments{
 \item{clean_formula}{the formula with mc() wrappers stripped (bare variable names remain)}

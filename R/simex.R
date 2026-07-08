@@ -51,14 +51,14 @@
 #'     misclassification matrix as fixed/known; if \code{Pi} was estimated from
 #'     validation or audit data, reported standard errors are conditional on
 #'     that plug-in matrix. With \code{method = "standard"}, the original
-#'     Kuchenhoff et al. (2006) extrapolation-based approach is used.
+#'     Kuechenhoff et al. (2006) extrapolation-based approach is used.
 #' }
 #'
 #' @references
 #' Cook, J.R. and Stefanski, L.A. (1994). Simulation-extrapolation estimation
 #' in parametric measurement error models. \emph{JASA}, 89, 1314--1328.
 #'
-#' Kuchenhoff, H., Mwalili, S.M. and Lesaffre, E. (2006). A general method for
+#' Kuechenhoff, H., Mwalili, S.M. and Lesaffre, E. (2006). A general method for
 #' dealing with misclassification in regression: The misclassification SIMEX.
 #' \emph{Biometrics}, 62(1), 85--96.
 #'

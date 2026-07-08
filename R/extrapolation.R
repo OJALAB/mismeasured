@@ -143,7 +143,8 @@ jackknife_variance_mcsimex <- function(theta_list, psi_naive, naive_fit,
 #' (empirical covariance of B coefficient estimates) at each lambda, then
 #' extrapolates to lambda = -1.
 #'
-#' This follows the Stefanski & Cook (1994) approach where Var_model at each
+#' This follows the Stefanski & Cook (1995) measurement-error jackknife,
+#' where Var_model at each
 #' lambda is the average of vcov(glm_b) across the B simulation replicates.
 #' The per-lambda model vcov averages are computed in C++ and passed in via
 #' \code{vcov_model_list}.
