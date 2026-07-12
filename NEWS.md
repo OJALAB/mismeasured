@@ -1,6 +1,30 @@
 # mismeasured 0.7.0
 
+## New features
+
+* **Ecosystem integration for `mcglm` fits.** `estfun()` and `bread()`
+  methods are registered on the **sandwich** generics (note the
+  corrected-score bread `(I + M)^{-1}` is not symmetric — see
+  `?estfun.mcglm` before assembling with `sandwich::sandwich()`;
+  `vcov()` already returns the correct sandwich `J^{-1} S J^{-T}/n`).
+  `lmtest::coeftest()` works out of the box, and **marginaleffects**
+  (`avg_comparisons()`, `avg_slopes()`, ...) is supported for
+  formula-interface fits via registered `get_*`/`set_coef` methods.
+* **`predict.mcglm()` gains `newdata`**: a data frame for formula fits
+  (pass the true category to predict at it, e.g. on a validation or
+  probability sample) or `list(z_hat = , x = )` for matrix fits.
+* **`mc_parse_formula()` exported**: public access to the `mc()` formula
+  parsing used by `mcglm()`, for packages building on mismeasured.
+* The fitted `mcglm` object now stores the misclassification parameters
+  (`$misclass`: `c1`, `c2`, `p01`, `p10`, `pi_z`, `Pi`).
+
 ## Breaking changes
+
+* **`coef.mcglm()` without `method` now returns the default method's
+  coefficient vector** (consistent with `vcov()`, `predict()`, and as
+  required by `coeftest`/marginaleffects) instead of the list of all
+  fitted methods. Use `coef(fit, method = "all")` for the previous
+  behavior.
 
 * **`simex()` default `method` is now family-dependent**: `method = NULL`
   resolves to `"improved"` only for `gaussian()` models with a single

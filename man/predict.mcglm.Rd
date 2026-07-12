@@ -15,8 +15,14 @@
 \arguments{
 \item{object}{An \code{mcglm} object.}
 
-\item{newdata}{Currently unused. Predictions are computed at the in-sample
-proxy design \eqn{\hat\xi_i}.}
+\item{newdata}{Optional new data. For formula fits, a data frame
+containing the \code{mc()} variable (interpreted as the covariate at
+which to predict -- pass the \emph{true} category when available,
+e.g. when predicting onto a validation or probability sample) and
+the other covariates. For matrix-interface fits, a list with
+components \code{z_hat} (integer, coded \code{0, ..., K-1}) and
+\code{x} (covariate matrix as in the fit). \code{NULL} (default)
+predicts at the in-sample proxy design \eqn{\hat\xi_i}.}
 
 \item{type}{One of \code{"link"}, \code{"response"}.}
 

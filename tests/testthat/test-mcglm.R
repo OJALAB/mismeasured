@@ -195,7 +195,13 @@ test_that("coef.mcglm returns all or selected method", {
                method = c("naive", "bca", "bcm"),
                p01 = 0.1, p10 = 0.1, pi_z = 0.5)
 
-  all_coefs <- coef(fit)
+  # default: coefficients of the default method (numeric vector, so that
+  # coeftest/marginaleffects work); "all" gives the named list
+  def_coef <- coef(fit)
+  expect_true(is.numeric(def_coef))
+  expect_equal(def_coef, coef(fit, method = "bcm"))
+
+  all_coefs <- coef(fit, method = "all")
   expect_type(all_coefs, "list")
   expect_named(all_coefs, c("naive", "bca", "bcm"))
 

@@ -11,8 +11,12 @@
 
 \item{method}{Optional character: which estimator to extract
 (\code{"naive"}, \code{"bca"}, \code{"bcm"}, \code{"cs"},
-\code{"onestep"}). If \code{NULL}, returns a named list of all
-coefficient vectors.}
+\code{"onestep"}). If \code{NULL}, returns the coefficients of the
+default method (the last one fit), consistently with
+\code{\link{vcov.mcglm}} and \code{\link{predict.mcglm}} -- and as
+required by downstream tools such as \code{lmtest::coeftest} and
+\pkg{marginaleffects}. Use \code{method = "all"} for the named list
+of all fitted coefficient vectors (the pre-0.6.0 default).}
 
 \item{...}{Unused.}
 }

@@ -375,17 +375,17 @@ mcglm <- function(formula, data = NULL, family = "poisson",
 
 #' Parse mcglm formula extracting mc() term
 #' @keywords internal
-.mcglm_parse_formula <- function(formula, data, env) {
+.mcglm_parse_formula <- function(formula, data, env, require_y = TRUE) {
   if (is.null(data))
     stop("'data' argument is required when using the formula interface.")
 
   lhs <- formula[[2]]
   rhs <- formula[[3]]
 
-  # Extract response
+  # Extract response (optional for prediction on new data)
   y_name <- deparse(lhs)
   y <- data[[y_name]]
-  if (is.null(y))
+  if (is.null(y) && require_y)
     stop("Response variable '", y_name, "' not found in data.")
 
 
@@ -459,7 +459,8 @@ mcglm <- function(formula, data = NULL, family = "poisson",
     x <- model.matrix(rhs_formula, data = data)
   }
 
-  list(y = as.numeric(y), z_hat = z_hat, x = x, Pi = Pi, K = K)
+  list(y = if (is.null(y)) NULL else as.numeric(y),
+       z_hat = z_hat, x = x, Pi = Pi, K = K)
 }
 
 
@@ -785,7 +786,9 @@ mcglm <- function(formula, data = NULL, family = "poisson",
     y            = y,
     z_hat        = z_hat,
     x            = x,
-    is_multinomial = is_multinomial
+    is_multinomial = is_multinomial,
+    misclass     = list(c1 = c1, c2 = c2, p01 = p01, p10 = p10,
+                        pi_z = pi_z, Pi = Pi)
   )
   if (!is_multinomial) out$xi_hat <- xi_hat
   if (is_multinomial)  out$J     <- J
@@ -862,12 +865,17 @@ print.mcglm <- function(x, digits = max(3L, getOption("digits") - 3L), ...) {
 #' @param object An \code{mcglm} object.
 #' @param method Optional character: which estimator to extract
 #'   (\code{"naive"}, \code{"bca"}, \code{"bcm"}, \code{"cs"},
-#'   \code{"onestep"}). If \code{NULL}, returns a named list of all
-#'   coefficient vectors.
+#'   \code{"onestep"}). If \code{NULL}, returns the coefficients of the
+#'   default method (the last one fit), consistently with
+#'   \code{\link{vcov.mcglm}} and \code{\link{predict.mcglm}} -- and as
+#'   required by downstream tools such as \code{lmtest::coeftest} and
+#'   \pkg{marginaleffects}. Use \code{method = "all"} for the named list
+#'   of all fitted coefficient vectors (the pre-0.6.0 default).
 #' @param ... Unused.
 #' @export
 coef.mcglm <- function(object, method = NULL, ...) {
-  if (is.null(method)) return(object$coefficients)
+  if (identical(method, "all")) return(object$coefficients)
+  if (is.null(method)) method <- .mcglm_default_method(object)
   if (!method %in% names(object$coefficients))
     stop("Method '", method, "' was not fit. Available: ",
          paste(names(object$coefficients), collapse = ", "))
@@ -1053,8 +1061,14 @@ fitted.mcglm <- function(object, method = NULL, ...) {
 #'
 #' Currently supports in-sample prediction only.
 #' @param object An \code{mcglm} object.
-#' @param newdata Currently unused. Predictions are computed at the in-sample
-#'   proxy design \eqn{\hat\xi_i}.
+#' @param newdata Optional new data. For formula fits, a data frame
+#'   containing the \code{mc()} variable (interpreted as the covariate at
+#'   which to predict -- pass the \emph{true} category when available,
+#'   e.g. when predicting onto a validation or probability sample) and
+#'   the other covariates. For matrix-interface fits, a list with
+#'   components \code{z_hat} (integer, coded \code{0, ..., K-1}) and
+#'   \code{x} (covariate matrix as in the fit). \code{NULL} (default)
+#'   predicts at the in-sample proxy design \eqn{\hat\xi_i}.
 #' @param type One of \code{"link"}, \code{"response"}.
 #' @param method Estimation method.
 #' @param ... Unused.
@@ -1063,13 +1077,41 @@ predict.mcglm <- function(object, newdata = NULL,
                           type = c("link", "response"),
                           method = NULL, ...) {
   type <- match.arg(type)
-  if (!is.null(newdata))
-    stop("predict() with 'newdata' not yet supported for mcglm fits.")
   if (isTRUE(object$is_multinomial))
     stop("predict() not yet implemented for multinomial mcglm fits.")
   if (is.null(method)) method <- .mcglm_default_method(object)
-  psi <- coef(object, method = method)
-  eta <- as.numeric(object$xi_hat %*% unname(psi))
+  psi <- unname(coef(object, method = method))
+
+  if (is.null(newdata)) {
+    xi <- object$xi_hat
+  } else if (is.data.frame(newdata)) {
+    if (is.null(object$formula))
+      stop("predict() with a data-frame 'newdata' requires a fit from the ",
+           "formula interface; for matrix-interface fits pass ",
+           "newdata = list(z_hat = , x = ).")
+    parts <- .mcglm_parse_formula(object$formula, newdata,
+                                  environment(object$formula),
+                                  require_y = FALSE)
+    if (parts$K != object$K && length(unique(parts$z_hat)) > object$K)
+      stop("newdata contains more categories than the fitted model (K = ",
+           object$K, ").")
+    xi <- .mcglm_build_xi_hat(parts$z_hat, parts$x, object$K)
+  } else if (is.list(newdata) &&
+             all(c("z_hat", "x") %in% names(newdata))) {
+    z_new <- as.integer(newdata$z_hat)
+    x_new <- as.matrix(newdata$x)
+    if (any(z_new < 0L) || any(z_new >= object$K))
+      stop("newdata$z_hat must be coded 0, ..., K-1 (K = ", object$K, ").")
+    xi <- .mcglm_build_xi_hat(z_new, x_new, object$K)
+  } else {
+    stop("'newdata' must be NULL, a data frame (formula fits), or a list ",
+         "with components 'z_hat' and 'x' (matrix fits).")
+  }
+
+  if (ncol(xi) != object$p)
+    stop("newdata produces ", ncol(xi), " columns; the model has ",
+         object$p, " coefficients.")
+  eta <- as.numeric(xi %*% psi)
   if (type == "link") return(eta)
   fam <- .mcglm_get_link_funs(object$family)
   fam$mu(eta)

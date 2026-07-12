@@ -3,7 +3,7 @@ importFrom(Rcpp, sourceCpp)
 
 importFrom(stats, coef, vcov, residuals, fitted, predict, family, formula,
            model.matrix, model.frame, model.response, model.weights,
-           glm, lm, cov, printCoefmat, pnorm, pt, qnorm, nls,
+           glm, lm, cov, printCoefmat, pnorm, pt, qnorm, qt, nls,
            gaussian, poisson, binomial, terms, update, delete.response,
            na.omit, na.pass, .getXlevels, model.offset, weights, df.residual,
            deviance, AIC, BIC, logLik, nobs, confint.default, setNames,
@@ -55,3 +55,12 @@ S3method(family, mcglm)
 S3method(formula, mcglm)
 S3method(model.matrix, mcglm)
 export(se.mcglm)
+
+export(mc_parse_formula)
+# delayed registration on suggested-package generics
+S3method(sandwich::estfun, mcglm)
+S3method(sandwich::bread, mcglm)
+S3method(marginaleffects::get_coef, mcglm)
+S3method(marginaleffects::set_coef, mcglm)
+S3method(marginaleffects::get_vcov, mcglm)
+S3method(marginaleffects::get_predict, mcglm)

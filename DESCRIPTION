@@ -33,6 +33,9 @@ LinkingTo:
     Rcpp,
     RcppEigen
 Suggests:
+    sandwich,
+    lmtest,
+    marginaleffects,
     testthat (>= 3.0.0),
     knitr,
     rmarkdown,
