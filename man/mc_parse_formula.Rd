@@ -4,7 +4,7 @@
 \alias{mc_parse_formula}
 \title{Parse an \code{mc()} model formula}
 \usage{
-mc_parse_formula(formula, data, env = parent.frame())
+mc_parse_formula(formula, data, env = parent.frame(), require_y = TRUE)
 }
 \arguments{
 \item{formula}{A formula with exactly one \code{\link{mc}} term on the
@@ -14,9 +14,15 @@ right-hand side, e.g. \code{y ~ mc(z, Pi) + x1}.}
 
 \item{env}{Environment in which to evaluate the \code{mc()} matrix
 argument (default: the caller's environment).}
+
+\item{require_y}{Logical. If \code{FALSE}, a missing response column in
+\code{data} is allowed and \code{y} is returned as \code{NULL} --
+useful when parsing prediction data (e.g. a probability sample that
+carries no outcome).}
 }
 \value{
-A list with components \code{y} (numeric response),
+A list with components \code{y} (numeric response, or
+  \code{NULL} when absent and \code{require_y = FALSE}),
   \code{z_hat} (integer proxy, coded \code{0, ..., K-1}),
   \code{x} (model matrix of the remaining terms, including an
   intercept), \code{Pi} (the \eqn{K \times K} misclassification

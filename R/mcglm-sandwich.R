@@ -142,7 +142,12 @@ bread.mcglm <- function(x, method = NULL, ...) {
 #' @param data A data frame containing the variables.
 #' @param env Environment in which to evaluate the \code{mc()} matrix
 #'   argument (default: the caller's environment).
-#' @return A list with components \code{y} (numeric response),
+#' @param require_y Logical. If \code{FALSE}, a missing response column in
+#'   \code{data} is allowed and \code{y} is returned as \code{NULL} --
+#'   useful when parsing prediction data (e.g. a probability sample that
+#'   carries no outcome).
+#' @return A list with components \code{y} (numeric response, or
+#'   \code{NULL} when absent and \code{require_y = FALSE}),
 #'   \code{z_hat} (integer proxy, coded \code{0, ..., K-1}),
 #'   \code{x} (model matrix of the remaining terms, including an
 #'   intercept), \code{Pi} (the \eqn{K \times K} misclassification
@@ -158,6 +163,7 @@ bread.mcglm <- function(x, method = NULL, ...) {
 #'
 #' @seealso \code{\link{mc}}, \code{\link{mcglm}}
 #' @export
-mc_parse_formula <- function(formula, data, env = parent.frame()) {
-  .mcglm_parse_formula(formula, data, env)
+mc_parse_formula <- function(formula, data, env = parent.frame(),
+                             require_y = TRUE) {
+  .mcglm_parse_formula(formula, data, env, require_y = require_y)
 }

@@ -404,8 +404,16 @@ mcglm <- function(formula, data = NULL, family = "poisson",
       if (op == "mc") {
         var_name <- deparse(node[[2]])
         if (length(node) >= 3L) {
-          mat_val <- eval(node[[3]], data, env)
-          mc_info <<- list(variable = var_name, Pi = as.matrix(mat_val))
+          # The matrix may equally be supplied as an mcglm()/wrapper
+          # argument instead of living in the evaluation scope (and for
+          # prediction data it is irrelevant), so an unresolvable symbol
+          # yields Pi = NULL here; whether Pi is actually required is
+          # validated by the caller.
+          mat_val <- tryCatch(eval(node[[3]], data, env),
+                              error = function(e) NULL)
+          mc_info <<- list(variable = var_name,
+                           Pi = if (is.null(mat_val)) NULL
+                                else as.matrix(mat_val))
         } else {
           mc_info <<- list(variable = var_name, Pi = NULL)
         }

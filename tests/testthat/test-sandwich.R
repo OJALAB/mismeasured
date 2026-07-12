@@ -207,4 +207,19 @@ test_that("predict(newdata) works for formula and matrix fits", {
   pr_m <- predict(fit_m, newdata = list(z_hat = nd$z, x = cbind(1, nd$x1)),
                   type = "link")
   expect_equal(pr_m, pr, tolerance = 1e-8)
+
+  # prediction data may lack the response and the mc() matrix may be out
+  # of scope (require_y = FALSE tolerates both) -- the wrapper-package use
+  parts <- mc_parse_formula(y ~ mc(z, Pi) + x1, nd, require_y = FALSE,
+                            env = new.env(parent = baseenv()))
+  expect_null(parts$y)
+  expect_null(parts$Pi)
+  expect_equal(parts$z_hat, nd$z)
+  f_local <- local({
+    Pi_loc <- Pi
+    mcglm(y ~ mc(z, Pi_loc) + x1, data = df, family = "poisson",
+          method = "cs")
+  })
+  expect_equal(predict(f_local, newdata = nd, type = "link"), pr,
+               tolerance = 1e-8)
 })
