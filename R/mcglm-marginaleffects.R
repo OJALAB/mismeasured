@@ -4,12 +4,15 @@
 # marginaleffects gates models by class; .onLoad() (zzz.R) appends "mcglm"
 # to the 'marginaleffects_model_classes' option, and the four methods
 # below are registered lazily on the marginaleffects generics
-# (marginaleffects in Suggests). Together they enable e.g.
-#   avg_comparisons(fit, variables = "z", newdata = df)
-#   avg_slopes(fit, variables = "x1", newdata = df)
-# for formula-interface fits. All quantities use the fit's default
-# method (the last one fit, e.g. "cs"); the delta-method standard
-# errors propagate vcov(fit) of that method.
+# (marginaleffects in Suggests). They are internal hooks -- users just
+# call the ordinary marginaleffects functions on a formula-interface
+# fit, with no extra arguments:
+#   avg_slopes(fit)
+#   avg_comparisons(fit, variables = "z")
+# (the original data are recovered from the stored call; pass newdata =
+# to override). All quantities use the fit's default method (the last
+# one fit, e.g. "cs"); the delta-method standard errors propagate
+# vcov(fit) of that method.
 # ---------------------------------------------------------------------------
 
 #' @exportS3Method marginaleffects::get_coef

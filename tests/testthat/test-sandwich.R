@@ -129,6 +129,12 @@ test_that("marginaleffects works on formula-interface mcglm fits", {
 
   sl <- marginaleffects::avg_slopes(fit, variables = "x1", newdata = df)
   expect_true(is.finite(sl$estimate) && is.finite(sl$std.error))
+
+  # the plain user-facing call, no newdata: the original data must be
+  # recoverable from the stored call
+  sl0 <- marginaleffects::avg_slopes(fit)
+  expect_true(all(is.finite(sl0$estimate)) && all(is.finite(sl0$std.error)))
+  expect_setequal(sl0$term, c("z", "x1"))
 })
 
 test_that("predict(newdata) works for formula and matrix fits", {
