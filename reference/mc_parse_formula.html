@@ -63,7 +63,7 @@ intercept the <code><a href="mc.html">mc()</a></code> term before standard formu
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">mc_parse_formula</span><span class="op">(</span><span class="va">formula</span>, <span class="va">data</span>, env <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sys.parent.html" class="external-link">parent.frame</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">mc_parse_formula</span><span class="op">(</span><span class="va">formula</span>, <span class="va">data</span>, env <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sys.parent.html" class="external-link">parent.frame</a></span><span class="op">(</span><span class="op">)</span>, require_y <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -83,10 +83,18 @@ right-hand side, e.g. <code>y ~ mc(z, Pi) + x1</code>.</p></dd>
 <dd><p>Environment in which to evaluate the <code><a href="mc.html">mc()</a></code> matrix
 argument (default: the caller's environment).</p></dd>
 
+
+<dt id="arg-require-y">require_y<a class="anchor" aria-label="anchor" href="#arg-require-y"></a></dt>
+<dd><p>Logical. If <code>FALSE</code>, a missing response column in
+<code>data</code> is allowed and <code>y</code> is returned as <code>NULL</code> –
+useful when parsing prediction data (e.g. a probability sample that
+carries no outcome).</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list with components <code>y</code> (numeric response),
+    <p>A list with components <code>y</code> (numeric response, or
+  <code>NULL</code> when absent and <code>require_y = FALSE</code>),
   <code>z_hat</code> (integer proxy, coded <code>0, ..., K-1</code>),
   <code>x</code> (model matrix of the remaining terms, including an
   intercept), <code>Pi</code> (the \(K \times K\) misclassification

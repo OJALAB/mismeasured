@@ -13,7 +13,7 @@ before standard formula machinery (such as
 ## Usage
 
 ``` r
-mc_parse_formula(formula, data, env = parent.frame())
+mc_parse_formula(formula, data, env = parent.frame(), require_y = TRUE)
 ```
 
 ## Arguments
@@ -34,14 +34,20 @@ mc_parse_formula(formula, data, env = parent.frame())
   [`mc()`](https://ojalab.github.io/mismeasured/reference/mc.md) matrix
   argument (default: the caller's environment).
 
+- require_y:
+
+  Logical. If `FALSE`, a missing response column in `data` is allowed
+  and `y` is returned as `NULL` – useful when parsing prediction data
+  (e.g. a probability sample that carries no outcome).
+
 ## Value
 
-A list with components `y` (numeric response), `z_hat` (integer proxy,
-coded `0, ..., K-1`), `x` (model matrix of the remaining terms,
-including an intercept), `Pi` (the \\K \times K\\ misclassification
-matrix, or `NULL` if not supplied inside
-[`mc()`](https://ojalab.github.io/mismeasured/reference/mc.md)), and `K`
-(number of categories).
+A list with components `y` (numeric response, or `NULL` when absent and
+`require_y = FALSE`), `z_hat` (integer proxy, coded `0, ..., K-1`), `x`
+(model matrix of the remaining terms, including an intercept), `Pi` (the
+\\K \times K\\ misclassification matrix, or `NULL` if not supplied
+inside [`mc()`](https://ojalab.github.io/mismeasured/reference/mc.md)),
+and `K` (number of categories).
 
 ## See also
 
