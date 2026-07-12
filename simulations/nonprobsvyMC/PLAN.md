@@ -10,17 +10,19 @@ nonprob_mc(
   svydesign      = prob_design,
   method_outcome = "mcglm",
   family_outcome = "poisson",
-  psi_method     = "cs"          # naive | bca | bcm | cs
+  mc_method      = "cs"          # naive | bca | bcm | cs
 )
 ```
 
 returns a `nonprob`-class object whose mass-imputation outcome model is
 bias-corrected for misclassification in `z`.
 
-## 1. Verified facts (nonprobsvy 0.3.0, mismeasured 0.5.3)
+## 1. Verified facts (nonprobsvy 0.3.0, mismeasured 0.7.0)
 
-Checked against the installed `nonprobsvy` 0.3.0 namespace and the
-`mismeasured` sources on 2026-07-12.
+Checked against the installed `nonprobsvy` 0.3.0 namespace and
+`mismeasured` 0.7.0 as on GitHub `main`
+(`OJALAB/mismeasured@59c7540..db8a43e`, 2026-07-12), which ships the
+ecosystem API this plan depends on (Section 4).
 
 1. **`nonprob()` dispatch is a hard-coded `switch`.** Inside
    `nonprobsvy:::nonprob_mi`:
@@ -35,9 +37,10 @@ Checked against the installed `nonprobsvy` 0.3.0 namespace and the
    control_inference, verbose, se)` returns a `"nonprob_method"` object:
    `model_fitted, y_nons_pred, y_rand_pred, coefficients, svydesign
    (updated with predictions), y_mi_hat, var_prob, var_nonprob,
-   var_total, model, family`. Implementing `method_mcglm()` against this
-   contract is straightforward *if* dispatch is opened up (Section 3,
-   Option B) and the misclassification metadata can reach it.
+   var_total, model, family`. A `method_mcglm()` against this contract
+   would be straightforward, but the dispatch is closed upstream — hence
+   the standalone-wrapper architecture (Section 3). The contract remains
+   the blueprint for what `nonprob_mc()`'s `outcome` slot must mimic.
 
 3. **`method_glm`'s variance is exactly the Kim et al. (2021)
    linearization** that Theorem `thm:mass-imp-cs` of
@@ -60,10 +63,11 @@ Checked against the installed `nonprobsvy` 0.3.0 namespace and the
    `confint`, `nobs`, `weights`, `extract` work unchanged.
 
 5. **`mismeasured`'s formula machinery**: `mc(z, Pi)` terms are parsed
-   by the *internal* `.mcglm_parse_formula(formula, data, env)`, which
-   returns `list(y, z_hat (0-based), x (model matrix of the remaining
-   terms), Pi, K)`; exactly one `mc()` term is required; factor `z` is
-   re-coded `as.integer - 1`. The `mc()` call must be stripped before
+   by the exported `mc_parse_formula(formula, data, env)` (since 0.7.0),
+   which returns `list(y, z_hat (0-based), x (model matrix of the
+   remaining terms), Pi, K)`; exactly one `mc()` term is required;
+   factor `z` is re-coded `as.integer - 1`; the response may be absent
+   (prediction data). The `mc()` call must be stripped before
    `model.matrix()` is ever called — `nonprobsvy`'s own
    `make_model_frame`/`merge_formulas` would choke on it, so the bridge
    must intercept the outcome formula *before* handing anything to
@@ -72,8 +76,11 @@ Checked against the installed `nonprobsvy` 0.3.0 namespace and the
 6. **Constraints inherited from `mismeasured`**: canonical links only
    (poisson/binomial/gaussian — matching `family_outcome` options);
    no offsets; frequency weights supported (`weights` → `case_weights`);
-   `psi_method` ∈ {naive, bca, bcm, cs}; K ≥ 2 categories; multinomial
-   responses excluded (BCA/BCM/CS unsupported there).
+   `mc_method` ∈ {naive, bca, bcm, cs}; K ≥ 2 categories; multinomial
+   responses excluded (BCA/BCM/CS unsupported there). Since 0.7.0,
+   `coef()`/`vcov()`/`predict()` all default to the same (last-fit)
+   method, and `predict(newdata)` accepts a data frame (formula fits)
+   or `list(z_hat, x)` (matrix fits).
 
 7. **Estimand caveat**: the theory (and the bridge, initially) assumes
    the **probability sample carries the true `z`** while the
@@ -110,58 +117,46 @@ feature of `nonprob_mc()` from M1, not an afterthought.
   `G_P = N_hat^{-1} sum w_i mudot_i xi_i` and `A = I_hat + M_hat` for
   CS, `A = I_hat` for naive/BCA/BCM per Theorem `thm:mis-bc`).
 
-## 3. Architecture
+## 3. Architecture: standalone `nonprob_mc()` wrapper (DECIDED)
 
-### Option A (v0.1, recommended): standalone `nonprob_mc()` wrapper
+The package is a standalone wrapper — the previously sketched
+alternatives (an upstream `method_outcome` extension point in
+`nonprobsvy`; masking `nonprob()`) are dropped from the plan: the
+wrapper needs no upstream changes, ships independently of `nonprobsvy`
+release cycles, and nothing in it is wasted if an upstream hook ever
+appears later.
 
-New package `nonprobsvyMC`, `Imports: nonprobsvy, mismeasured, survey,
-MASS, stats`. One user-facing function `nonprob_mc()` mirroring the
-`nonprob()` signature (MI arguments only) plus `psi_method` and the
-misclassification arguments (`Pi`/`pi_z`/`p01`/`p10`, validation data).
+New package `nonprobsvyMC`, `Imports: nonprobsvy, mismeasured
+(>= 0.7.0), survey, stats`. One user-facing function `nonprob_mc()`
+mirroring the `nonprob()` signature (MI arguments only) plus
+`mc_method` (which correction: `"naive"`, `"bca"`, `"bcm"`, `"cs"`)
+and the misclassification arguments (`Pi`/`pi_z`/`p01`/`p10`,
+validation data — Section 4a).
 
-Flow:
+Flow (public mismeasured 0.7.0 API only, zero `:::` — see the CRAN
+constraint below):
 
-1. Parse `outcome` with the `mc()`-aware parser; obtain
+1. Parse `outcome` with `mismeasured::mc_parse_formula()`; obtain
    `(y, z_hat, x, Pi, K)` and the *sanitized* formula
    (`y ~ z + x1 + x2`).
 2. Fit `mismeasured::mcglm()` on the non-probability sample
-   (all four methods cheaply; report the one in `psi_method`, keep the
+   (all four methods cheaply; report the one in `mc_method`, keep the
    rest for diagnostics like the existing `mcglm` output).
-3. Build `xi_rand` from `svydesign$variables` (true `z` + covariates),
-   predict `y_rand_pred = mu(psi_hat' xi_rand)`, `update()` the
-   svydesign, `svymean()` → point estimate and `var_prob`.
-4. `var_nonprob` from the corrected-score linearization using
-   `mismeasured`'s `phi`/`I_hat`/`M_hat` building blocks.
+3. Predict on the probability sample with
+   `predict(fit, newdata = svydesign$variables, type = "response")`
+   (true `z` there), `update()` the svydesign, `svymean()` → point
+   estimate and `var_prob`.
+4. `var_nonprob` from the corrected-score linearization via
+   `sandwich::bread()`/`sandwich::meat()` on the fit
+   (`t(G_P) %*% B %*% S %*% t(B) %*% G_P / n`, with `G_P` from the
+   design weights and `family()$mu.eta`).
 5. Assemble the `nonprob`-class object with the fields from Fact 4
    (`selection = NULL`, `outcome` = a `nonprob_method`-shaped list with
    `model = "mcglm"`), so all of `nonprobsvy`'s S3 methods work.
 
-Feasibility of steps 1–3 is demonstrated end-to-end in `poc.R` in this
-folder (naive `nonprob()` vs `nonprob_mc`-style corrected pipeline on
-a DGP with a misclassified binary covariate).
-
-### Option B (v1.0): upstream extension point in nonprobsvy
-
-Since the same author maintains `nonprobsvy`, the clean long-term fix
-is a small upstream PR:
-
-1. `method_outcome` accepts a **function** (or a registered name looked
-   up via `getFromNamespace("method_<name>", ...)`) falling back to the
-   current `switch`.
-2. A hook for formula pre-processing (or simply: `nonprob()` passes the
-   *raw* outcome formula and `data` through to the method via `...` /
-   `control_outcome`), because `mc()` metadata cannot survive
-   `model.matrix()`.
-
-Then `nonprobsvyMC` shrinks to exporting `method_mcglm()` implementing
-the `nonprob_method` contract (Fact 2), and users call `nonprob()`
-directly with `method_outcome = method_mcglm`. Option A's internals
-become `method_mcglm`'s body — no wasted work.
-
-### Rejected: masking `nonprob()` in nonprobsvyMC
-
-Shadowing the upstream generic invites confusion about which package
-handles what, and breaks when both are attached in the wrong order.
+Steps 1–4 are demonstrated end-to-end in `poc.R` in this folder
+(naive `nonprob()` vs the corrected pipeline on a DGP with a
+misclassified binary covariate), running entirely on exported API.
 
 ### CRAN constraint: no `:::` in the package
 
@@ -173,11 +168,11 @@ ours), but relying on it just trades a check NOTE for silent breakage
 on the next internal refactor. `getFromNamespace()`-style workarounds
 evade the check, not the policy. Hard rule for nonprobsvyMC: **every
 upstream symbol it uses must be exported** — from `mismeasured` via the
-Section 4 exports, from `nonprobsvy` via the exported `nonprob()` only
-(Option A) or the Option B dispatch hook. The `:::` calls in `poc.R`
-are acceptable only because scripts in this repo are not a package.
+Section 4 API (shipped in 0.7.0), from `nonprobsvy` via the exported
+`nonprob()` only. `poc.R` in this folder is the acceptance check: it
+runs the whole pipeline with zero `:::` calls.
 
-## 4. Changes in mismeasured — IMPLEMENTED (0.7.0-dev)
+## 4. Changes in mismeasured — SHIPPED in 0.7.0 (GitHub `main`)
 
 Design decision: do NOT export the raw internals
 (`.mcglm_compute_m_bin`, `.mcglm_compute_Ihat`, ... — that freezes
@@ -284,7 +279,6 @@ type should gate a warning.
 | M2 | Variance (`var_prob` via survey + corrected `var_nonprob`); tests reusing `simulations/sim-paper-nonprob-misclass` DGP as integration test (coverage check vs known truth) |
 | M3 | Estimated misclassification (Section 4a): `validation =` / `Pi_vcov =` inputs, `V_V` + `Cov(phi, s)` terms (already prototyped in `mi_variance()`), small-validation-sample warning; multicategory `z` (K > 2) |
 | M4 | Proxy-only probability sample (`E[mu | z_hat]` marginalization using `Pi`, `pi_z`); bootstrap variance option (mirror `control_inf(var_method = "bootstrap")`) |
-| M5 | Upstream PR to `nonprobsvy` (Option B); `nonprobsvyMC` re-exports `method_mcglm` |
 
 ## 6. Risks / open questions
 
@@ -296,9 +290,11 @@ type should gate a warning.
   stratified/clustered designs automatically, but the paper's variance
   theorem is stated for Poisson sampling; document that `var_prob` is
   design-based and exact-form only where `survey` is.
-- **Naming**: `psi_method` vs overloading `method_outcome`
-  (`"mcglm-cs"` strings)? Proposal: keep `method_outcome = "mcglm"` +
-  separate `psi_method`, mirroring how `mcglm()` itself takes `method`.
+- **Naming (RESOLVED)**: `method_outcome = "mcglm"` + a separate
+  `mc_method` argument for the correction (`"naive"`, `"bca"`,
+  `"bcm"`, `"cs"`) — the `mc_` prefix underlines the misclassification
+  correction and matches the `mc()` / `mc_parse_formula()` family;
+  no overloaded `"mcglm-cs"` strings.
 - **Weights semantics**: `nonprobsvy::nonprob` `case_weights` are
   frequency weights — matches `mcglm(weights=)`; verify no rescaling
   happens upstream.
