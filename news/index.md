@@ -2,7 +2,41 @@
 
 ## mismeasured 0.7.0
 
+### New features
+
+- **Ecosystem integration for `mcglm` fits.** `estfun()` and `bread()`
+  methods are registered on the **sandwich** generics (note the
+  corrected-score bread `(I + M)^{-1}` is not symmetric — see
+  [`?estfun.mcglm`](https://ojalab.github.io/mismeasured/reference/estfun.mcglm.md)
+  before assembling with
+  [`sandwich::sandwich()`](https://sandwich.R-Forge.R-project.org/reference/sandwich.html);
+  [`vcov()`](https://rdrr.io/r/stats/vcov.html) already returns the
+  correct sandwich `J^{-1} S J^{-T}/n`).
+  [`lmtest::coeftest()`](https://rdrr.io/pkg/lmtest/man/coeftest.html)
+  works out of the box, and **marginaleffects** (`avg_comparisons()`,
+  `avg_slopes()`, …) is supported for formula-interface fits via
+  registered `get_*`/`set_coef` methods.
+- **[`predict.mcglm()`](https://ojalab.github.io/mismeasured/reference/predict.mcglm.md)
+  gains `newdata`**: a data frame for formula fits (pass the true
+  category to predict at it, e.g. on a validation or probability sample)
+  or `list(z_hat = , x = )` for matrix fits.
+- **[`mc_parse_formula()`](https://ojalab.github.io/mismeasured/reference/mc_parse_formula.md)
+  exported**: public access to the
+  [`mc()`](https://ojalab.github.io/mismeasured/reference/mc.md) formula
+  parsing used by
+  [`mcglm()`](https://ojalab.github.io/mismeasured/reference/mcglm.md),
+  for packages building on mismeasured.
+- The fitted `mcglm` object now stores the misclassification parameters
+  (`$misclass`: `c1`, `c2`, `p01`, `p10`, `pi_z`, `Pi`).
+
 ### Breaking changes
+
+- **[`coef.mcglm()`](https://ojalab.github.io/mismeasured/reference/coef.mcglm.md)
+  without `method` now returns the default method’s coefficient vector**
+  (consistent with [`vcov()`](https://rdrr.io/r/stats/vcov.html),
+  [`predict()`](https://rdrr.io/r/stats/predict.html), and as required
+  by `coeftest`/marginaleffects) instead of the list of all fitted
+  methods. Use `coef(fit, method = "all")` for the previous behavior.
 
 - **[`simex()`](https://ojalab.github.io/mismeasured/reference/simex.md)
   default `method` is now family-dependent**: `method = NULL` resolves

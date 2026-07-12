@@ -42,9 +42,8 @@ $`p_{10} = \Pr(\hat Z = 0 \mid Z = 1)`$, and prevalence
 $`\pi = \Pr(Z = 1)`$. For $`K \ge 3`$, by the $`K \times K`$
 column-stochastic matrix $`\Pi_{j\ell} = \Pr(\hat Z = j \mid Z = \ell)`$
 and the prevalence vector $`(\pi_0, \dots, \pi_{K-1})`$. We assume
-nondifferential misclassification: \$\hat Z_i
-\\\rule\[1pt\]{8pt}{0.4pt}\\\\\\\rule\[-3pt\]{0.4pt}{8pt}\rule\[1pt\]{8pt}{0.4pt}\\\\\\\rule\[-3pt\]{0.4pt}{8pt}\\
-(Y_i, x_i) \mid Z_i\$.
+nondifferential misclassification:
+$`\hat Z_i \perp\!\!\!\perp (Y_i, x_i) \mid Z_i`$.
 
 ## The naive proxy-score estimator and its bias
 

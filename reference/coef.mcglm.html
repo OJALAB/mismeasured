@@ -60,8 +60,12 @@
 <dt id="arg-method">method<a class="anchor" aria-label="anchor" href="#arg-method"></a></dt>
 <dd><p>Optional character: which estimator to extract
 (<code>"naive"</code>, <code>"bca"</code>, <code>"bcm"</code>, <code>"cs"</code>,
-<code>"onestep"</code>). If <code>NULL</code>, returns a named list of all
-coefficient vectors.</p></dd>
+<code>"onestep"</code>). If <code>NULL</code>, returns the coefficients of the
+default method (the last one fit), consistently with
+<code><a href="vcov.mcglm.html">vcov.mcglm</a></code> and <code><a href="predict.mcglm.html">predict.mcglm</a></code> – and as
+required by downstream tools such as <code><a href="https://rdrr.io/pkg/lmtest/man/coeftest.html" class="external-link">lmtest::coeftest</a></code> and
+<span class="pkg">marginaleffects</span>. Use <code>method = "all"</code> for the named list
+of all fitted coefficient vectors (the pre-0.6.0 default).</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>

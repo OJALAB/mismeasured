@@ -111,6 +111,28 @@ S3 methods for objects returned by mcglm() and mclm().
 
   Proxy design matrix used by `mcglm`
 
+## Ecosystem integration
+
+Hooks for sandwich/lmtest/marginaleffects and for packages building on
+mismeasured.
+
+- [`estfun(`*`<mcglm>`*`)`](https://ojalab.github.io/mismeasured/reference/estfun.mcglm.md)
+  :
+
+  Extract empirical estimating functions from an `mcglm` fit
+
+- [`bread(`*`<mcglm>`*`)`](https://ojalab.github.io/mismeasured/reference/bread.mcglm.md)
+  :
+
+  Bread matrix for an `mcglm` fit
+
+- [`mc_parse_formula()`](https://ojalab.github.io/mismeasured/reference/mc_parse_formula.md)
+  :
+
+  Parse an
+  [`mc()`](https://ojalab.github.io/mismeasured/reference/mc.md) model
+  formula
+
 ## Other methods
 
 - [`refit()`](https://ojalab.github.io/mismeasured/reference/refit.md) :

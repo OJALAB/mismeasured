@@ -64,8 +64,14 @@
 
 
 <dt id="arg-newdata">newdata<a class="anchor" aria-label="anchor" href="#arg-newdata"></a></dt>
-<dd><p>Currently unused. Predictions are computed at the in-sample
-proxy design \(\hat\xi_i\).</p></dd>
+<dd><p>Optional new data. For formula fits, a data frame
+containing the <code><a href="mc.html">mc()</a></code> variable (interpreted as the covariate at
+which to predict – pass the <em>true</em> category when available,
+e.g. when predicting onto a validation or probability sample) and
+the other covariates. For matrix-interface fits, a list with
+components <code>z_hat</code> (integer, coded <code>0, ..., K-1</code>) and
+<code>x</code> (covariate matrix as in the fit). <code>NULL</code> (default)
+predicts at the in-sample proxy design \(\hat\xi_i\).</p></dd>
 
 
 <dt id="arg-type">type<a class="anchor" aria-label="anchor" href="#arg-type"></a></dt>

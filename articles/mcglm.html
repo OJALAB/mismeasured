@@ -62,7 +62,7 @@
                         <h4 data-toc-skip class="author">Maciej
 Beresewicz, Michal Warmuz</h4>
             
-            <h4 data-toc-skip class="date">2026-07-08</h4>
+            <h4 data-toc-skip class="date">2026-07-12</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/OJALAB/mismeasured/blob/main/vignettes/mcglm.Rmd" class="external-link"><code>vignettes/mcglm.Rmd</code></a></small>
       <div class="d-none name"><code>mcglm.Rmd</code></div>
@@ -137,9 +137,8 @@ column-stochastic matrix
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi mathvariant="normal">Π</mi><mrow><mi>j</mi><mi>ℓ</mi></mrow></msub><mo>=</mo><mrow><mi mathvariant="normal">Pr</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><mover><mi>Z</mi><mo accent="true">̂</mo></mover><mo>=</mo><mi>j</mi><mo>∣</mo><mi>Z</mi><mo>=</mo><mi>ℓ</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\Pi_{j\ell} = \Pr(\hat Z = j \mid Z = \ell)</annotation></semantics></math>
 and the prevalence vector
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>π</mi><mn>0</mn></msub><mo>,</mo><mi>…</mi><mo>,</mo><msub><mi>π</mi><mrow><mi>K</mi><mo>−</mo><mn>1</mn></mrow></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(\pi_0, \dots, \pi_{K-1})</annotation></semantics></math>.
-We assume nondifferential misclassification: <span class="math inline">$\hat Z_i
-\,\rule[1pt]{8pt}{0.4pt}\!\!\!\rule[-3pt]{0.4pt}{8pt}\rule[1pt]{8pt}{0.4pt}\!\!\!\rule[-3pt]{0.4pt}{8pt}\,
-(Y_i, x_i) \mid Z_i$</span>.</p>
+We assume nondifferential misclassification:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mi>Z</mi><mo accent="true">̂</mo></mover><mi>i</mi></msub><mo>⟂</mo><mspace width="-0.167em"></mspace><mspace width="-0.167em"></mspace><mspace width="-0.167em"></mspace><mo>⟂</mo><mo stretchy="false" form="prefix">(</mo><msub><mi>Y</mi><mi>i</mi></msub><mo>,</mo><msub><mi>x</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">)</mo><mo>∣</mo><msub><mi>Z</mi><mi>i</mi></msub></mrow><annotation encoding="application/x-tex">\hat Z_i \perp\!\!\!\perp (Y_i, x_i) \mid Z_i</annotation></semantics></math>.</p>
 </div>
 <div class="section level2">
 <h2 id="the-naive-proxy-score-estimator-and-its-bias">The naive proxy-score estimator and its bias<a class="anchor" aria-label="anchor" href="#the-naive-proxy-score-estimator-and-its-bias"></a>
