@@ -1,0 +1,9 @@
+importFrom(mismeasured, mcglm, mc_parse_formula, mc)
+importFrom(nonprobsvy, control_out, control_inf)
+importFrom(survey, svymean)
+importFrom(sandwich, bread, meat)
+importFrom(stats, coef, predict, weights, update, qnorm, as.formula,
+           gaussian, poisson, binomial)
+
+export(nonprob_mc)
+export(mc)

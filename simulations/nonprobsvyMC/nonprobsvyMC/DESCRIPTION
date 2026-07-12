@@ -1,0 +1,32 @@
+Package: nonprobsvyMC
+Type: Package
+Title: Misclassification-Corrected Mass Imputation for Non-Probability Samples
+Version: 0.1.0
+Authors@R: c(
+    person("Maciej", "Beresewicz", role = c("aut", "cre"),
+           email = "maciej.beresewicz@ue.poznan.pl",
+           comment = c(ORCID = "0000-0002-8281-4301")))
+Description: Bridges the 'nonprobsvy' inference framework for non-probability
+    samples with the misclassification-corrected generalized linear models of
+    'mismeasured'. Provides 'nonprob_mc()', a mass-imputation estimator of the
+    population mean whose outcome model corrects for a misclassified discrete
+    covariate declared with the 'mc()' formula term (naive, additive and
+    multiplicative bias corrections, and the corrected-score estimator).
+    Returns 'nonprob'-class objects, so the 'nonprobsvy' methods (print,
+    summary, confint, nobs, weights, pop_size) work unchanged. The variance
+    combines the design-based component from the 'survey' package with the
+    corrected-score linearization of the outcome-model uncertainty.
+License: GPL (>= 3)
+Depends: R (>= 4.1.0)
+Imports:
+    mismeasured (>= 0.7.0),
+    nonprobsvy (>= 0.3.0),
+    survey,
+    sandwich,
+    stats
+Suggests:
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+Encoding: UTF-8
+Roxygen: list(markdown = FALSE)
+Config/roxygen2/version: 8.0.0
