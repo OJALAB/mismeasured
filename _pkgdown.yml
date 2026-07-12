@@ -48,6 +48,12 @@ reference:
       - family.mcglm
       - formula.mcglm
       - model.matrix.mcglm
+  - title: "Ecosystem integration"
+    desc: "Hooks for sandwich/lmtest/marginaleffects and for packages building on mismeasured."
+    contents:
+      - estfun.mcglm
+      - bread.mcglm
+      - mc_parse_formula
   - title: "Other methods"
     contents:
       - refit

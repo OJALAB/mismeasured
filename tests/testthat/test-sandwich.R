@@ -84,6 +84,54 @@ test_that("lmtest::coeftest works on mcglm fits", {
                unname(sqrt(diag(vcov(fit, method = "naive")))))
 })
 
+test_that("coeftest, mc_parse_formula, predict(newdata), marginaleffects work for K = 3", {
+  set.seed(21)
+  n  <- 900
+  Pi <- matrix(c(0.90, 0.06, 0.04,
+                 0.08, 0.85, 0.07,
+                 0.05, 0.05, 0.90), 3, 3)
+  pi_z <- c(0.3, 0.4, 0.3)
+  z  <- sample(0:2, n, TRUE, pi_z)
+  z_hat <- vapply(z, function(zz) sample(0:2, 1, prob = Pi[, zz + 1]), 0L)
+  x1 <- rnorm(n)
+  y  <- rpois(n, exp(0.2 + 0.4 * x1 + c(0, 0.8, -0.5)[z + 1]))
+  df <- data.frame(y = y, z = z_hat, x1 = x1)
+
+  parts <- mc_parse_formula(y ~ mc(z, Pi) + x1, df)
+  expect_equal(parts$K, 3L)
+  expect_equal(parts$Pi, Pi)
+
+  fit <- mcglm(y ~ mc(z, Pi) + x1, data = df, family = "poisson",
+               method = c("naive", "cs"), pi_z = pi_z)
+
+  # coeftest: z-tests from coef()/vcov() of the default (cs) method
+  skip_if_not_installed("lmtest")
+  ct <- lmtest::coeftest(fit)
+  expect_equal(unname(ct[, "Estimate"]), unname(coef(fit, method = "cs")))
+  expect_equal(nrow(ct), 4L)   # gamma1, gamma2, alpha0, alpha1
+
+  # predict(newdata): category contrasts at x1 = 0 recover the gammas
+  nd <- data.frame(z = 0:2, x1 = 0)
+  pr <- predict(fit, newdata = nd, type = "link")
+  expect_equal(pr[2] - pr[1], unname(coef(fit)["gamma1"]))
+  expect_equal(pr[3] - pr[1], unname(coef(fit)["gamma2"]))
+  expect_equal(predict(fit, newdata = df, type = "response"),
+               predict(fit, type = "response"))
+
+  # marginaleffects: average category comparisons vs manual predictions
+  # (numeric custom contrasts take exactly two values -> one pair per call)
+  skip_if_not_installed("marginaleffects")
+  mu <- function(zv) mean(predict(fit, type = "response",
+                                  newdata = transform(df, z = zv)))
+  for (k in 1:2) {
+    cmp <- marginaleffects::avg_comparisons(fit,
+                                            variables = list(z = c(0, k)),
+                                            newdata = df)
+    expect_equal(cmp$estimate, mu(k) - mu(0), tolerance = 1e-8)
+    expect_true(is.finite(cmp$std.error))
+  }
+})
+
 test_that("mc_parse_formula() returns the mcglm() inputs", {
   set.seed(3)
   Pi <- matrix(c(0.9, 0.1, 0.15, 0.85), 2, 2)
