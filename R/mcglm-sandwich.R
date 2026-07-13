@@ -146,9 +146,20 @@ bread.mcglm <- function(x, method = NULL, ...) {
 #'   \code{data} is allowed and \code{y} is returned as \code{NULL} --
 #'   useful when parsing prediction data (e.g. a probability sample that
 #'   carries no outcome).
+#' @param z_levels Optional character vector of reference levels for the
+#'   \code{mc()} variable (e.g. \code{fit$z_levels} from a fitted
+#'   \code{mcglm}). When supplied, a factor/character \code{mc()} variable
+#'   is recoded \emph{against these levels} -- the safe way to parse new
+#'   data, whose own factor level set or order may differ -- and unseen
+#'   levels raise an error. Ignored for integer-coded variables.
+#' @param x_levels Optional named list of reference factor levels for the
+#'   remaining covariates (e.g. \code{fit$x_levels}), applied via
+#'   \code{model.frame(xlev = )} exactly like \code{predict.lm}.
 #' @return A list with components \code{y} (numeric response, or
 #'   \code{NULL} when absent and \code{require_y = FALSE}),
 #'   \code{z_hat} (integer proxy, coded \code{0, ..., K-1}),
+#'   \code{z_levels}/\code{x_levels} (factor bookkeeping for later
+#'   prediction; \code{NULL}/empty for integer inputs),
 #'   \code{x} (model matrix of the remaining terms, including an
 #'   intercept), \code{Pi} (the \eqn{K \times K} misclassification
 #'   matrix, or \code{NULL} if not supplied inside \code{mc()}), and
@@ -164,6 +175,8 @@ bread.mcglm <- function(x, method = NULL, ...) {
 #' @seealso \code{\link{mc}}, \code{\link{mcglm}}
 #' @export
 mc_parse_formula <- function(formula, data, env = parent.frame(),
-                             require_y = TRUE) {
-  .mcglm_parse_formula(formula, data, env, require_y = require_y)
+                             require_y = TRUE,
+                             z_levels = NULL, x_levels = NULL) {
+  .mcglm_parse_formula(formula, data, env, require_y = require_y,
+                       z_levels = z_levels, x_levels = x_levels)
 }

@@ -138,7 +138,8 @@ test_that("mc_parse_formula() returns the mcglm() inputs", {
   df <- data.frame(y = rpois(100, 1), z = rbinom(100, 1, 0.4),
                    x1 = rnorm(100))
   parts <- mc_parse_formula(y ~ mc(z, Pi) + x1, df)
-  expect_named(parts, c("y", "z_hat", "x", "Pi", "K"))
+  expect_named(parts, c("y", "z_hat", "x", "Pi", "K",
+                        "z_levels", "x_levels"))
   expect_equal(parts$K, 2L)
   expect_equal(parts$z_hat, df$z)
   expect_equal(ncol(parts$x), 2L)
@@ -148,7 +149,10 @@ test_that("mc_parse_formula() returns the mcglm() inputs", {
                  method = "cs")
   fit_m <- mcglm(parts$y, z_hat = parts$z_hat, x = parts$x,
                  family = "poisson", method = "cs", Pi = parts$Pi)
-  expect_equal(fit_f$coefficients$cs, fit_m$coefficients$cs)
+  # same estimates; names differ by design (formula fits use
+  # model.matrix names, the matrix interface keeps alpha0, alpha1, ...)
+  expect_equal(unname(fit_f$coefficients$cs),
+               unname(fit_m$coefficients$cs))
 })
 
 test_that("marginaleffects works on formula-interface mcglm fits", {
@@ -222,4 +226,95 @@ test_that("predict(newdata) works for formula and matrix fits", {
   })
   expect_equal(predict(f_local, newdata = nd, type = "link"), pr,
                tolerance = 1e-8)
+})
+
+# ---- factor handling: names, safe predict, empty-category guards ------
+
+test_that("factor inputs give informative coefficient names", {
+  set.seed(31)
+  n  <- 600
+  Pi <- matrix(c(0.9, 0.1, 0.15, 0.85), 2, 2)
+  z  <- rbinom(n, 1, 0.4)
+  x2 <- factor(sample(c("a", "b", "c"), n, TRUE))
+  y  <- rpois(n, exp(0.5 * z - 0.3 + 0.2 * (x2 == "b")))
+  df <- data.frame(y = y,
+                   z = factor(z, levels = 0:1, labels = c("no", "yes")),
+                   x1 = rnorm(n), x2 = x2)
+  fit <- mcglm(y ~ mc(z, Pi) + x1 + x2, data = df, family = "poisson",
+               method = "cs")
+  expect_named(coef(fit),
+               c("gamma", "(Intercept)", "x1", "x2b", "x2c"))
+  expect_equal(fit$z_levels, c("no", "yes"))
+  expect_output(print(summary(fit)), "no \\(baseline\\), yes")
+
+  # K = 3 factor: gammas labelled by non-baseline levels
+  Pi3 <- matrix(c(0.90, 0.06, 0.04, 0.08, 0.85, 0.07, 0.05, 0.05, 0.90),
+                3, 3)
+  z3  <- sample(0:2, n, TRUE)
+  zh3 <- vapply(z3, function(v) sample(0:2, 1, prob = Pi3[, v + 1]), 0L)
+  y3  <- rpois(n, exp(0.2 + c(0, 0.6, -0.4)[z3 + 1]))
+  df3 <- data.frame(y = y3,
+                    z = factor(zh3, levels = 0:2,
+                               labels = c("low", "mid", "high")),
+                    x1 = rnorm(n))
+  fit3 <- mcglm(y ~ mc(z, Pi3) + x1, data = df3, family = "poisson",
+                method = "cs", pi_z = rep(1/3, 3))
+  expect_named(coef(fit3),
+               c("gamma_mid", "gamma_high", "(Intercept)", "x1"))
+})
+
+test_that("predict(newdata) recodes factors against training levels", {
+  set.seed(32)
+  n  <- 800
+  Pi3 <- matrix(c(0.90, 0.06, 0.04, 0.08, 0.85, 0.07, 0.05, 0.05, 0.90),
+                3, 3)
+  z  <- sample(0:2, n, TRUE)
+  zh <- vapply(z, function(v) sample(0:2, 1, prob = Pi3[, v + 1]), 0L)
+  y  <- rpois(n, exp(0.2 + c(0, 0.6, -0.4)[z + 1]))
+  df <- data.frame(y = y,
+                   z = factor(zh, levels = 0:2,
+                              labels = c("low", "mid", "high")),
+                   x1 = rnorm(n))
+  fit <- mcglm(y ~ mc(z, Pi3) + x1, data = df, family = "poisson",
+               method = "cs", pi_z = rep(1/3, 3))
+  ref <- predict(fit,
+                 newdata = data.frame(
+                   z = factor(c("low", "mid", "high"),
+                              levels = c("low", "mid", "high")),
+                   x1 = 0),
+                 type = "link")
+
+  # dropped/reordered levels in newdata must NOT change the mapping
+  nd_drop <- data.frame(z = factor(c("mid", "high")), x1 = 0)
+  expect_equal(predict(fit, newdata = nd_drop, type = "link"),
+               ref[2:3])
+  # character input is recoded the same way
+  nd_chr <- data.frame(z = c("high", "low"), x1 = 0,
+                       stringsAsFactors = FALSE)
+  expect_equal(predict(fit, newdata = nd_chr, type = "link"),
+               ref[c(3, 1)])
+  # unseen level errors instead of silently mis-mapping
+  expect_error(predict(fit, newdata = data.frame(z = "huge", x1 = 0)),
+               "not present in the training levels")
+})
+
+test_that("empty declared category fails with an informative error", {
+  set.seed(33)
+  n  <- 400
+  Pi3 <- matrix(c(0.90, 0.06, 0.04, 0.08, 0.85, 0.07, 0.05, 0.05, 0.90),
+                3, 3)
+  x1 <- rnorm(n)
+  z  <- sample(0:1, n, TRUE)   # category 2 ("c") never observed
+  y  <- rpois(n, exp(0.2 + 0.5 * z))
+  df <- data.frame(y = y,
+                   z = factor(c("a", "b")[z + 1], levels = c("a", "b", "c")),
+                   x1 = x1)
+  expect_error(
+    mcglm(y ~ mc(z, Pi3) + x1, data = df, family = "poisson",
+          method = "cs", pi_z = c(0.5, 0.5, 0)),
+    "'c' \\(code 2\\).*not identifiable")
+  # pi_z auto-estimation refuses to fabricate a prevalence
+  expect_error(
+    mismeasured:::.mcglm_estimate_pi_z(z, Pi3),
+    "no observations")
 })

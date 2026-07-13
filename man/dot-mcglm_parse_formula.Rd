@@ -4,7 +4,14 @@
 \alias{.mcglm_parse_formula}
 \title{Parse mcglm formula extracting mc() term}
 \usage{
-.mcglm_parse_formula(formula, data, env, require_y = TRUE)
+.mcglm_parse_formula(
+  formula,
+  data,
+  env,
+  require_y = TRUE,
+  z_levels = NULL,
+  x_levels = NULL
+)
 }
 \description{
 Parse mcglm formula extracting mc() term

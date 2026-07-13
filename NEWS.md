@@ -2,6 +2,29 @@
 
 ## New features
 
+* **Safe factor handling.** Fitted `mcglm` objects store the factor
+  levels of the `mc()` variable (`$z_levels`) and of the covariates
+  (`$x_levels`); `predict(newdata)` recodes new data *against the
+  training levels* (like `predict.lm`'s `xlev`), so subset or reordered
+  factor levels in `newdata` no longer silently mis-map categories, and
+  unseen levels raise an error. `mc_parse_formula()` gains `z_levels`
+  and `x_levels` arguments for the same purpose.
+* **Informative coefficient names for formula fits**: alphas carry the
+  `model.matrix` column names (`(Intercept)`, `x1`, `x2b`, ...) and,
+  for K > 2 factor `mc()` variables, gammas are labelled by level
+  (`gamma_mid`, `gamma_high`). The matrix interface keeps the
+  positional `gamma1`/`alpha0` names. `summary()` prints the assumed
+  category order (`z categories (Pi assumed in this order): ...`).
+* **Empty-category guard**: a category declared in `Pi` (or `K`) with
+  no observations in `z_hat` now fails immediately with an actionable
+  error (its gamma is not identifiable and the drift correction depends
+  on it) instead of producing an `NA` coefficient, a singular-matrix
+  warning and a cryptic downstream failure. `pi_z` auto-estimation
+  likewise refuses to fabricate a prevalence for an empty proxy
+  category, and warns when the Pi-inversion needs material clamping.
+* The rows/columns of the `mc()` matrix are documented to follow the
+  factor level order (`?mc`, section "Category order").
+
 * **Ecosystem integration for `mcglm` fits.** `estfun()` and `bread()`
   methods are registered on the **sandwich** generics (note the
   corrected-score bread `(I + M)^{-1}` is not symmetric — see

@@ -89,19 +89,19 @@ test_that("mcglm matrix interface validates z_hat coding", {
     "integer"
   )
 
-  # K comes from Pi when a category is unobserved
+  # K comes from Pi when a category is unobserved -- and since 0.7.0 an
+  # empty declared category is an informative error (its gamma is not
+  # identifiable) instead of an NA coefficient + singular vcov. The
+  # error mentioning K = 3 pins that K came from Pi, not from
+  # length(unique(z_hat)) which would give 2 and misindex categories.
   Pi3 <- matrix(c(0.9, 0.05, 0.05,
                   0.05, 0.9, 0.05,
                   0.05, 0.05, 0.9), 3, 3)
   z3 <- ifelse(z == 1, 2L, 0L)  # category 1 unobserved
-  # The all-zero dummy makes the naive vcov singular; mcglm warns about
-  # that (correctly) -- the pin here is that K comes from Pi, not from
-  # length(unique(z_hat)) which would give 2 and misindex categories.
-  suppressWarnings(
-    fit <- mcglm(y, z_hat = z3, x = x, family = gaussian(), Pi = Pi3,
-                 method = "naive")
-  )
-  expect_identical(fit$K, 3L)
+  expect_error(
+    mcglm(y, z_hat = z3, x = x, family = gaussian(), Pi = Pi3,
+          method = "naive"),
+    "K = 3")
 })
 
 test_that("non-canonical links are rejected", {

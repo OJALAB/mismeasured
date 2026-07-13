@@ -96,7 +96,8 @@ test_that("cs_akn vcov is positive semidefinite and SE is finite", {
   expect_true(min(ev) > -1e-10)
   se <- sqrt(diag(V))
   expect_true(all(is.finite(se)))
-  expect_named(se, c("gamma", "alpha0", "alpha1"))
+  # formula fits carry model.matrix names for the alphas since 0.7.0
+  expect_named(se, c("gamma", "(Intercept)", "x1"))
 })
 
 test_that("cs_akn matrix-interface accepts only Pi (no pi_z required)", {

@@ -13,19 +13,36 @@
 #' @keywords internal
 .mcglm_estimate_pi_z <- function(z_hat, Pi) {
   K <- nrow(Pi)
+  # Coding errors must surface as such, not as empty-category errors
+  if (any(z_hat < 0L) || any(z_hat >= K))
+    stop("z_hat must be coded 0, ..., K-1 (K = ", K, "); got values in [",
+         min(z_hat), ", ", max(z_hat), "].", call. = FALSE)
   # Observed proportions
   tab <- tabulate(z_hat + 1L, nbins = K)
+  if (any(tab == 0L))
+    stop("Cannot estimate pi_z: proxy category ",
+         paste(which(tab == 0L) - 1L, collapse = ", "),
+         " has no observations in z_hat (K = ", K, " from Pi). ",
+         "Clamping would fabricate a prevalence for it. Supply pi_z ",
+         "directly, or collapse Pi to the observed categories.",
+         call. = FALSE)
   pi_obs <- tab / sum(tab)
   # Invert: pi_z = Pi^{-1} %*% pi_obs
-  pi_z <- tryCatch(
+  pi_raw <- tryCatch(
     as.numeric(solve(Pi) %*% pi_obs),
     error = function(e)
       stop("Cannot estimate pi_z: the misclassification matrix Pi is ",
            "singular. Supply pi_z directly.", call. = FALSE)
   )
   # Clamp to valid range (two-sided) and renormalize
-  pi_z <- pmin(pmax(pi_z, 0.01), 0.99)
+  pi_z <- pmin(pmax(pi_raw, 0.01), 0.99)
   pi_z <- pi_z / sum(pi_z)
+  if (max(abs(pi_z - pi_raw)) > 0.01)
+    warning("Estimated pi_z required clamping to [0.01, 0.99]: ",
+            "Pi-inversion gave (", paste(round(pi_raw, 4), collapse = ", "),
+            "), using (", paste(round(pi_z, 4), collapse = ", "), "). ",
+            "The observed proxy frequencies are barely consistent with ",
+            "Pi; consider supplying pi_z directly.", call. = FALSE)
   if (K == 2L) return(pi_z[2])  # scalar for binary case
   pi_z
 }

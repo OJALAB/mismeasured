@@ -21,6 +21,18 @@ An object of class \code{"mc_term"} (used internally by
 Use inside a \code{\link{simex}} formula to mark a discrete covariate
 as subject to misclassification.
 }
+\section{Category order and \code{matrix}}{
+
+The rows and columns of \code{matrix} follow the \emph{factor level
+order} of \code{variable} (for integer-coded variables, the codes
+\code{0, ..., K-1}); the first level is the baseline, category 0.
+This alignment cannot be checked automatically: if you reorder the
+factor levels, you must permute the rows and columns of \code{matrix}
+accordingly, otherwise the correction is silently applied to the
+wrong categories. \code{summary()} of an \code{\link{mcglm}} fit
+prints the assumed category order for inspection.
+}
+
 \examples{
 \dontrun{
 Pi <- matrix(c(0.9, 0.1, 0.15, 0.85), 2, 2)

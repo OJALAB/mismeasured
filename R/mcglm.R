@@ -321,9 +321,16 @@ mcglm <- function(formula, data = NULL, family = "poisson",
     x     <- parsed$x
     if (is.null(Pi) && !is.null(parsed$Pi)) Pi <- parsed$Pi
     if (is.null(K))  K  <- parsed$K
+    z_levels <- parsed$z_levels
+    x_levels <- parsed$x_levels
+    x_names  <- colnames(parsed$x)
   } else {
-    # Matrix interface: first arg is y
+    # Matrix interface: first arg is y. Coefficients keep the positional
+    # gamma/alpha names; no factor-level bookkeeping applies.
     y <- formula
+    z_levels <- NULL
+    x_levels <- NULL
+    x_names  <- NULL
   }
 
   # --- Derive p01/p10 from 2x2 Pi ---
@@ -353,9 +360,12 @@ mcglm <- function(formula, data = NULL, family = "poisson",
                     vcov_corrected = vcov_corrected,
                     weights = weights, J = J,
                     homoskedastic = homoskedastic,
-                    optim_control = optim_control)
-  out$call    <- cl
-  out$formula <- formula_obj
+                    optim_control = optim_control,
+                    z_levels = z_levels, x_names = x_names)
+  out$call     <- cl
+  out$formula  <- formula_obj
+  out$z_levels <- z_levels
+  out$x_levels <- x_levels
   out
 }
 
@@ -375,7 +385,8 @@ mcglm <- function(formula, data = NULL, family = "poisson",
 
 #' Parse mcglm formula extracting mc() term
 #' @keywords internal
-.mcglm_parse_formula <- function(formula, data, env, require_y = TRUE) {
+.mcglm_parse_formula <- function(formula, data, env, require_y = TRUE,
+                                 z_levels = NULL, x_levels = NULL) {
   if (is.null(data))
     stop("'data' argument is required when using the formula interface.")
 
@@ -437,15 +448,36 @@ mcglm <- function(formula, data = NULL, family = "poisson",
 
   Pi <- mc_info$Pi
 
-  # Convert z to 0-based integer
-  if (is.factor(z_var)) {
-    z_hat <- as.integer(z_var) - 1L
+  # Convert z to 0-based integer. When reference levels are supplied
+  # (prediction on new data), recode AGAINST THEM: a factor in new data
+  # carries its own level set/order, and coding by that would silently
+  # mis-map categories.
+  if (is.factor(z_var) || is.character(z_var)) {
+    if (is.null(z_levels)) {
+      if (is.character(z_var)) z_var <- factor(z_var)
+      z_levels <- levels(z_var)
+      z_hat <- as.integer(z_var) - 1L
+    } else {
+      idx <- match(as.character(z_var), z_levels)
+      if (anyNA(idx))
+        stop("mc() variable '", mc_info$variable, "' has level(s) ",
+             paste0("'", unique(as.character(z_var)[is.na(idx)]), "'",
+                    collapse = ", "),
+             " not present in the training levels (",
+             paste(z_levels, collapse = ", "), ").", call. = FALSE)
+      z_hat <- idx - 1L
+    }
   } else {
+    if (!is.null(z_levels))
+      z_levels <- NULL  # integer coding: levels do not apply
     z_hat <- as.integer(z_var)
   }
 
-  # Determine K
-  K <- if (!is.null(Pi)) nrow(Pi) else length(unique(z_hat))
+  # Determine K (reference levels, when supplied, fix K regardless of
+  # which categories happen to appear in this particular data set)
+  K <- if (!is.null(Pi)) nrow(Pi)
+       else if (!is.null(z_levels)) length(z_levels)
+       else length(unique(z_hat))
 
   # Validate Pi when provided
   if (!is.null(Pi)) {
@@ -457,18 +489,31 @@ mcglm <- function(formula, data = NULL, family = "poisson",
            paste(round(cs, 4), collapse = ", "), ").")
   }
 
-  # Build x matrix from remaining terms
+  # Build x matrix from remaining terms; x_levels (when supplied) recode
+  # factor covariates in new data against the training levels, exactly
+  # like predict.lm()'s xlev mechanism
   if (length(other_terms) == 0) {
     # No other covariates: just intercept
     x <- matrix(1, nrow = nrow(data), ncol = 1)
+    x_levels_out <- list()
   } else {
     rhs_formula <- as.formula(paste("~", paste(other_terms, collapse = " + ")),
                               env = env)
-    x <- model.matrix(rhs_formula, data = data)
+    mf <- model.frame(rhs_formula, data = data, xlev = x_levels,
+                      na.action = na.pass)
+    if (anyNA(mf))
+      stop("Covariates contain missing values after applying the ",
+           "training factor levels; check for NA values or factor ",
+           "levels not seen during fitting.", call. = FALSE)
+    x <- model.matrix(rhs_formula, data = mf)
+    x_levels_out <- .getXlevels(attr(mf, "terms"), mf)
+    if (is.null(x_levels_out)) x_levels_out <- list()
   }
 
   list(y = if (is.null(y)) NULL else as.numeric(y),
-       z_hat = z_hat, x = x, Pi = Pi, K = K)
+       z_hat = z_hat, x = x, Pi = Pi, K = K,
+       z_levels = z_levels,
+       x_levels = if (is.null(x_levels)) x_levels_out else x_levels)
 }
 
 
@@ -486,7 +531,9 @@ mcglm <- function(formula, data = NULL, family = "poisson",
                        weights = NULL,
                        J = NULL,
                        homoskedastic = TRUE,
-                       optim_control = list()) {
+                       optim_control = list(),
+                       z_levels = NULL,
+                       x_names = NULL) {
 
   # --- input validation ---
   y     <- as.numeric(y)
@@ -544,6 +591,28 @@ mcglm <- function(formula, data = NULL, family = "poisson",
          min(z_hat), ", ", max(z_hat), "]. 1-based coding silently ",
          "distorts binary estimates and indexes out of bounds for K > 2.",
          call. = FALSE)
+
+  # A category declared in Pi/K but absent from z_hat makes its gamma
+  # non-identifiable (empty dummy column -> NA), and the drift terms of
+  # bca/bcm/cs depend on that gamma, so the whole correction is
+  # infeasible. Fail here with the actual cause instead of the
+  # downstream singular-matrix / non-finite errors.
+  z_counts <- tabulate(z_hat + 1L, nbins = K)
+  if (any(z_counts == 0L)) {
+    empty <- which(z_counts == 0L) - 1L
+    lab <- if (!is.null(z_levels) && length(z_levels) == K) {
+      paste0("'", z_levels[empty + 1L], "' (code ", empty, ")")
+    } else {
+      paste0("code ", empty)
+    }
+    stop("Category ", paste(lab, collapse = ", "), " of z_hat has no ",
+         "observations, but K = ", K, " (from Pi or the K argument). ",
+         "Its gamma coefficient is not identifiable and the ",
+         "misclassification correction depends on it. Either collapse ",
+         "Pi to the observed categories (drop the row and column, then ",
+         "renormalize the columns to sum to 1) or check the factor ",
+         "level coding of z_hat.", call. = FALSE)
+  }
 
   # --- validate misclassification parameters ---
   needs_correction <- any(method %in% c("bca", "bcm", "cs", "cs_akn", "onestep"))
@@ -699,11 +768,23 @@ mcglm <- function(formula, data = NULL, family = "poisson",
       }
       nms[offset + s + seq_len(r)] <- paste0("y", jj, ":alpha", seq_len(r) - 1)
     }
-  } else if (is_binary) {
-    nms <- c("gamma", paste0("alpha", seq_len(ncol(x)) - 1))
   } else {
-    nms <- c(paste0("gamma", seq_len(K - 1)),
-             paste0("alpha", seq_len(ncol(x)) - 1))
+    # Formula fits with factor inputs get informative names: gammas
+    # labelled by the (non-baseline) factor levels of the mc() variable,
+    # alphas by the model.matrix column names. Integer z / matrix
+    # interface keeps the positional gamma/alpha names.
+    alpha_nms <- if (!is.null(x_names) && length(x_names) == ncol(x)) {
+      x_names
+    } else {
+      paste0("alpha", seq_len(ncol(x)) - 1)
+    }
+    gamma_nms <- if (!is_binary && !is.null(z_levels) &&
+                     length(z_levels) == K) {
+      paste0("gamma_", z_levels[-1])
+    } else {
+      if (is_binary) "gamma" else paste0("gamma", seq_len(K - 1))
+    }
+    nms <- c(gamma_nms, alpha_nms)
   }
   results <- lapply(results, function(v) {
     v <- as.numeric(v)
@@ -930,6 +1011,7 @@ summary.mcglm <- function(object, ...) {
     p       = object$p,
     K       = object$K,
     method  = object$method,
+    z_levels = object$z_levels,
     coefficients = list(),
     deviance     = if (!is.null(object$naive_fit)) object$naive_fit$deviance,
     df.residual  = if (!is.null(object$naive_fit)) object$naive_fit$df.residual,
@@ -967,6 +1049,10 @@ print.summary.mcglm <- function(x,
   cat("\nFamily: ", x$family,
       "  |  n = ", x$n, ", K = ", x$K, ", p = ", x$p, "\n", sep = "")
   cat("Methods: ", paste(x$method, collapse = ", "), "\n", sep = "")
+  if (!is.null(x$z_levels))
+    cat("z categories (Pi assumed in this order): ",
+        paste0(x$z_levels, c(" (baseline)", rep("", length(x$z_levels) - 1L)),
+               collapse = ", "), "\n", sep = "")
 
   for (nm in x$method) {
     cat("\n--- ", toupper(nm), " ---\n", sep = "")
@@ -1099,10 +1185,12 @@ predict.mcglm <- function(object, newdata = NULL,
            "newdata = list(z_hat = , x = ).")
     parts <- .mcglm_parse_formula(object$formula, newdata,
                                   environment(object$formula),
-                                  require_y = FALSE)
-    if (parts$K != object$K && length(unique(parts$z_hat)) > object$K)
-      stop("newdata contains more categories than the fitted model (K = ",
-           object$K, ").")
+                                  require_y = FALSE,
+                                  z_levels = object$z_levels,
+                                  x_levels = object$x_levels)
+    if (any(parts$z_hat < 0L) || any(parts$z_hat >= object$K))
+      stop("newdata contains categories outside the fitted model ",
+           "(K = ", object$K, ").")
     xi <- .mcglm_build_xi_hat(parts$z_hat, parts$x, object$K)
   } else if (is.list(newdata) &&
              all(c("z_hat", "x") %in% names(newdata))) {

@@ -60,6 +60,16 @@ me <- function(variable, sd, type = "classical", mean = 0) {
 #'   \code{matrix[j, l] = P(observed = j | true = l)}. Columns must sum to 1.
 #'   Can be a bare name of an object in the calling environment.
 #'
+#' @section Category order and \code{matrix}:
+#' The rows and columns of \code{matrix} follow the \emph{factor level
+#' order} of \code{variable} (for integer-coded variables, the codes
+#' \code{0, ..., K-1}); the first level is the baseline, category 0.
+#' This alignment cannot be checked automatically: if you reorder the
+#' factor levels, you must permute the rows and columns of \code{matrix}
+#' accordingly, otherwise the correction is silently applied to the
+#' wrong categories. \code{summary()} of an \code{\link{mcglm}} fit
+#' prints the assumed category order for inspection.
+#'
 #' @return An object of class \code{"mc_term"} (used internally by
 #'   \code{\link{simex}}).
 #'
