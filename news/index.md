@@ -4,6 +4,40 @@
 
 ### New features
 
+- **Safe factor handling.** Fitted `mcglm` objects store the factor
+  levels of the
+  [`mc()`](https://ojalab.github.io/mismeasured/reference/mc.md)
+  variable (`$z_levels`) and of the covariates (`$x_levels`);
+  `predict(newdata)` recodes new data *against the training levels*
+  (like `predict.lm`’s `xlev`), so subset or reordered factor levels in
+  `newdata` no longer silently mis-map categories, and unseen levels
+  raise an error.
+  [`mc_parse_formula()`](https://ojalab.github.io/mismeasured/reference/mc_parse_formula.md)
+  gains `z_levels` and `x_levels` arguments for the same purpose.
+
+- **Informative coefficient names for formula fits**: alphas carry the
+  `model.matrix` column names (`(Intercept)`, `x1`, `x2b`, …) and, for K
+  \> 2 factor
+  [`mc()`](https://ojalab.github.io/mismeasured/reference/mc.md)
+  variables, gammas are labelled by level (`gamma_mid`, `gamma_high`).
+  The matrix interface keeps the positional `gamma1`/`alpha0` names.
+  [`summary()`](https://rdrr.io/r/base/summary.html) prints the assumed
+  category order (`z categories (Pi assumed in this order): ...`).
+
+- **Empty-category guard**: a category declared in `Pi` (or `K`) with no
+  observations in `z_hat` now fails immediately with an actionable error
+  (its gamma is not identifiable and the drift correction depends on it)
+  instead of producing an `NA` coefficient, a singular-matrix warning
+  and a cryptic downstream failure. `pi_z` auto-estimation likewise
+  refuses to fabricate a prevalence for an empty proxy category, and
+  warns when the Pi-inversion needs material clamping.
+
+- The rows/columns of the
+  [`mc()`](https://ojalab.github.io/mismeasured/reference/mc.md) matrix
+  are documented to follow the factor level order
+  ([`?mc`](https://ojalab.github.io/mismeasured/reference/mc.md),
+  section “Category order”).
+
 - **Ecosystem integration for `mcglm` fits.** `estfun()` and `bread()`
   methods are registered on the **sandwich** generics (note the
   corrected-score bread `(I + M)^{-1}` is not symmetric — see
@@ -16,16 +50,19 @@
   works out of the box, and **marginaleffects** (`avg_comparisons()`,
   `avg_slopes()`, …) is supported for formula-interface fits via
   registered `get_*`/`set_coef` methods.
+
 - **[`predict.mcglm()`](https://ojalab.github.io/mismeasured/reference/predict.mcglm.md)
   gains `newdata`**: a data frame for formula fits (pass the true
   category to predict at it, e.g. on a validation or probability sample)
   or `list(z_hat = , x = )` for matrix fits.
+
 - **[`mc_parse_formula()`](https://ojalab.github.io/mismeasured/reference/mc_parse_formula.md)
   exported**: public access to the
   [`mc()`](https://ojalab.github.io/mismeasured/reference/mc.md) formula
   parsing used by
   [`mcglm()`](https://ojalab.github.io/mismeasured/reference/mcglm.md),
   for packages building on mismeasured.
+
 - The fitted `mcglm` object now stores the misclassification parameters
   (`$misclass`: `c1`, `c2`, `p01`, `p10`, `pi_z`, `Pi`).
 

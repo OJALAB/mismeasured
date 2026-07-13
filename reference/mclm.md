@@ -245,36 +245,37 @@ summary(fit)
 #> 
 #> Family: gaussian  |  n = 1000, K = 2, p = 3
 #> Methods: naive, bca, bcm, cs
+#> z categories (Pi assumed in this order): 0 (baseline), 1
 #> 
 #> --- NAIVE ---
-#>        Estimate Std. Error z value Pr(>|z|)    
-#> gamma   0.61931    0.03542   17.48   <2e-16 ***
-#> alpha0 -0.44109    0.02203  -20.03   <2e-16 ***
-#> alpha1  0.69747    0.01758   39.66   <2e-16 ***
+#>             Estimate Std. Error z value Pr(>|z|)    
+#> gamma        0.61931    0.03542   17.48   <2e-16 ***
+#> (Intercept) -0.44109    0.02203  -20.03   <2e-16 ***
+#> x1           0.69747    0.01758   39.66   <2e-16 ***
 #> ---
 #> Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 #> 
 #> --- BCA ---
-#>        Estimate Std. Error z value Pr(>|z|)    
-#> gamma   0.75130    0.03574   21.02   <2e-16 ***
-#> alpha0 -0.48301    0.02210  -21.86   <2e-16 ***
-#> alpha1  0.69865    0.01780   39.25   <2e-16 ***
+#>             Estimate Std. Error z value Pr(>|z|)    
+#> gamma        0.75130    0.03574   21.02   <2e-16 ***
+#> (Intercept) -0.48301    0.02210  -21.86   <2e-16 ***
+#> x1           0.69865    0.01780   39.25   <2e-16 ***
 #> ---
 #> Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 #> 
 #> --- BCM ---
-#>        Estimate Std. Error z value Pr(>|z|)    
-#> gamma   0.78706    0.03593   21.91   <2e-16 ***
-#> alpha0 -0.49436    0.02214  -22.33   <2e-16 ***
-#> alpha1  0.69897    0.01790   39.05   <2e-16 ***
+#>             Estimate Std. Error z value Pr(>|z|)    
+#> gamma        0.78706    0.03593   21.91   <2e-16 ***
+#> (Intercept) -0.49436    0.02214  -22.33   <2e-16 ***
+#> x1           0.69897    0.01790   39.05   <2e-16 ***
 #> ---
 #> Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 #> 
 #> --- CS ---
-#>        Estimate Std. Error z value Pr(>|z|)    
-#> gamma   0.78706    0.04516   17.43   <2e-16 ***
-#> alpha0 -0.49436    0.02407  -20.54   <2e-16 ***
-#> alpha1  0.69897    0.01786   39.13   <2e-16 ***
+#>             Estimate Std. Error z value Pr(>|z|)    
+#> gamma        0.78706    0.04516   17.43   <2e-16 ***
+#> (Intercept) -0.49436    0.02407  -20.54   <2e-16 ***
+#> x1           0.69897    0.01786   39.13   <2e-16 ***
 #> ---
 #> Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 #> 
@@ -282,8 +283,8 @@ summary(fit)
 #> AIC (naive): 1639
 #> 
 #> Bias correction (difference from naive):
-#>         bca        bcm        cs       
-#> gamma    0.131998   0.167752   0.167752
-#> alpha0  -0.041921  -0.053276  -0.053276
-#> alpha1   0.001178   0.001498   0.001498
+#>              bca        bcm        cs       
+#> gamma         0.131998   0.167752   0.167752
+#> (Intercept)  -0.041921  -0.053276  -0.053276
+#> x1            0.001178   0.001498   0.001498
 ```

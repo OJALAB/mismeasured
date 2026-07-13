@@ -71,6 +71,19 @@ Can be a bare name of an object in the calling environment.</p></dd>
   <code><a href="simex.html">simex</a></code>).</p>
     </div>
     <div class="section level2">
+    <h2 id="category-order-and-matrix">Category order and <code>matrix</code><a class="anchor" aria-label="anchor" href="#category-order-and-matrix"></a></h2>
+
+
+<p>The rows and columns of <code>matrix</code> follow the <em>factor level
+order</em> of <code>variable</code> (for integer-coded variables, the codes
+<code>0, ..., K-1</code>); the first level is the baseline, category 0.
+This alignment cannot be checked automatically: if you reorder the
+factor levels, you must permute the rows and columns of <code>matrix</code>
+accordingly, otherwise the correction is silently applied to the
+wrong categories. <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> of an <code><a href="mcglm.html">mcglm</a></code> fit
+prints the assumed category order for inspection.</p>
+    </div>
+    <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
     <div class="dont-index"><p><code><a href="me.html">me</a></code>, <code><a href="simex.html">simex</a></code></p></div>
     </div>

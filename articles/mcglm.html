@@ -62,7 +62,7 @@
                         <h4 data-toc-skip class="author">Maciej
 Beresewicz, Michal Warmuz</h4>
             
-            <h4 data-toc-skip class="date">2026-07-12</h4>
+            <h4 data-toc-skip class="date">2026-07-13</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/OJALAB/mismeasured/blob/main/vignettes/mcglm.Rmd" class="external-link"><code>vignettes/mcglm.Rmd</code></a></small>
       <div class="d-none name"><code>mcglm.Rmd</code></div>
@@ -366,10 +366,10 @@ uncertainty from estimating
 <span><span class="co">#&gt; Methods: naive, bca, bcm, cs, cs_akn</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Coefficients:</span></span>
-<span><span class="co">#&gt;         NAIVE    BCA      BCM      CS       CS_AKN </span></span>
-<span><span class="co">#&gt; gamma    0.6803   0.8182   0.8548   0.8554   0.8559</span></span>
-<span><span class="co">#&gt; alpha0  -0.4362  -0.5043  -0.5223  -0.5265  -0.5253</span></span>
-<span><span class="co">#&gt; alpha1   0.6906   0.6885   0.6879   0.6880   0.6849</span></span>
+<span><span class="co">#&gt;              NAIVE    BCA      BCM      CS       CS_AKN </span></span>
+<span><span class="co">#&gt; gamma         0.6803   0.8182   0.8548   0.8554   0.8559</span></span>
+<span><span class="co">#&gt; (Intercept)  -0.4362  -0.5043  -0.5223  -0.5265  -0.5253</span></span>
+<span><span class="co">#&gt; x1            0.6906   0.6885   0.6879   0.6880   0.6849</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Degrees of Freedom: 5000 Total (i.e. Null);  4997 Residual</span></span>
 <span><span class="co">#&gt; Null Deviance:     9333 </span></span>
@@ -387,44 +387,45 @@ is biased toward zero; all four corrections recover
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Family: poisson  |  n = 5000, K = 2, p = 3</span></span>
 <span><span class="co">#&gt; Methods: naive, bca, bcm, cs, cs_akn</span></span>
+<span><span class="co">#&gt; z categories (Pi assumed in this order): 0 (baseline), 1</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; --- NAIVE ---</span></span>
-<span><span class="co">#&gt;        Estimate Std. Error z value Pr(&gt;|z|)    </span></span>
-<span><span class="co">#&gt; gamma   0.68035    0.02846   23.90   &lt;2e-16 ***</span></span>
-<span><span class="co">#&gt; alpha0 -0.43620    0.02370  -18.41   &lt;2e-16 ***</span></span>
-<span><span class="co">#&gt; alpha1  0.69055    0.01553   44.46   &lt;2e-16 ***</span></span>
+<span><span class="co">#&gt;             Estimate Std. Error z value Pr(&gt;|z|)    </span></span>
+<span><span class="co">#&gt; gamma        0.68035    0.02846   23.90   &lt;2e-16 ***</span></span>
+<span><span class="co">#&gt; (Intercept) -0.43620    0.02370  -18.41   &lt;2e-16 ***</span></span>
+<span><span class="co">#&gt; x1           0.69055    0.01553   44.46   &lt;2e-16 ***</span></span>
 <span><span class="co">#&gt; ---</span></span>
 <span><span class="co">#&gt; Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; --- BCA ---</span></span>
-<span><span class="co">#&gt;        Estimate Std. Error z value Pr(&gt;|z|)    </span></span>
-<span><span class="co">#&gt; gamma   0.81819    0.02908   28.14   &lt;2e-16 ***</span></span>
-<span><span class="co">#&gt; alpha0 -0.50429    0.02517  -20.04   &lt;2e-16 ***</span></span>
-<span><span class="co">#&gt; alpha1  0.68848    0.01568   43.90   &lt;2e-16 ***</span></span>
+<span><span class="co">#&gt;             Estimate Std. Error z value Pr(&gt;|z|)    </span></span>
+<span><span class="co">#&gt; gamma        0.81819    0.02908   28.14   &lt;2e-16 ***</span></span>
+<span><span class="co">#&gt; (Intercept) -0.50429    0.02517  -20.04   &lt;2e-16 ***</span></span>
+<span><span class="co">#&gt; x1           0.68848    0.01568   43.90   &lt;2e-16 ***</span></span>
 <span><span class="co">#&gt; ---</span></span>
 <span><span class="co">#&gt; Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; --- BCM ---</span></span>
-<span><span class="co">#&gt;        Estimate Std. Error z value Pr(&gt;|z|)    </span></span>
-<span><span class="co">#&gt; gamma   0.85477    0.02932   29.15   &lt;2e-16 ***</span></span>
-<span><span class="co">#&gt; alpha0 -0.52234    0.02560  -20.41   &lt;2e-16 ***</span></span>
-<span><span class="co">#&gt; alpha1  0.68790    0.01574   43.70   &lt;2e-16 ***</span></span>
+<span><span class="co">#&gt;             Estimate Std. Error z value Pr(&gt;|z|)    </span></span>
+<span><span class="co">#&gt; gamma        0.85477    0.02932   29.15   &lt;2e-16 ***</span></span>
+<span><span class="co">#&gt; (Intercept) -0.52234    0.02560  -20.41   &lt;2e-16 ***</span></span>
+<span><span class="co">#&gt; x1           0.68790    0.01574   43.70   &lt;2e-16 ***</span></span>
 <span><span class="co">#&gt; ---</span></span>
 <span><span class="co">#&gt; Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; --- CS ---</span></span>
-<span><span class="co">#&gt;        Estimate Std. Error z value Pr(&gt;|z|)    </span></span>
-<span><span class="co">#&gt; gamma   0.85535    0.03635   23.53   &lt;2e-16 ***</span></span>
-<span><span class="co">#&gt; alpha0 -0.52649    0.02790  -18.87   &lt;2e-16 ***</span></span>
-<span><span class="co">#&gt; alpha1  0.68795    0.01594   43.16   &lt;2e-16 ***</span></span>
+<span><span class="co">#&gt;             Estimate Std. Error z value Pr(&gt;|z|)    </span></span>
+<span><span class="co">#&gt; gamma        0.85535    0.03635   23.53   &lt;2e-16 ***</span></span>
+<span><span class="co">#&gt; (Intercept) -0.52649    0.02790  -18.87   &lt;2e-16 ***</span></span>
+<span><span class="co">#&gt; x1           0.68795    0.01594   43.16   &lt;2e-16 ***</span></span>
 <span><span class="co">#&gt; ---</span></span>
 <span><span class="co">#&gt; Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; --- CS_AKN ---</span></span>
-<span><span class="co">#&gt;        Estimate Std. Error z value Pr(&gt;|z|)    </span></span>
-<span><span class="co">#&gt; gamma   0.85593    0.03639   23.52   &lt;2e-16 ***</span></span>
-<span><span class="co">#&gt; alpha0 -0.52533    0.02806  -18.72   &lt;2e-16 ***</span></span>
-<span><span class="co">#&gt; alpha1  0.68490    0.01669   41.04   &lt;2e-16 ***</span></span>
+<span><span class="co">#&gt;             Estimate Std. Error z value Pr(&gt;|z|)    </span></span>
+<span><span class="co">#&gt; gamma        0.85593    0.03639   23.52   &lt;2e-16 ***</span></span>
+<span><span class="co">#&gt; (Intercept) -0.52533    0.02806  -18.72   &lt;2e-16 ***</span></span>
+<span><span class="co">#&gt; x1           0.68490    0.01669   41.04   &lt;2e-16 ***</span></span>
 <span><span class="co">#&gt; ---</span></span>
 <span><span class="co">#&gt; Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</span></span>
 <span><span class="co">#&gt; </span></span>
@@ -432,10 +433,10 @@ is biased toward zero; all four corrections recover
 <span><span class="co">#&gt; AIC (naive): 12610</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Bias correction (difference from naive):</span></span>
-<span><span class="co">#&gt;         bca        bcm        cs         cs_akn   </span></span>
-<span><span class="co">#&gt; gamma    0.137840   0.174425   0.175005   0.175581</span></span>
-<span><span class="co">#&gt; alpha0  -0.068093  -0.086142  -0.090290  -0.089125</span></span>
-<span><span class="co">#&gt; alpha1  -0.002073  -0.002656  -0.002603  -0.005655</span></span></code></pre></div>
+<span><span class="co">#&gt;              bca        bcm        cs         cs_akn   </span></span>
+<span><span class="co">#&gt; gamma         0.137840   0.174425   0.175005   0.175581</span></span>
+<span><span class="co">#&gt; (Intercept)  -0.068093  -0.086142  -0.090290  -0.089125</span></span>
+<span><span class="co">#&gt; x1           -0.002073  -0.002656  -0.002603  -0.005655</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="binary-misclassification-logistic-response">Binary misclassification, logistic response<a class="anchor" aria-label="anchor" href="#binary-misclassification-logistic-response"></a>
@@ -453,14 +454,14 @@ is biased toward zero; all four corrections recover
 <span><span class="va">fitb</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/mcglm.html">mcglm</a></span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="fu"><a href="../reference/mc.html">mc</a></span><span class="op">(</span><span class="va">z</span>, <span class="va">Pi</span><span class="op">)</span> <span class="op">+</span> <span class="va">x1</span>, data <span class="op">=</span> <span class="va">dfb</span>, family <span class="op">=</span> <span class="st">"binomial"</span>,</span>
 <span>              method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"naive"</span>, <span class="st">"cs"</span>, <span class="st">"cs_akn"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fitb</span>, method <span class="op">=</span> <span class="st">"naive"</span><span class="op">)</span></span>
-<span><span class="co">#&gt;      gamma     alpha0     alpha1 </span></span>
-<span><span class="co">#&gt;  0.6661615 -0.3362542  0.5299033</span></span>
+<span><span class="co">#&gt;       gamma (Intercept)          x1 </span></span>
+<span><span class="co">#&gt;   0.6661615  -0.3362542   0.5299033</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fitb</span>, method <span class="op">=</span> <span class="st">"cs"</span><span class="op">)</span></span>
-<span><span class="co">#&gt;      gamma     alpha0     alpha1 </span></span>
-<span><span class="co">#&gt;  0.9279532 -0.4041620  0.5409704</span></span>
+<span><span class="co">#&gt;       gamma (Intercept)          x1 </span></span>
+<span><span class="co">#&gt;   0.9279532  -0.4041620   0.5409704</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fitb</span>, method <span class="op">=</span> <span class="st">"cs_akn"</span><span class="op">)</span></span>
-<span><span class="co">#&gt;      gamma     alpha0     alpha1 </span></span>
-<span><span class="co">#&gt;  0.9276973 -0.4041227  0.5399984</span></span></code></pre></div>
+<span><span class="co">#&gt;       gamma (Intercept)          x1 </span></span>
+<span><span class="co">#&gt;   0.9276973  -0.4041227   0.5399984</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="multicategory-misclassification-k-3">Multicategory misclassification
@@ -497,15 +498,15 @@ pass the misclassification matrix and (for
 </h3>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/stats/confint.html" class="external-link">confint</a></span><span class="op">(</span><span class="va">fit</span>, method <span class="op">=</span> <span class="st">"cs"</span><span class="op">)</span></span>
-<span><span class="co">#&gt;             2.5 %     97.5 %</span></span>
-<span><span class="co">#&gt; gamma   0.7841097  0.9265936</span></span>
-<span><span class="co">#&gt; alpha0 -0.5811827 -0.4717990</span></span>
-<span><span class="co">#&gt; alpha1  0.6567124  0.7191898</span></span>
+<span><span class="co">#&gt;                  2.5 %     97.5 %</span></span>
+<span><span class="co">#&gt; gamma        0.7841097  0.9265936</span></span>
+<span><span class="co">#&gt; (Intercept) -0.5811827 -0.4717990</span></span>
+<span><span class="co">#&gt; x1           0.6567124  0.7191898</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/stats/confint.html" class="external-link">confint</a></span><span class="op">(</span><span class="va">fit</span>, method <span class="op">=</span> <span class="st">"cs_akn"</span><span class="op">)</span></span>
-<span><span class="co">#&gt;             2.5 %     97.5 %</span></span>
-<span><span class="co">#&gt; gamma   0.7845970  0.9272574</span></span>
-<span><span class="co">#&gt; alpha0 -0.5803202 -0.4703317</span></span>
-<span><span class="co">#&gt; alpha1  0.6521881  0.7176108</span></span></code></pre></div>
+<span><span class="co">#&gt;                  2.5 %     97.5 %</span></span>
+<span><span class="co">#&gt; gamma        0.7845970  0.9272574</span></span>
+<span><span class="co">#&gt; (Intercept) -0.5803202 -0.4703317</span></span>
+<span><span class="co">#&gt; x1           0.6521881  0.7176108</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="one-step-joint-mixture-likelihood">One-step (joint mixture likelihood)<a class="anchor" aria-label="anchor" href="#one-step-joint-mixture-likelihood"></a>
@@ -524,8 +525,8 @@ via <code>fix_omega = TRUE</code>.</p>
 <code class="sourceCode R"><span><span class="va">fit_os</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/mcglm.html">mcglm</a></span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="fu"><a href="../reference/mc.html">mc</a></span><span class="op">(</span><span class="va">z</span>, <span class="va">Pi</span><span class="op">)</span> <span class="op">+</span> <span class="va">x1</span>, data <span class="op">=</span> <span class="va">df</span>, family <span class="op">=</span> <span class="st">"poisson"</span>,</span>
 <span>                method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"naive"</span>, <span class="st">"onestep"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit_os</span>, method <span class="op">=</span> <span class="st">"onestep"</span><span class="op">)</span></span>
-<span><span class="co">#&gt;      gamma     alpha0     alpha1 </span></span>
-<span><span class="co">#&gt;  0.8492809 -0.5019135  0.6972155</span></span></code></pre></div>
+<span><span class="co">#&gt;       gamma (Intercept)          x1 </span></span>
+<span><span class="co">#&gt;   0.8492809  -0.5019135   0.6972155</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">
@@ -551,11 +552,11 @@ so all S3 methods (<code>summary</code>, <code>vcov</code>,
 <span><span class="va">fitg</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/mclm.html">mclm</a></span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="fu"><a href="../reference/mc.html">mc</a></span><span class="op">(</span><span class="va">z</span>, <span class="va">Pi</span><span class="op">)</span> <span class="op">+</span> <span class="va">x1</span>, data <span class="op">=</span> <span class="va">dfg</span>,</span>
 <span>             method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"naive"</span>, <span class="st">"cs"</span>, <span class="st">"cs_akn"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fitg</span>, method <span class="op">=</span> <span class="st">"cs"</span><span class="op">)</span></span>
-<span><span class="co">#&gt;      gamma     alpha0     alpha1 </span></span>
-<span><span class="co">#&gt;  0.7913075 -0.4782274  0.6984542</span></span>
+<span><span class="co">#&gt;       gamma (Intercept)          x1 </span></span>
+<span><span class="co">#&gt;   0.7913075  -0.4782274   0.6984542</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fitg</span>, method <span class="op">=</span> <span class="st">"cs_akn"</span><span class="op">)</span></span>
-<span><span class="co">#&gt;      gamma     alpha0     alpha1 </span></span>
-<span><span class="co">#&gt;  0.7913625 -0.4782466  0.6998920</span></span></code></pre></div>
+<span><span class="co">#&gt;       gamma (Intercept)          x1 </span></span>
+<span><span class="co">#&gt;   0.7913625  -0.4782466   0.6998920</span></span></code></pre></div>
 <p>For Gaussian, <code>cs_akn</code> admits a closed-form linear-system
 solution (no iterative solver), so the two CS formulations agree to
 numerical precision.</p>

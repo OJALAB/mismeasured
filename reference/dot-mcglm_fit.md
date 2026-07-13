@@ -25,6 +25,8 @@ Core mcglm fitting (internal, called by mcglm after dispatch)
   weights = NULL,
   J = NULL,
   homoskedastic = TRUE,
-  optim_control = list()
+  optim_control = list(),
+  z_levels = NULL,
+  x_names = NULL
 )
 ```

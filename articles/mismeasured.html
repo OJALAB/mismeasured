@@ -62,7 +62,7 @@
                         <h4 data-toc-skip class="author">Maciej
 Beresewicz</h4>
             
-            <h4 data-toc-skip class="date">2026-07-12</h4>
+            <h4 data-toc-skip class="date">2026-07-13</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/OJALAB/mismeasured/blob/main/vignettes/mismeasured.Rmd" class="external-link"><code>vignettes/mismeasured.Rmd</code></a></small>
       <div class="d-none name"><code>mismeasured.Rmd</code></div>
@@ -157,14 +157,14 @@ error, and weights.</p>
 <span><span class="va">fit_mcglm</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/mcglm.html">mcglm</a></span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="fu"><a href="../reference/mc.html">mc</a></span><span class="op">(</span><span class="va">z</span>, <span class="va">Pi</span><span class="op">)</span> <span class="op">+</span> <span class="va">x1</span>, data <span class="op">=</span> <span class="va">df</span>, family <span class="op">=</span> <span class="st">"poisson"</span>,</span>
 <span>                   method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"naive"</span>, <span class="st">"cs"</span>, <span class="st">"cs_akn"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit_mcglm</span>, method <span class="op">=</span> <span class="st">"naive"</span><span class="op">)</span></span>
-<span><span class="co">#&gt;      gamma     alpha0     alpha1 </span></span>
-<span><span class="co">#&gt;  0.6201552 -0.4452069  0.7125682</span></span>
+<span><span class="co">#&gt;       gamma (Intercept)          x1 </span></span>
+<span><span class="co">#&gt;   0.6201552  -0.4452069   0.7125682</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit_mcglm</span>, method <span class="op">=</span> <span class="st">"cs"</span><span class="op">)</span></span>
-<span><span class="co">#&gt;      gamma     alpha0     alpha1 </span></span>
-<span><span class="co">#&gt;  0.7792699 -0.5291241  0.7141844</span></span>
+<span><span class="co">#&gt;       gamma (Intercept)          x1 </span></span>
+<span><span class="co">#&gt;   0.7792699  -0.5291241   0.7141844</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html" class="external-link">coef</a></span><span class="op">(</span><span class="va">fit_mcglm</span>, method <span class="op">=</span> <span class="st">"cs_akn"</span><span class="op">)</span></span>
-<span><span class="co">#&gt;      gamma     alpha0     alpha1 </span></span>
-<span><span class="co">#&gt;  0.7789926 -0.5294969  0.7161404</span></span></code></pre></div>
+<span><span class="co">#&gt;       gamma (Intercept)          x1 </span></span>
+<span><span class="co">#&gt;   0.7789926  -0.5294969   0.7161404</span></span></code></pre></div>
 <p>The naive
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>γ</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat\gamma</annotation></semantics></math>
 is attenuated below the truth (0.8); both corrected scores recover it.

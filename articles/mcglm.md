@@ -155,10 +155,10 @@ fit
 #> Methods: naive, bca, bcm, cs, cs_akn
 #> 
 #> Coefficients:
-#>         NAIVE    BCA      BCM      CS       CS_AKN 
-#> gamma    0.6803   0.8182   0.8548   0.8554   0.8559
-#> alpha0  -0.4362  -0.5043  -0.5223  -0.5265  -0.5253
-#> alpha1   0.6906   0.6885   0.6879   0.6880   0.6849
+#>              NAIVE    BCA      BCM      CS       CS_AKN 
+#> gamma         0.6803   0.8182   0.8548   0.8554   0.8559
+#> (Intercept)  -0.4362  -0.5043  -0.5223  -0.5265  -0.5253
+#> x1            0.6906   0.6885   0.6879   0.6880   0.6849
 #> 
 #> Degrees of Freedom: 5000 Total (i.e. Null);  4997 Residual
 #> Null Deviance:     9333 
@@ -178,44 +178,45 @@ summary(fit)
 #> 
 #> Family: poisson  |  n = 5000, K = 2, p = 3
 #> Methods: naive, bca, bcm, cs, cs_akn
+#> z categories (Pi assumed in this order): 0 (baseline), 1
 #> 
 #> --- NAIVE ---
-#>        Estimate Std. Error z value Pr(>|z|)    
-#> gamma   0.68035    0.02846   23.90   <2e-16 ***
-#> alpha0 -0.43620    0.02370  -18.41   <2e-16 ***
-#> alpha1  0.69055    0.01553   44.46   <2e-16 ***
+#>             Estimate Std. Error z value Pr(>|z|)    
+#> gamma        0.68035    0.02846   23.90   <2e-16 ***
+#> (Intercept) -0.43620    0.02370  -18.41   <2e-16 ***
+#> x1           0.69055    0.01553   44.46   <2e-16 ***
 #> ---
 #> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 #> 
 #> --- BCA ---
-#>        Estimate Std. Error z value Pr(>|z|)    
-#> gamma   0.81819    0.02908   28.14   <2e-16 ***
-#> alpha0 -0.50429    0.02517  -20.04   <2e-16 ***
-#> alpha1  0.68848    0.01568   43.90   <2e-16 ***
+#>             Estimate Std. Error z value Pr(>|z|)    
+#> gamma        0.81819    0.02908   28.14   <2e-16 ***
+#> (Intercept) -0.50429    0.02517  -20.04   <2e-16 ***
+#> x1           0.68848    0.01568   43.90   <2e-16 ***
 #> ---
 #> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 #> 
 #> --- BCM ---
-#>        Estimate Std. Error z value Pr(>|z|)    
-#> gamma   0.85477    0.02932   29.15   <2e-16 ***
-#> alpha0 -0.52234    0.02560  -20.41   <2e-16 ***
-#> alpha1  0.68790    0.01574   43.70   <2e-16 ***
+#>             Estimate Std. Error z value Pr(>|z|)    
+#> gamma        0.85477    0.02932   29.15   <2e-16 ***
+#> (Intercept) -0.52234    0.02560  -20.41   <2e-16 ***
+#> x1           0.68790    0.01574   43.70   <2e-16 ***
 #> ---
 #> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 #> 
 #> --- CS ---
-#>        Estimate Std. Error z value Pr(>|z|)    
-#> gamma   0.85535    0.03635   23.53   <2e-16 ***
-#> alpha0 -0.52649    0.02790  -18.87   <2e-16 ***
-#> alpha1  0.68795    0.01594   43.16   <2e-16 ***
+#>             Estimate Std. Error z value Pr(>|z|)    
+#> gamma        0.85535    0.03635   23.53   <2e-16 ***
+#> (Intercept) -0.52649    0.02790  -18.87   <2e-16 ***
+#> x1           0.68795    0.01594   43.16   <2e-16 ***
 #> ---
 #> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 #> 
 #> --- CS_AKN ---
-#>        Estimate Std. Error z value Pr(>|z|)    
-#> gamma   0.85593    0.03639   23.52   <2e-16 ***
-#> alpha0 -0.52533    0.02806  -18.72   <2e-16 ***
-#> alpha1  0.68490    0.01669   41.04   <2e-16 ***
+#>             Estimate Std. Error z value Pr(>|z|)    
+#> gamma        0.85593    0.03639   23.52   <2e-16 ***
+#> (Intercept) -0.52533    0.02806  -18.72   <2e-16 ***
+#> x1           0.68490    0.01669   41.04   <2e-16 ***
 #> ---
 #> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 #> 
@@ -223,10 +224,10 @@ summary(fit)
 #> AIC (naive): 12610
 #> 
 #> Bias correction (difference from naive):
-#>         bca        bcm        cs         cs_akn   
-#> gamma    0.137840   0.174425   0.175005   0.175581
-#> alpha0  -0.068093  -0.086142  -0.090290  -0.089125
-#> alpha1  -0.002073  -0.002656  -0.002603  -0.005655
+#>              bca        bcm        cs         cs_akn   
+#> gamma         0.137840   0.174425   0.175005   0.175581
+#> (Intercept)  -0.068093  -0.086142  -0.090290  -0.089125
+#> x1           -0.002073  -0.002656  -0.002603  -0.005655
 ```
 
 ### Binary misclassification, logistic response
@@ -245,14 +246,14 @@ dfb <- data.frame(y = y, z = factor(zh), x1 = x1)
 fitb <- mcglm(y ~ mc(z, Pi) + x1, data = dfb, family = "binomial",
               method = c("naive", "cs", "cs_akn"))
 coef(fitb, method = "naive")
-#>      gamma     alpha0     alpha1 
-#>  0.6661615 -0.3362542  0.5299033
+#>       gamma (Intercept)          x1 
+#>   0.6661615  -0.3362542   0.5299033
 coef(fitb, method = "cs")
-#>      gamma     alpha0     alpha1 
-#>  0.9279532 -0.4041620  0.5409704
+#>       gamma (Intercept)          x1 
+#>   0.9279532  -0.4041620   0.5409704
 coef(fitb, method = "cs_akn")
-#>      gamma     alpha0     alpha1 
-#>  0.9276973 -0.4041227  0.5399984
+#>       gamma (Intercept)          x1 
+#>   0.9276973  -0.4041227   0.5399984
 ```
 
 ### Multicategory misclassification ($`K = 3`$)
@@ -287,15 +288,15 @@ coef(fit3, method = "cs_akn")
 ``` r
 
 confint(fit, method = "cs")
-#>             2.5 %     97.5 %
-#> gamma   0.7841097  0.9265936
-#> alpha0 -0.5811827 -0.4717990
-#> alpha1  0.6567124  0.7191898
+#>                  2.5 %     97.5 %
+#> gamma        0.7841097  0.9265936
+#> (Intercept) -0.5811827 -0.4717990
+#> x1           0.6567124  0.7191898
 confint(fit, method = "cs_akn")
-#>             2.5 %     97.5 %
-#> gamma   0.7845970  0.9272574
-#> alpha0 -0.5803202 -0.4703317
-#> alpha1  0.6521881  0.7176108
+#>                  2.5 %     97.5 %
+#> gamma        0.7845970  0.9272574
+#> (Intercept) -0.5803202 -0.4703317
+#> x1           0.6521881  0.7176108
 ```
 
 ### One-step (joint mixture likelihood)
@@ -311,8 +312,8 @@ $`\pi_z`$ via `fix_omega = TRUE`.
 fit_os <- mcglm(y ~ mc(z, Pi) + x1, data = df, family = "poisson",
                 method = c("naive", "onestep"))
 coef(fit_os, method = "onestep")
-#>      gamma     alpha0     alpha1 
-#>  0.8492809 -0.5019135  0.6972155
+#>       gamma (Intercept)          x1 
+#>   0.8492809  -0.5019135   0.6972155
 ```
 
 ## `mclm()`: Gaussian-fixed convenience wrapper
@@ -340,11 +341,11 @@ dfg <- data.frame(y = yg, z = factor(zh), x1 = x1)
 fitg <- mclm(y ~ mc(z, Pi) + x1, data = dfg,
              method = c("naive", "cs", "cs_akn"))
 coef(fitg, method = "cs")
-#>      gamma     alpha0     alpha1 
-#>  0.7913075 -0.4782274  0.6984542
+#>       gamma (Intercept)          x1 
+#>   0.7913075  -0.4782274   0.6984542
 coef(fitg, method = "cs_akn")
-#>      gamma     alpha0     alpha1 
-#>  0.7913625 -0.4782466  0.6998920
+#>       gamma (Intercept)          x1 
+#>   0.7913625  -0.4782466   0.6998920
 ```
 
 For Gaussian, `cs_akn` admits a closed-form linear-system solution (no

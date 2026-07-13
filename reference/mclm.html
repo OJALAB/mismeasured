@@ -287,36 +287,37 @@ desired (matrix interface only).</p></dd>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Family: gaussian  |  n = 1000, K = 2, p = 3</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Methods: naive, bca, bcm, cs</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> z categories (Pi assumed in this order): 0 (baseline), 1</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> --- NAIVE ---</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>        Estimate Std. Error z value Pr(&gt;|z|)    </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> gamma   0.61931    0.03542   17.48   &lt;2e-16 ***</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> alpha0 -0.44109    0.02203  -20.03   &lt;2e-16 ***</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> alpha1  0.69747    0.01758   39.66   &lt;2e-16 ***</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>             Estimate Std. Error z value Pr(&gt;|z|)    </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> gamma        0.61931    0.03542   17.48   &lt;2e-16 ***</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> (Intercept) -0.44109    0.02203  -20.03   &lt;2e-16 ***</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> x1           0.69747    0.01758   39.66   &lt;2e-16 ***</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> ---</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> --- BCA ---</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>        Estimate Std. Error z value Pr(&gt;|z|)    </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> gamma   0.75130    0.03574   21.02   &lt;2e-16 ***</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> alpha0 -0.48301    0.02210  -21.86   &lt;2e-16 ***</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> alpha1  0.69865    0.01780   39.25   &lt;2e-16 ***</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>             Estimate Std. Error z value Pr(&gt;|z|)    </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> gamma        0.75130    0.03574   21.02   &lt;2e-16 ***</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> (Intercept) -0.48301    0.02210  -21.86   &lt;2e-16 ***</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> x1           0.69865    0.01780   39.25   &lt;2e-16 ***</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> ---</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> --- BCM ---</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>        Estimate Std. Error z value Pr(&gt;|z|)    </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> gamma   0.78706    0.03593   21.91   &lt;2e-16 ***</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> alpha0 -0.49436    0.02214  -22.33   &lt;2e-16 ***</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> alpha1  0.69897    0.01790   39.05   &lt;2e-16 ***</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>             Estimate Std. Error z value Pr(&gt;|z|)    </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> gamma        0.78706    0.03593   21.91   &lt;2e-16 ***</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> (Intercept) -0.49436    0.02214  -22.33   &lt;2e-16 ***</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> x1           0.69897    0.01790   39.05   &lt;2e-16 ***</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> ---</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> --- CS ---</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>        Estimate Std. Error z value Pr(&gt;|z|)    </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> gamma   0.78706    0.04516   17.43   &lt;2e-16 ***</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> alpha0 -0.49436    0.02407  -20.54   &lt;2e-16 ***</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> alpha1  0.69897    0.01786   39.13   &lt;2e-16 ***</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>             Estimate Std. Error z value Pr(&gt;|z|)    </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> gamma        0.78706    0.04516   17.43   &lt;2e-16 ***</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> (Intercept) -0.49436    0.02407  -20.54   &lt;2e-16 ***</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> x1           0.69897    0.01786   39.13   &lt;2e-16 ***</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> ---</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
@@ -324,10 +325,10 @@ desired (matrix interface only).</p></dd>
 <span class="r-out co"><span class="r-pr">#&gt;</span> AIC (naive): 1639</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Bias correction (difference from naive):</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>         bca        bcm        cs       </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> gamma    0.131998   0.167752   0.167752</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> alpha0  -0.041921  -0.053276  -0.053276</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> alpha1   0.001178   0.001498   0.001498</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>              bca        bcm        cs       </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> gamma         0.131998   0.167752   0.167752</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> (Intercept)  -0.041921  -0.053276  -0.053276</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> x1            0.001178   0.001498   0.001498</span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

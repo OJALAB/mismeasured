@@ -66,14 +66,14 @@ df <- data.frame(y = y, z = factor(z_hat), x1 = x1)
 fit_mcglm <- mcglm(y ~ mc(z, Pi) + x1, data = df, family = "poisson",
                    method = c("naive", "cs", "cs_akn"))
 coef(fit_mcglm, method = "naive")
-#>      gamma     alpha0     alpha1 
-#>  0.6201552 -0.4452069  0.7125682
+#>       gamma (Intercept)          x1 
+#>   0.6201552  -0.4452069   0.7125682
 coef(fit_mcglm, method = "cs")
-#>      gamma     alpha0     alpha1 
-#>  0.7792699 -0.5291241  0.7141844
+#>       gamma (Intercept)          x1 
+#>   0.7792699  -0.5291241   0.7141844
 coef(fit_mcglm, method = "cs_akn")
-#>      gamma     alpha0     alpha1 
-#>  0.7789926 -0.5294969  0.7161404
+#>       gamma (Intercept)          x1 
+#>   0.7789926  -0.5294969   0.7161404
 ```
 
 The naive $`\hat\gamma`$ is attenuated below the truth (0.8); both

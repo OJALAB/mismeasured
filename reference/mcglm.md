@@ -390,10 +390,10 @@ fit
 #> Methods: naive, bca, bcm, cs
 #> 
 #> Coefficients:
-#>         NAIVE    BCA      BCM      CS     
-#> gamma    0.5653   0.7056   0.7538   0.7541
-#> alpha0  -0.3709  -0.4394  -0.4629  -0.4675
-#> alpha1   0.7121   0.7110   0.7107   0.7107
+#>              NAIVE    BCA      BCM      CS     
+#> gamma         0.5653   0.7056   0.7538   0.7541
+#> (Intercept)  -0.3709  -0.4394  -0.4629  -0.4675
+#> x1            0.7121   0.7110   0.7107   0.7107
 #> 
 #> Degrees of Freedom: 2000 Total (i.e. Null);  1997 Residual
 #> Null Deviance:     3663 
@@ -406,36 +406,37 @@ summary(fit)
 #> 
 #> Family: poisson  |  n = 2000, K = 2, p = 3
 #> Methods: naive, bca, bcm, cs
+#> z categories (Pi assumed in this order): 0 (baseline), 1
 #> 
 #> --- NAIVE ---
-#>        Estimate Std. Error z value Pr(>|z|)    
-#> gamma   0.56529    0.04385   12.89   <2e-16 ***
-#> alpha0 -0.37092    0.03535  -10.49   <2e-16 ***
-#> alpha1  0.71207    0.02039   34.92   <2e-16 ***
+#>             Estimate Std. Error z value Pr(>|z|)    
+#> gamma        0.56529    0.04385   12.89   <2e-16 ***
+#> (Intercept) -0.37092    0.03535  -10.49   <2e-16 ***
+#> x1           0.71207    0.02039   34.92   <2e-16 ***
 #> ---
 #> Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 #> 
 #> --- BCA ---
-#>        Estimate Std. Error z value Pr(>|z|)    
-#> gamma   0.70558    0.04446   15.87   <2e-16 ***
-#> alpha0 -0.43937    0.03749  -11.72   <2e-16 ***
-#> alpha1  0.71102    0.02020   35.20   <2e-16 ***
+#>             Estimate Std. Error z value Pr(>|z|)    
+#> gamma        0.70558    0.04446   15.87   <2e-16 ***
+#> (Intercept) -0.43937    0.03749  -11.72   <2e-16 ***
+#> x1           0.71102    0.02020   35.20   <2e-16 ***
 #> ---
 #> Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 #> 
 #> --- BCM ---
-#>        Estimate Std. Error z value Pr(>|z|)    
-#> gamma   0.75378    0.04485   16.80   <2e-16 ***
-#> alpha0 -0.46289    0.03831  -12.08   <2e-16 ***
-#> alpha1  0.71065    0.02019   35.20   <2e-16 ***
+#>             Estimate Std. Error z value Pr(>|z|)    
+#> gamma        0.75378    0.04485   16.80   <2e-16 ***
+#> (Intercept) -0.46289    0.03831  -12.08   <2e-16 ***
+#> x1           0.71065    0.02019   35.20   <2e-16 ***
 #> ---
 #> Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 #> 
 #> --- CS ---
-#>        Estimate Std. Error z value Pr(>|z|)    
-#> gamma   0.75410    0.05933   12.71   <2e-16 ***
-#> alpha0 -0.46751    0.04282  -10.92   <2e-16 ***
-#> alpha1  0.71067    0.02035   34.92   <2e-16 ***
+#>             Estimate Std. Error z value Pr(>|z|)    
+#> gamma        0.75410    0.05933   12.71   <2e-16 ***
+#> (Intercept) -0.46751    0.04282  -10.92   <2e-16 ***
+#> x1           0.71067    0.02035   34.92   <2e-16 ***
 #> ---
 #> Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 #> 
@@ -443,15 +444,15 @@ summary(fit)
 #> AIC (naive): 5026
 #> 
 #> Bias correction (difference from naive):
-#>         bca        bcm        cs       
-#> gamma    0.140293   0.188490   0.188810
-#> alpha0  -0.068454  -0.091968  -0.096587
-#> alpha1  -0.001052  -0.001418  -0.001403
+#>              bca        bcm        cs       
+#> gamma         0.140293   0.188490   0.188810
+#> (Intercept)  -0.068454  -0.091968  -0.096587
+#> x1           -0.001052  -0.001418  -0.001403
 confint(fit, method = "cs")
-#>             2.5 %     97.5 %
-#> gamma   0.6378256  0.8703766
-#> alpha0 -0.5514243 -0.3835923
-#> alpha1  0.6707755  0.7505572
+#>                  2.5 %     97.5 %
+#> gamma        0.6378256  0.8703766
+#> (Intercept) -0.5514243 -0.3835923
+#> x1           0.6707755  0.7505572
 
 # Same problem with the AKN98 unbiased-surrogate corrected score
 # (needs only Pi, not pi_z). The two CS variants give population-
@@ -459,8 +460,8 @@ confint(fit, method = "cs")
 fit_akn <- mcglm(y ~ mc(z, Pi) + x1, data = df, family = "poisson",
                  method = c("cs", "cs_akn"))
 coef(fit_akn, method = "cs_akn")
-#>      gamma     alpha0     alpha1 
-#>  0.7533845 -0.4645779  0.7088654 
+#>       gamma (Intercept)          x1 
+#>   0.7533845  -0.4645779   0.7088654 
 
 # --- Matrix interface, supplying p01/p10/pi_z directly ---
 x_mat <- cbind(1, x1)

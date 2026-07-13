@@ -27,6 +27,18 @@ mc(variable, matrix)
 An object of class `"mc_term"` (used internally by
 [`simex`](https://ojalab.github.io/mismeasured/reference/simex.md)).
 
+## Category order and `matrix`
+
+The rows and columns of `matrix` follow the *factor level order* of
+`variable` (for integer-coded variables, the codes `0, ..., K-1`); the
+first level is the baseline, category 0. This alignment cannot be
+checked automatically: if you reorder the factor levels, you must
+permute the rows and columns of `matrix` accordingly, otherwise the
+correction is silently applied to the wrong categories.
+[`summary()`](https://rdrr.io/r/base/summary.html) of an
+[`mcglm`](https://ojalab.github.io/mismeasured/reference/mcglm.md) fit
+prints the assumed category order for inspection.
+
 ## See also
 
 [`me`](https://ojalab.github.io/mismeasured/reference/me.md),

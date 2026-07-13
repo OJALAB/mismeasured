@@ -13,7 +13,14 @@ before standard formula machinery (such as
 ## Usage
 
 ``` r
-mc_parse_formula(formula, data, env = parent.frame(), require_y = TRUE)
+mc_parse_formula(
+  formula,
+  data,
+  env = parent.frame(),
+  require_y = TRUE,
+  z_levels = NULL,
+  x_levels = NULL
+)
 ```
 
 ## Arguments
@@ -40,14 +47,33 @@ mc_parse_formula(formula, data, env = parent.frame(), require_y = TRUE)
   and `y` is returned as `NULL` – useful when parsing prediction data
   (e.g. a probability sample that carries no outcome).
 
+- z_levels:
+
+  Optional character vector of reference levels for the
+  [`mc()`](https://ojalab.github.io/mismeasured/reference/mc.md)
+  variable (e.g. `fit$z_levels` from a fitted `mcglm`). When supplied, a
+  factor/character
+  [`mc()`](https://ojalab.github.io/mismeasured/reference/mc.md)
+  variable is recoded *against these levels* – the safe way to parse new
+  data, whose own factor level set or order may differ – and unseen
+  levels raise an error. Ignored for integer-coded variables.
+
+- x_levels:
+
+  Optional named list of reference factor levels for the remaining
+  covariates (e.g. `fit$x_levels`), applied via `model.frame(xlev = )`
+  exactly like `predict.lm`.
+
 ## Value
 
 A list with components `y` (numeric response, or `NULL` when absent and
-`require_y = FALSE`), `z_hat` (integer proxy, coded `0, ..., K-1`), `x`
-(model matrix of the remaining terms, including an intercept), `Pi` (the
-\\K \times K\\ misclassification matrix, or `NULL` if not supplied
-inside [`mc()`](https://ojalab.github.io/mismeasured/reference/mc.md)),
-and `K` (number of categories).
+`require_y = FALSE`), `z_hat` (integer proxy, coded `0, ..., K-1`),
+`z_levels`/`x_levels` (factor bookkeeping for later prediction;
+`NULL`/empty for integer inputs), `x` (model matrix of the remaining
+terms, including an intercept), `Pi` (the \\K \times K\\
+misclassification matrix, or `NULL` if not supplied inside
+[`mc()`](https://ojalab.github.io/mismeasured/reference/mc.md)), and `K`
+(number of categories).
 
 ## See also
 
@@ -62,14 +88,16 @@ df <- data.frame(y = rpois(50, 1), z = rbinom(50, 1, 0.4),
                  x1 = rnorm(50))
 parts <- mc_parse_formula(y ~ mc(z, Pi) + x1, df)
 str(parts)
-#> List of 5
-#>  $ y    : num [1:50] 0 2 1 0 0 1 1 0 1 2 ...
-#>  $ z_hat: int [1:50] 0 0 0 0 0 1 0 1 0 0 ...
-#>  $ x    : num [1:50, 1:2] 1 1 1 1 1 1 1 1 1 1 ...
+#> List of 7
+#>  $ y       : num [1:50] 0 2 1 0 0 1 1 0 1 2 ...
+#>  $ z_hat   : int [1:50] 0 0 0 0 0 1 0 1 0 0 ...
+#>  $ x       : num [1:50, 1:2] 1 1 1 1 1 1 1 1 1 1 ...
 #>   ..- attr(*, "dimnames")=List of 2
 #>   .. ..$ : chr [1:50] "1" "2" "3" "4" ...
 #>   .. ..$ : chr [1:2] "(Intercept)" "x1"
 #>   ..- attr(*, "assign")= int [1:2] 0 1
-#>  $ Pi   : num [1:2, 1:2] 0.9 0.1 0.15 0.85
-#>  $ K    : int 2
+#>  $ Pi      : num [1:2, 1:2] 0.9 0.1 0.15 0.85
+#>  $ K       : int 2
+#>  $ z_levels: NULL
+#>  $ x_levels: Named list()
 ```
