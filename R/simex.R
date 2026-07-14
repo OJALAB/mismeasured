@@ -102,6 +102,39 @@ simex <- function(formula, family = gaussian(), data,
   cl <- match.call()
   extrapolation <- match.arg(extrapolation)
 
+  if (!is.null(B) &&
+      (!is.numeric(B) || length(B) != 1L || !is.finite(B) ||
+       B < 1 || B != round(B)))
+    stop("'B' must be one positive integer.", call. = FALSE)
+  if (!is.null(lambda)) {
+    optimal <- is.character(lambda) && length(lambda) == 1L &&
+      identical(lambda, "optimal")
+    if (!optimal &&
+        (!is.numeric(lambda) || !length(lambda) || any(!is.finite(lambda)) ||
+         any(lambda < 0)))
+      stop("'lambda' must be a non-empty finite numeric vector with values ",
+           ">= 0, or 'optimal' where supported.", call. = FALSE)
+  }
+  if (!is.numeric(seed) || length(seed) != 1L || !is.finite(seed) ||
+      seed != round(seed) || seed < 0 || seed > .Machine$integer.max)
+    stop("'seed' must be one integer between 0 and .Machine$integer.max.",
+         call. = FALSE)
+  seed <- as.integer(seed)
+  if (!is.logical(jackknife) && !is.character(jackknife))
+    stop("'jackknife' must be logical or an extrapolation method.",
+         call. = FALSE)
+  if (is.logical(jackknife) &&
+      (length(jackknife) != 1L || is.na(jackknife)))
+    stop("Logical 'jackknife' must be TRUE or FALSE.", call. = FALSE)
+  if (is.character(jackknife))
+    jackknife <- match.arg(jackknife, c("quadratic", "linear", "loglinear"))
+  if (!is.null(weights)) {
+    if (!is.numeric(weights) || length(weights) != nrow(data) ||
+        any(!is.finite(weights)) || any(weights <= 0))
+      stop("'weights' must contain one finite positive value per row of 'data'.",
+           call. = FALSE)
+  }
+
   # --- resolve family ---
   if (is.character(family))
     family <- get(family, mode = "function", envir = parent.frame())()
@@ -156,6 +189,9 @@ simex <- function(formula, family = gaussian(), data,
 
   # --- dispatch ---
   if (parsed$error_type == "me") {
+    if (is.character(lambda))
+      stop("lambda = 'optimal' is only supported for improved MC-SIMEX.",
+           call. = FALSE)
     if (!is.null(method))
       warning("'method' is ignored for continuous measurement error (me() terms).",
               call. = FALSE)
@@ -177,6 +213,10 @@ simex <- function(formula, family = gaussian(), data,
                     family$family == "gaussian") "improved" else "standard"
     }
     method <- match.arg(method, c("standard", "improved"))
+
+    if (is.character(lambda) && method != "improved")
+      stop("lambda = 'optimal' is only supported for improved MC-SIMEX.",
+           call. = FALSE)
 
     if (method == "improved" && (n_mc > 1L || has_response_mc))
       stop("method = 'improved' is only supported for a single mc() covariate ",

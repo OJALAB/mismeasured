@@ -32,6 +32,34 @@ test_that("misclassification matrices are validated consistently", {
                "[0, 1]", fixed = TRUE)
 })
 
+test_that("simex validates simulation controls and measurement-error arguments", {
+  set.seed(4)
+  n <- 50
+  df <- data.frame(y = rnorm(n), x = rnorm(n),
+                   bad_sd = rep(0.2, n))
+  df$bad_sd[1] <- Inf
+
+  expect_error(simex(y ~ me(x, 0.2), data = df, B = 0), "positive integer")
+  expect_error(simex(y ~ me(x, 0.2), data = df, B = 1.5), "positive integer")
+  expect_error(simex(y ~ me(x, 0.2), data = df, lambda = NA_real_),
+               "lambda")
+  expect_error(simex(y ~ me(x, 0.2), data = df, lambda = -0.5),
+               "lambda")
+  expect_error(simex(y ~ me(x, 0.2), data = df, lambda = "optimal"),
+               "only supported")
+  expect_error(simex(y ~ me(x, 0.2), data = df, seed = 1.5), "seed")
+  expect_error(simex(y ~ me(x, 0.2), data = df, weights = rep(Inf, n)),
+               "finite positive")
+  expect_error(simex(y ~ me(x, 0.2), data = df,
+                     jackknife = "unknown"), "arg")
+
+  expect_error(simex(y ~ me(x, 0.2, type = "typo"), data = df), "arg")
+  expect_error(simex(y ~ me(x, Inf), data = df), "finite non-negative")
+  expect_error(simex(y ~ me(x, bad_sd), data = df), "finite non-negative")
+  expect_error(simex(y ~ me(x, 0.2, mean = c(0, 1)), data = df),
+               "one finite")
+})
+
 test_that("grouped binomial cbind(succ, fail) uses trial counts", {
   Pi <- matrix(c(0.9, 0.1, 0.12, 0.88), 2, 2)
   set.seed(3)

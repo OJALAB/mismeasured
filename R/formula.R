@@ -254,6 +254,9 @@ parse_simex_formula <- function(formula, data, env) {
       eval(me_call$type, envir = data, enclos = env) else "classical"
     me_mean <- if (!is.null(me_call$mean))
       eval(me_call$mean, envir = data, enclos = env) else 0
+    me_type <- match.arg(me_type, c("classical", "berkson"))
+    if (!is.numeric(me_mean) || length(me_mean) != 1L || !is.finite(me_mean))
+      stop("me() mean must be one finite numeric value.", call. = FALSE)
 
     .env_descriptors$items <- c(.env_descriptors$items, list(
       list(type = "me", variable = var_name, sd = sd_val,
@@ -316,13 +319,21 @@ parse_simex_formula <- function(formula, data, env) {
 #' Evaluates in data first (column name), then in calling env.
 #' @keywords internal
 .resolve_sd <- function(sd_expr, var_name, data, env) {
+  validate_sd <- function(x) {
+    if (!is.numeric(x))
+      stop("me() sd must be numeric.", call. = FALSE)
+    if (!length(x) || any(!is.finite(x)) || any(x < 0))
+      stop("me() sd must contain finite non-negative values.", call. = FALSE)
+    as.numeric(x)
+  }
+
   # Try as column name in data
   sd_name <- tryCatch(deparse(sd_expr), error = function(e) NULL)
   if (!is.null(sd_name) && sd_name %in% names(data)) {
     sd_val <- data[[sd_name]]
     if (!is.numeric(sd_val))
       stop("me() sd column '", sd_name, "' must be numeric.", call. = FALSE)
-    return(as.numeric(sd_val))
+    return(validate_sd(sd_val))
   }
 
   # Evaluate in calling environment
@@ -334,12 +345,7 @@ parse_simex_formula <- function(formula, data, env) {
     }
   )
 
-  if (!is.numeric(sd_val))
-    stop("me() sd must be numeric.", call. = FALSE)
-  if (any(sd_val < 0))
-    stop("me() sd must be non-negative.", call. = FALSE)
-
-  as.numeric(sd_val)
+  validate_sd(sd_val)
 }
 
 
