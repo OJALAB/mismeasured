@@ -65,7 +65,6 @@
 <url><loc>https://ojalab.github.io/mismeasured/reference/dot-mcglm_fit_onestep_bin.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/dot-mcglm_fit_onestep_multi.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/dot-mcglm_fit_onestep_multinomial.html</loc></url>
-<url><loc>https://ojalab.github.io/mismeasured/reference/dot-mcglm_get_link_funs.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/dot-mcglm_linear_predictor.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/dot-mcglm_make_multinomial_names.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/dot-mcglm_make_nll_glm.html</loc></url>
@@ -80,10 +79,12 @@
 <url><loc>https://ojalab.github.io/mismeasured/reference/dot-mcglm_vcov_naive.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/dot-mcglm_vcov_naive_multi.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/dot-mcglm_vcov_onestep.html</loc></url>
+<url><loc>https://ojalab.github.io/mismeasured/reference/dot-normalize_family.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/dot-refit_build_xi_hat.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/dot-resample_z_lambda.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/dot-resolve_matrix.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/dot-resolve_sd.html</loc></url>
+<url><loc>https://ojalab.github.io/mismeasured/reference/dot-validate_mc_matrix.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/dot-variance_k_improved.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/dot-walk_and_collect.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/estfun.mcglm.html</loc></url>
@@ -92,7 +93,6 @@
 <url><loc>https://ojalab.github.io/mismeasured/reference/family_to_dist_code.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/fitted.mcglm.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/formula.mcglm.html</loc></url>
-<url><loc>https://ojalab.github.io/mismeasured/reference/get_link_funs.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/index.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/jackknife_variance_mcsimex.html</loc></url>
 <url><loc>https://ojalab.github.io/mismeasured/reference/jackknife_variance_simex.html</loc></url>
