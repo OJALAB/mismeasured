@@ -145,6 +145,18 @@ test_that("formula with no extra covariates (intercept only)", {
                family = "poisson", method = "naive")
   expect_s3_class(fit, "mcglm")
   expect_equal(fit$p, 2)  # gamma + intercept
+  expect_named(coef(fit), c("gamma", "(Intercept)"))
+})
+
+test_that("formula terms preserve intercept removal and ordinary interactions", {
+  d <- gen_binary(); Pi <- d$Pi
+  fit <- mcglm(y ~ mc(z, Pi) + x1 * x2 - 1, data = d$df,
+               family = "poisson", method = "naive")
+
+  expect_named(coef(fit), c("gamma", "x1", "x2", "x1:x2"))
+  expect_equal(model.matrix(fit)[, -1, drop = FALSE],
+               model.matrix(~ x1 * x2 - 1, data = d$df),
+               ignore_attr = TRUE)
 })
 
 
@@ -292,6 +304,21 @@ test_that("formula: error when no mc() term", {
   expect_error(
     mcglm(y ~ x1 + x2, data = d$df, family = "poisson"),
     "mc\\(\\)"
+  )
+})
+
+test_that("formula: exactly one bare mc() main effect is required", {
+  d <- gen_binary(); Pi <- d$Pi
+  d$df$z2 <- d$df$z
+
+  expect_error(
+    mcglm(y ~ mc(z, Pi) + mc(z2, Pi) + x1, data = d$df,
+          family = "poisson"),
+    "exactly one"
+  )
+  expect_error(
+    mcglm(y ~ mc(z, Pi):x1 + x2, data = d$df, family = "poisson"),
+    "bare main-effect"
   )
 })
 

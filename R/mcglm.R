@@ -412,55 +412,47 @@ mcglm <- function(formula, data = NULL, family = "poisson",
     stop("'data' argument is required when using the formula interface.")
 
   lhs <- formula[[2]]
-  rhs <- formula[[3]]
-
   # Extract response (optional for prediction on new data)
   y_name <- deparse(lhs)
   y <- data[[y_name]]
   if (is.null(y) && require_y)
     stop("Response variable '", y_name, "' not found in data.")
 
-
-  # Walk RHS to find mc() term and other covariates
-  mc_info <- NULL
-  other_terms <- character(0)
-
-  .walk_mcglm_rhs <- function(node) {
-    if (is.call(node)) {
-      op <- deparse(node[[1]])
-      if (op == "+") {
-        .walk_mcglm_rhs(node[[2]])
-        .walk_mcglm_rhs(node[[3]])
-        return(invisible(NULL))
-      }
-      if (op == "mc") {
-        var_name <- deparse(node[[2]])
-        if (length(node) >= 3L) {
-          # The matrix may equally be supplied as an mcglm()/wrapper
-          # argument instead of living in the evaluation scope (and for
-          # prediction data it is irrelevant), so an unresolvable symbol
-          # yields Pi = NULL here; whether Pi is actually required is
-          # validated by the caller.
-          mat_val <- tryCatch(eval(node[[3]], data, env),
-                              error = function(e) NULL)
-          mc_info <<- list(variable = var_name,
-                           Pi = if (is.null(mat_val)) NULL
-                                else as.matrix(mat_val))
-        } else {
-          mc_info <<- list(variable = var_name, Pi = NULL)
-        }
-        return(invisible(NULL))
-      }
-    }
-    # Everything else is a regular term
-    other_terms <<- c(other_terms, deparse(node))
-    invisible(NULL)
-  }
-
-  .walk_mcglm_rhs(rhs)
-
-  if (is.null(mc_info))
+  # Let R's formula machinery identify mc() and preserve ordinary formula
+  # semantics (intercept removal, transformations, interactions, contrasts).
+  tt <- terms(formula, specials = "mc", data = data)
+  special_idx <- attr(tt, "specials")$mc
+  if (length(special_idx) != 1L)
     stop("Formula must contain exactly one mc() term, e.g., y ~ mc(z, Pi) + x")
+
+  variables <- as.list(attr(tt, "variables"))[-1L]
+  mc_call <- variables[[special_idx]]
+  if (!is.call(mc_call) || !identical(mc_call[[1L]], as.name("mc")) ||
+      length(mc_call) < 2L || !is.symbol(mc_call[[2L]]))
+    stop("mc() must contain a bare variable name, e.g. mc(z, Pi).",
+         call. = FALSE)
+
+  factors <- attr(tt, "factors")
+  mc_term_idx <- which(factors[special_idx, , drop = TRUE] != 0)
+  if (length(mc_term_idx) != 1L || attr(tt, "order")[mc_term_idx] != 1L)
+    stop("mc() must appear as one bare main-effect term; interactions and ",
+         "transformations involving mc() are not supported.", call. = FALSE)
+
+  var_name <- as.character(mc_call[[2L]])
+  # Pi may instead be supplied to mcglm()/a wrapper, and prediction does not
+  # need it. Preserve the existing behavior that an unresolvable expression
+  # yields NULL and is validated later by the fitting caller when required.
+  mat_val <- if (length(mc_call) >= 3L) {
+    tryCatch(eval(mc_call[[3L]], data, env), error = function(e) NULL)
+  } else {
+    NULL
+  }
+  mc_info <- list(variable = var_name,
+                  Pi = if (is.null(mat_val)) NULL else as.matrix(mat_val))
+
+  # Remove the mc() term without reconstructing the formula from strings.
+  # This retains the original intercept, contrast, and environment metadata.
+  x_terms <- stats::drop.terms(tt, mc_term_idx, keep.response = FALSE)
 
   # Get z_hat from data
   z_var <- data[[mc_info$variable]]
@@ -509,23 +501,15 @@ mcglm <- function(formula, data = NULL, family = "poisson",
   # Build x matrix from remaining terms; x_levels (when supplied) recode
   # factor covariates in new data against the training levels, exactly
   # like predict.lm()'s xlev mechanism
-  if (length(other_terms) == 0) {
-    # No other covariates: just intercept
-    x <- matrix(1, nrow = nrow(data), ncol = 1)
-    x_levels_out <- list()
-  } else {
-    rhs_formula <- as.formula(paste("~", paste(other_terms, collapse = " + ")),
-                              env = env)
-    mf <- model.frame(rhs_formula, data = data, xlev = x_levels,
-                      na.action = na.pass)
-    if (anyNA(mf))
-      stop("Covariates contain missing values after applying the ",
-           "training factor levels; check for NA values or factor ",
-           "levels not seen during fitting.", call. = FALSE)
-    x <- model.matrix(rhs_formula, data = mf)
-    x_levels_out <- .getXlevels(attr(mf, "terms"), mf)
-    if (is.null(x_levels_out)) x_levels_out <- list()
-  }
+  mf <- model.frame(x_terms, data = data, xlev = x_levels,
+                    na.action = na.pass)
+  if (anyNA(mf))
+    stop("Covariates contain missing values after applying the ",
+         "training factor levels; check for NA values or factor ",
+         "levels not seen during fitting.", call. = FALSE)
+  x <- model.matrix(x_terms, data = mf)
+  x_levels_out <- .getXlevels(attr(mf, "terms"), mf)
+  if (is.null(x_levels_out)) x_levels_out <- list()
 
   list(y = if (is.null(y)) NULL else as.numeric(y),
        z_hat = z_hat, x = x, Pi = Pi, K = K,
