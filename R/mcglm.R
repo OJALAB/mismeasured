@@ -333,6 +333,27 @@ mcglm <- function(formula, data = NULL, family = "poisson",
     x_names  <- NULL
   }
 
+  if (!is.null(Pi)) Pi <- .validate_mc_matrix(Pi, "Pi")
+  .check_probability_scalar <- function(value, name) {
+    if (is.null(value)) return(invisible(NULL))
+    if (!is.numeric(value) || length(value) != 1L || !is.finite(value) ||
+        value < 0 || value > 1)
+      stop(name, " must be one finite probability in [0, 1].", call. = FALSE)
+    invisible(NULL)
+  }
+  .check_probability_scalar(p01, "p01")
+  .check_probability_scalar(p10, "p10")
+  if (!is.null(pi_z) &&
+      (!is.numeric(pi_z) || !length(pi_z) || any(!is.finite(pi_z)) ||
+       any(pi_z < 0 | pi_z > 1)))
+    stop("pi_z must contain finite probabilities in [0, 1].", call. = FALSE)
+  for (nm in c("c1", "c2")) {
+    value <- get(nm)
+    if (!is.null(value) &&
+        (!is.numeric(value) || length(value) != 1L || !is.finite(value)))
+      stop(nm, " must be one finite numeric value.", call. = FALSE)
+  }
+
   # --- Derive p01/p10 from 2x2 Pi ---
   if (!is.null(Pi) && nrow(Pi) == 2L) {
     if (is.null(p01)) p01 <- Pi[2, 1]
@@ -482,12 +503,7 @@ mcglm <- function(formula, data = NULL, family = "poisson",
 
   # Validate Pi when provided
   if (!is.null(Pi)) {
-    if (ncol(Pi) != K)
-      stop("Pi must be a square K x K matrix (got ", nrow(Pi), " x ", ncol(Pi), ").")
-    cs <- colSums(Pi)
-    if (any(abs(cs - 1) > 1e-6))
-      stop("Columns of Pi must sum to 1 (got: ",
-           paste(round(cs, 4), collapse = ", "), ").")
+    Pi <- .validate_mc_matrix(Pi, "Pi")
   }
 
   # Build x matrix from remaining terms; x_levels (when supplied) recode
@@ -555,8 +571,8 @@ mcglm <- function(formula, data = NULL, family = "poisson",
     wt <- as.numeric(weights)
     if (length(wt) != n)
       stop("weights must have length n (", n, "), got ", length(wt))
-    if (any(wt <= 0))
-      stop("weights must be positive")
+    if (any(!is.finite(wt)) || any(wt <= 0))
+      stop("weights must contain only finite positive values")
   }
 
   # --- multinomial family ---
@@ -586,6 +602,15 @@ mcglm <- function(formula, data = NULL, family = "poisson",
     }
   }
   is_binary <- (K == 2L)
+
+  if (!is.null(pi_z)) {
+    expected <- if (is_binary) 1L else K
+    if (length(pi_z) != expected)
+      stop("pi_z must have length ", expected, " for K = ", K, ".",
+           call. = FALSE)
+    if (!is_binary && abs(sum(pi_z) - 1) > 1e-6)
+      stop("For K > 2, pi_z must sum to 1.", call. = FALSE)
+  }
 
   if (any(z_hat < 0L) || any(z_hat >= K))
     stop("z_hat must be coded 0, ..., K-1 (K = ", K, "); got values in [",

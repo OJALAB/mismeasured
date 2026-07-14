@@ -181,3 +181,32 @@ test_that("S3 methods default to a reasonable method when none specified", {
   expect_true(is.matrix(vcov(fit)))
   expect_length(fitted(fit), n)
 })
+
+test_that("mcglm rejects invalid misclassification parameters", {
+  set.seed(97)
+  n <- 100
+  z <- rep(0:1, length.out = n)
+  y <- rpois(n, exp(0.5 * z))
+  x <- matrix(1, n, 1)
+  Pi <- matrix(c(0.9, 0.1, 0.15, 0.85), 2, 2)
+
+  bad_entry <- matrix(c(1.1, -0.1, -0.1, 1.1), 2, 2)
+  expect_error(mcglm(y, z_hat = z, x = x, method = "naive", Pi = bad_entry),
+               "[0, 1]", fixed = TRUE)
+  bad_sum <- matrix(c(0.9, 0.2, 0.2, 0.9), 2, 2)
+  expect_error(mcglm(y, z_hat = z, x = x, method = "naive", Pi = bad_sum),
+               "sum to 1")
+  bad_finite <- Pi
+  bad_finite[1, 1] <- Inf
+  expect_error(mcglm(y, z_hat = z, x = x, method = "naive", Pi = bad_finite),
+               "finite")
+
+  expect_error(mcglm(y, z_hat = z, x = x, method = "cs",
+                     p01 = -0.1, p10 = 0.1, pi_z = 0.4), "p01")
+  expect_error(mcglm(y, z_hat = z, x = x, method = "cs",
+                     p01 = 0.1, p10 = 0.1, pi_z = c(0.4, 0.6)), "length 1")
+  expect_error(mcglm(y, z_hat = z, x = x, method = "cs",
+                     c1 = Inf, c2 = 0), "c1")
+  expect_error(mcglm(y, z_hat = z, x = x, method = "naive", Pi = Pi,
+                     weights = rep(Inf, n)), "finite positive")
+})

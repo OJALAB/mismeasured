@@ -23,6 +23,15 @@ test_that("offset() terms are rejected", {
   )
 })
 
+test_that("misclassification matrices are validated consistently", {
+  df <- .make_mc_df(n = 100)
+  bad <- matrix(c(1.1, -0.1, -0.1, 1.1), 2, 2)
+
+  expect_error(simex(y ~ mc(z, bad), data = df), "[0, 1]", fixed = TRUE)
+  expect_error(misclass(data.frame(z = df$z), list(z = bad)),
+               "[0, 1]", fixed = TRUE)
+})
+
 test_that("grouped binomial cbind(succ, fail) uses trial counts", {
   Pi <- matrix(c(0.9, 0.1, 0.12, 0.88), 2, 2)
   set.seed(3)

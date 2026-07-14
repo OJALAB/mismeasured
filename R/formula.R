@@ -137,6 +137,7 @@ parse_simex_formula <- function(formula, data, env) {
   if (is.call(lhs) && identical(lhs[[1]], as.name("mc"))) {
     var_name <- deparse(lhs[[2]])
     mat_val <- .resolve_matrix(lhs[[3]], data, env)
+    mat_val <- .validate_mc_matrix(mat_val, "mc() response matrix")
     # Validate response mc matrix
     if (!is.factor(data[[var_name]])) {
       warning("mc() response variable '", var_name,
@@ -148,10 +149,6 @@ parse_simex_formula <- function(formula, data, env) {
     if (K_resp != n_levels_resp)
       stop("mc() response matrix has ", K_resp, " rows but variable '",
            var_name, "' has ", n_levels_resp, " levels.", call. = FALSE)
-    cs <- colSums(mat_val)
-    if (any(abs(cs - 1) > 1e-6))
-      stop("Columns of mc() response matrix must sum to 1 (got: ",
-           paste(round(cs, 4), collapse = ", "), ").", call. = FALSE)
     response_mc <- list(variable = var_name, mc_matrix = mat_val)
     lhs <- lhs[[2]]  # strip mc(), keep bare variable name
   }
@@ -173,7 +170,9 @@ parse_simex_formula <- function(formula, data, env) {
            "' is a factor. Use mc() for discrete misclassification.", call. = FALSE)
   }
 
-  for (mt in mc_terms) {
+  for (i in seq_along(mc_terms)) {
+    mt <- mc_terms[[i]]
+    mt$mc_matrix <- .validate_mc_matrix(mt$mc_matrix, "mc() matrix")
     if (!is.factor(data[[mt$variable]])) {
       warning("mc() variable '", mt$variable,
               "' is not a factor; coercing.", call. = FALSE)
@@ -184,12 +183,7 @@ parse_simex_formula <- function(formula, data, env) {
     if (K != n_levels)
       stop("mc() matrix has ", K, " rows but variable '", mt$variable,
            "' has ", n_levels, " levels.", call. = FALSE)
-    if (any(mt$mc_matrix < 0) || any(mt$mc_matrix > 1))
-      stop("All entries of mc() matrix must be in [0, 1].", call. = FALSE)
-    cs <- colSums(mt$mc_matrix)
-    if (any(abs(cs - 1) > 1e-6))
-      stop("Columns of mc() matrix must sum to 1 (got: ",
-           paste(round(cs, 4), collapse = ", "), ").", call. = FALSE)
+    mc_terms[[i]] <- mt
   }
 
   # --- Determine error type ---

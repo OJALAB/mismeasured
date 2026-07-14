@@ -2,6 +2,25 @@
 # Misclassification utilities
 # =========================================================================
 
+#' Validate a column-stochastic misclassification matrix
+#' @keywords internal
+.validate_mc_matrix <- function(x, name = "Pi", tol = 1e-6) {
+  if (!is.matrix(x)) x <- as.matrix(x)
+  if (!is.numeric(x) || length(dim(x)) != 2L || nrow(x) != ncol(x) ||
+      nrow(x) < 2L)
+    stop(name, " must be a numeric square K x K matrix with K >= 2.",
+         call. = FALSE)
+  if (any(!is.finite(x)))
+    stop(name, " must contain only finite probabilities.", call. = FALSE)
+  if (any(x < 0 | x > 1))
+    stop("All entries of ", name, " must be in [0, 1].", call. = FALSE)
+  cs <- colSums(x)
+  if (any(abs(cs - 1) > tol))
+    stop("Columns of ", name, " must sum to 1 (got: ",
+         paste(round(cs, 4), collapse = ", "), ").", call. = FALSE)
+  x
+}
+
 #' Generate misclassified data
 #'
 #' Takes a data frame of factor variables and produces misclassified versions
@@ -37,6 +56,10 @@ misclass <- function(data.org, mc.matrix, k = 1) {
 
   data.mc <- data.org
   factors <- lapply(data.org, levels)
+  mc_names <- names(mc.matrix)
+  mc.matrix <- stats::setNames(lapply(mc_names, function(j) {
+    .validate_mc_matrix(mc.matrix[[j]], paste0("mc.matrix[['", j, "']]"))
+  }), mc_names)
   ev <- lapply(mc.matrix, eigen)
 
   for (j in names(mc.matrix)) {
