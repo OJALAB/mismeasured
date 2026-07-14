@@ -353,22 +353,21 @@
 #' Compute variance-covariance matrix from Hessian
 #' @keywords internal
 .mcglm_vcov_onestep <- function(obj, opt, d) {
-  H <- tryCatch({
-    obj$he(opt$par)
-  }, error = function(e) {
-    warning("Hessian computation failed, using numerical approximation")
-    if (requireNamespace("numDeriv", quietly = TRUE)) {
-      numDeriv::hessian(obj$fn, opt$par)
-    } else {
-      warning("numDeriv not available; returning diagonal variance")
-      return(diag(1e-4, length(opt$par)))
-    }
-  })
-
-  if (any(!is.finite(H))) {
-    warning("Hessian contains non-finite values")
-    H[!is.finite(H)] <- 0
+  H <- tryCatch(obj$he(opt$par), error = function(e) NULL)
+  if (is.null(H) || !is.matrix(H) || any(!is.finite(H))) {
+    warning("Analytic Hessian failed or was non-finite; using stats::optimHess().",
+            call. = FALSE)
+    H <- tryCatch(
+      stats::optimHess(opt$par, obj$fn, obj$gr),
+      error = function(e)
+        stop("Could not compute the one-step Hessian analytically or with ",
+             "stats::optimHess(): ", conditionMessage(e), call. = FALSE)
+    )
   }
+  if (!is.matrix(H) || any(dim(H) != length(opt$par)) || any(!is.finite(H)))
+    stop("The one-step Hessian must be a finite square matrix of dimension ",
+         length(opt$par), ".", call. = FALSE)
+  H <- (H + t(H)) / 2
 
   eig_vals <- eigen(H, symmetric = TRUE, only.values = TRUE)$values
   min_eig  <- min(eig_vals)
@@ -382,21 +381,17 @@
     chol2inv(chol(H))
   }, error = function(e) {
     tryCatch(solve(H), error = function(e2) {
-      if (requireNamespace("MASS", quietly = TRUE)) {
-        MASS::ginv(H)
-      } else {
-        warning("All covariance computations failed, returning diagonal")
-        diag(1e-4, nrow(H))
-      }
+      tryCatch(MASS::ginv(H), error = function(e3)
+        stop("Could not invert the one-step Hessian: ", conditionMessage(e3),
+             call. = FALSE))
     })
   })
 
   V <- V_full[1:d, 1:d, drop = FALSE]
 
   if (any(!is.finite(V))) {
-    warning("Covariance matrix contains non-finite values")
-    V[!is.finite(V)] <- 0
-    diag(V) <- pmax(diag(V), 1e-8)
+    stop("The one-step covariance matrix contains non-finite values.",
+         call. = FALSE)
   }
 
   V

@@ -41,7 +41,6 @@ Suggests:
     rmarkdown,
     RTMB,
     nnet,
-    numDeriv,
     pkgdown
 VignetteBuilder: knitr
 URL: https://ojalab.github.io/mismeasured/, https://github.com/OJALAB/mismeasured

@@ -185,7 +185,7 @@ test_that("one-step optimizer and Hessian fallbacks stay finite", {
   expect_warning(
     V <- mismeasured:::.mcglm_vcov_onestep(obj_hessian_error,
                                            list(par = c(1, 2)), d = 2),
-    "Hessian computation failed"
+    "optimHess"
   )
   expect_true(all(is.finite(V)))
   expect_equal(dim(V), c(2L, 2L))
@@ -200,4 +200,19 @@ test_that("one-step optimizer and Hessian fallbacks stay finite", {
                                                list(par = c(1, 2)), d = 2)
   )
   expect_true(all(is.finite(V_bad)))
+})
+
+test_that("one-step vcov errors rather than fabricating a diagonal covariance", {
+  obj <- list(
+    he = function(par) stop("analytic failure"),
+    fn = function(par) stop("numerical failure"),
+    gr = function(par) stop("numerical failure")
+  )
+  opt <- list(par = c(0, 0))
+
+  expect_warning(
+    expect_error(mismeasured:::.mcglm_vcov_onestep(obj, opt, d = 2L),
+                 "Could not compute"),
+    "optimHess"
+  )
 })
