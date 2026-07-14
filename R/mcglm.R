@@ -470,6 +470,7 @@ mcglm <- function(formula, data = NULL, family = "poisson",
   } else {
     if (!is.null(z_levels))
       z_levels <- NULL  # integer coding: levels do not apply
+    .mcglm_check_z_hat(z_var)
     z_hat <- as.integer(z_var)
   }
 
@@ -1194,6 +1195,7 @@ predict.mcglm <- function(object, newdata = NULL,
     xi <- .mcglm_build_xi_hat(parts$z_hat, parts$x, object$K)
   } else if (is.list(newdata) &&
              all(c("z_hat", "x") %in% names(newdata))) {
+    .mcglm_check_z_hat(newdata$z_hat)
     z_new <- as.integer(newdata$z_hat)
     x_new <- as.matrix(newdata$x)
     if (any(z_new < 0L) || any(z_new >= object$K))

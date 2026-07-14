@@ -104,6 +104,40 @@ test_that("mcglm matrix interface validates z_hat coding", {
     "K = 3")
 })
 
+test_that("mcglm formula parsing and prediction reject fractional category codes", {
+  set.seed(6)
+  n <- 200
+  z <- rbinom(n, 1, 0.4)
+  x <- rnorm(n)
+  y <- 1 + 2 * z + x + rnorm(n)
+  Pi <- matrix(c(0.9, 0.1, 0.12, 0.88), 2, 2)
+  df <- data.frame(y = y, z = z, x = x)
+
+  bad_df <- df
+  bad_df$z[1] <- 0.5
+  expect_error(
+    mcglm(y ~ mc(z, Pi) + x, data = bad_df, family = gaussian(),
+          method = "naive"),
+    "integer"
+  )
+  expect_error(mc_parse_formula(y ~ mc(z, Pi) + x, bad_df), "integer")
+
+  fit <- mcglm(y ~ mc(z, Pi) + x, data = df, family = gaussian(),
+               method = "naive")
+  expect_error(
+    predict(fit, newdata = data.frame(z = 0.5, x = 0)),
+    "integer"
+  )
+
+  fit_matrix <- mcglm(y, z_hat = z, x = cbind(1, x),
+                      family = gaussian(), method = "naive", Pi = Pi)
+  expect_error(
+    predict(fit_matrix,
+            newdata = list(z_hat = 0.5, x = matrix(c(1, 0), nrow = 1))),
+    "integer"
+  )
+})
+
 test_that("non-canonical links are rejected", {
   Pi <- matrix(c(0.9, 0.1, 0.12, 0.88), 2, 2)
   df <- .make_mc_df()
