@@ -1,33 +1,25 @@
 # ---------------------------------------------------------------------------
-# Internal: GLM family link functions for mcglm
+# Internal: GLM family normalization
 # ---------------------------------------------------------------------------
 
-#' Get inverse-link, its derivative, and second derivative for a GLM family
+#' Normalize a GLM family specification
 #'
-#' @param family A \code{\link[stats]{family}} object or character string
-#'   ("poisson", "binomial", "gaussian").
-#' @return A list with components \code{mu} (inverse link), \code{mu_dot}
-#'   (first derivative), \code{mu_ddot} (second derivative), and \code{family}.
+#' @param family A \code{\link[stats]{family}} object, family function, or
+#'   character string naming a family function.
+#' @param env Environment in which to resolve a character family name.
+#' @return A standard \code{family} object.
 #' @keywords internal
-.mcglm_get_link_funs <- function(family) {
+.normalize_family <- function(family, env = parent.frame()) {
   if (is.character(family)) {
-    family <- switch(family,
-      poisson  = stats::poisson(),
-      binomial = stats::binomial(),
-      gaussian = stats::gaussian(),
-      stop("Unsupported family string: ", family)
-    )
+    if (length(family) != 1L)
+      stop("'family' must be a family object, family function, or one name.",
+           call. = FALSE)
+    family <- get(family, mode = "function", envir = env)()
   }
+  if (is.function(family)) family <- family()
+  if (!inherits(family, "family"))
+    stop("'family' not recognized", call. = FALSE)
 
   .check_canonical_link(family)
-
-  mu     <- family$linkinv
-  mu_eta <- family$mu.eta
-
-  mu_ddot <- function(eta) {
-    h <- 1e-7 * pmax(abs(eta), 1)
-    (mu_eta(eta + h) - mu_eta(eta - h)) / (2 * h)
-  }
-
-  list(mu = mu, mu_dot = mu_eta, mu_ddot = mu_ddot, family = family)
+  family
 }

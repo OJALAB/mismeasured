@@ -136,11 +136,7 @@ simex <- function(formula, family = gaussian(), data,
   }
 
   # --- resolve family ---
-  if (is.character(family))
-    family <- get(family, mode = "function", envir = parent.frame())()
-  if (is.function(family)) family <- family()
-  if (is.null(family$family))
-    stop("'family' not recognized")
+  family <- .normalize_family(family, parent.frame())
 
   # --- parse formula ---
   parsed <- parse_simex_formula(formula, data, parent.frame())
@@ -457,7 +453,7 @@ simex <- function(formula, family = gaussian(), data,
   # and y becomes the success proportion).
   wt <- as.numeric(naive_fit$prior.weights)
   B <- as.integer(B)
-  fam <- get_link_funs(family)
+  fam <- .normalize_family(family)
 
   # --- Build design matrix and naive refit ---
   if (has_response_mc && n_mc == 0L) {

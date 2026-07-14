@@ -74,8 +74,8 @@
   alpha_lin <- as.numeric(x %*% alpha)
 
   mu_mat <- matrix(0, n, s)
-  for (i in seq_len(s)) mu_mat[, i] <- fam$mu(gamma[i] + alpha_lin)
-  mu_0   <- fam$mu(alpha_lin)
+  for (i in seq_len(s)) mu_mat[, i] <- fam$linkinv(gamma[i] + alpha_lin)
+  mu_0   <- fam$linkinv(alpha_lin)
   x_akn0 <- 1 - rowSums(x_akn)
 
   resid_gamma <- (y - mu_mat) * x_akn                     # n x (K-1)
@@ -104,8 +104,8 @@
   alpha_lin <- as.numeric(x %*% alpha)
 
   mud_mat <- matrix(0, n, s)
-  for (i in seq_len(s)) mud_mat[, i] <- fam$mu_dot(gamma[i] + alpha_lin)
-  mud_0   <- fam$mu_dot(alpha_lin)
+  for (i in seq_len(s)) mud_mat[, i] <- fam$mu.eta(gamma[i] + alpha_lin)
+  mud_0   <- fam$mu.eta(alpha_lin)
   x_akn0  <- 1 - rowSums(x_akn)
 
   p <- s + r
@@ -173,8 +173,8 @@
 #'
 #' @keywords internal
 .mcglm_fit_cs_akn <- function(psi_init, y, x_akn, x, K, family, wt = NULL) {
-  fam <- .mcglm_get_link_funs(family)
-  fam_str <- if (is.character(family)) family else fam$family$family
+  fam <- .normalize_family(family)
+  fam_str <- fam$family
 
   if (identical(fam_str, "gaussian"))
     return(.akn_fit_gaussian_closed(y, x_akn, x, K, wt = wt))
@@ -196,7 +196,7 @@
 #' Sandwich variance for cs_akn
 #' @keywords internal
 .mcglm_vcov_cs_akn <- function(psi, y, x_akn, x, K, family, wt = NULL) {
-  fam <- .mcglm_get_link_funs(family)
+  fam <- .normalize_family(family)
   n   <- length(y)
   N   <- if (is.null(wt)) n else sum(wt)
 

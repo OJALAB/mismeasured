@@ -200,6 +200,19 @@ test_that("non-canonical links are rejected", {
   expect_true(all(is.finite(coef(fit))))
 })
 
+test_that("family specifications normalize to standard family objects", {
+  from_name <- .normalize_family("poisson")
+  from_fun <- .normalize_family(stats::poisson)
+  from_object <- .normalize_family(stats::poisson())
+
+  expect_s3_class(from_name, "family")
+  expect_identical(from_name$family, "poisson")
+  expect_identical(from_fun$family, "poisson")
+  expect_identical(from_object, stats::poisson())
+  expect_error(.normalize_family(c("poisson", "binomial")), "one name")
+  expect_error(.normalize_family(list(family = "poisson")), "not recognized")
+})
+
 test_that("rows with NAs are dropped consistently up front", {
   Pi <- matrix(c(0.9, 0.1, 0.12, 0.88), 2, 2)
   df <- .make_mc_df(n = 400)

@@ -2,19 +2,6 @@
 # Shared extrapolation and variance estimation utilities
 # =========================================================================
 
-#' Get link functions for a GLM family
-#' @keywords internal
-get_link_funs <- function(family_obj) {
-  fam_name <- family_obj$family
-  list(
-    family = family_obj,
-    mu = family_obj$linkinv,
-    mu_dot = family_obj$mu.eta,
-    variance = family_obj$variance
-  )
-}
-
-
 #' Extrapolate SIMEX estimates to lambda = -1
 #' @keywords internal
 extrapolate_simex <- function(lambda, estimates, method) {
@@ -78,8 +65,8 @@ jackknife_variance_mcsimex <- function(theta_list, psi_naive, naive_fit,
 
   # Naive (lambda = 0): sandwich variance
   eta0 <- as.numeric(xi_hat %*% psi_naive)
-  w0 <- fam$mu_dot(eta0)
-  eps0 <- y - fam$mu(eta0)
+  w0 <- fam$mu.eta(eta0)
+  eps0 <- y - fam$linkinv(eta0)
   A0 <- crossprod(xi_hat * (wt * w0), xi_hat) / N
   C0 <- crossprod(xi_hat * (wt * eps0), xi_hat * eps0) / N
   A0_inv <- tryCatch(solve(A0), error = function(e) MASS::ginv(A0))
@@ -98,8 +85,8 @@ jackknife_variance_mcsimex <- function(theta_list, psi_naive, naive_fit,
     # Approximate model variance at mean estimate via sandwich
     psi_mean <- colMeans(theta_mat)
     eta_m <- as.numeric(xi_hat %*% psi_mean)
-    w_m <- fam$mu_dot(eta_m)
-    eps_m <- y - fam$mu(eta_m)
+    w_m <- fam$mu.eta(eta_m)
+    eps_m <- y - fam$linkinv(eta_m)
     A_m <- crossprod(xi_hat * (wt * w_m), xi_hat) / N
     C_m <- crossprod(xi_hat * (wt * eps_m), xi_hat * eps_m) / N
     A_m_inv <- tryCatch(solve(A_m), error = function(e) MASS::ginv(A_m))

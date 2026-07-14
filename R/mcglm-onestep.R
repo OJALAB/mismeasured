@@ -36,16 +36,16 @@
     stop("Package 'RTMB' is required for the one-step method. ",
          "Install with: install.packages('RTMB')")
 
-  fam <- .mcglm_get_link_funs(family)
+  fam <- .normalize_family(family)
   n   <- length(y)
   r   <- ncol(x)
   K   <- 2L
   s   <- 1L
   d   <- s + r
 
-  dist_code <- switch(fam$family$family,
+  dist_code <- switch(fam$family,
     gaussian = 1L, poisson = 2L, binomial = 3L,
-    stop("Unsupported family for one-step: ", fam$family$family)
+    stop("Unsupported family for one-step: ", fam$family)
   )
 
   weights_fixed <- as.integer(fix_omega)
@@ -61,7 +61,7 @@
   xi_hat <- cbind(z_hat, x)
   naive_fit <- stats::glm(y ~ . - 1,
     data = data.frame(y = y, xi_hat),
-    family = fam$family, weights = wt_data
+    family = fam, weights = wt_data
   )
   b_init <- unname(stats::coef(naive_fit))
 
@@ -112,15 +112,15 @@
     stop("Package 'RTMB' is required for the one-step method. ",
          "Install with: install.packages('RTMB')")
 
-  fam <- .mcglm_get_link_funs(family)
+  fam <- .normalize_family(family)
   n   <- length(y)
   r   <- ncol(x)
   s   <- K - 1
   d   <- s + r
 
-  dist_code <- switch(fam$family$family,
+  dist_code <- switch(fam$family,
     gaussian = 1L, poisson = 2L, binomial = 3L,
-    stop("Unsupported family for one-step: ", fam$family$family)
+    stop("Unsupported family for one-step: ", fam$family)
   )
 
   weights_fixed <- as.integer(fix_omega)
@@ -138,7 +138,7 @@
   xi_hat <- cbind(d_hat, x)
   naive_fit <- stats::glm(y ~ . - 1,
     data = data.frame(y = y, xi_hat),
-    family = fam$family, weights = wt_data
+    family = fam, weights = wt_data
   )
   b_init <- unname(stats::coef(naive_fit))
 

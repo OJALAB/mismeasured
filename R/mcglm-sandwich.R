@@ -47,18 +47,18 @@ estfun.mcglm <- function(x, method = NULL, ...) {
   if (is.null(method)) method <- .mcglm_default_method(x)
   method <- match.arg(method, c("naive", "bca", "bcm", "cs"))
   psi <- unname(stats::coef(x, method = method))
-  fam <- .mcglm_get_link_funs(x$family)
+  fam <- .normalize_family(x$family)
 
   eta   <- .mcglm_linear_predictor(x, psi)
-  resid <- x$y - fam$mu(eta)
+  resid <- x$y - fam$linkinv(eta)
   ef    <- x$xi_hat * resid
 
   if (method == "cs") {
     mc <- x$misclass
     if (x$K == 2L) {
-      ef <- ef - .mcglm_compute_m_bin(psi, x$x, fam$mu, mc$c1, mc$c2)
+      ef <- ef - .mcglm_compute_m_bin(psi, x$x, fam$linkinv, mc$c1, mc$c2)
     } else {
-      ef <- ef - .mcglm_compute_m_multi(psi, x$x, x$K, fam$mu, mc$Pi, mc$pi_z)
+      ef <- ef - .mcglm_compute_m_multi(psi, x$x, x$K, fam$linkinv, mc$Pi, mc$pi_z)
     }
   }
 
@@ -89,24 +89,24 @@ bread.mcglm <- function(x, method = NULL, ...) {
   if (is.null(method)) method <- .mcglm_default_method(x)
   method <- match.arg(method, c("naive", "bca", "bcm", "cs"))
   psi <- unname(stats::coef(x, method = method))
-  fam <- .mcglm_get_link_funs(x$family)
+  fam <- .normalize_family(x$family)
   wt  <- x$weights
 
   if (x$K == 2L) {
-    J <- .mcglm_compute_Ihat(psi, x$xi_hat, fam$mu_dot, wt = wt)
+    J <- .mcglm_compute_Ihat(psi, x$xi_hat, fam$mu.eta, wt = wt)
     if (method == "cs") {
       mc <- x$misclass
-      J <- J + .mcglm_compute_Mhat_bin(psi, x$x, fam$mu, fam$mu_dot,
+      J <- J + .mcglm_compute_Mhat_bin(psi, x$x, fam$linkinv, fam$mu.eta,
                                        mc$c1, mc$c2, wt = wt)
     }
   } else {
-    J <- .mcglm_compute_Ihat_multi(psi, x$xi_hat, x$z_hat, x$K, fam$mu_dot,
+    J <- .mcglm_compute_Ihat_multi(psi, x$xi_hat, x$z_hat, x$K, fam$mu.eta,
                                    wt = wt)
     if (method == "cs") {
       mc <- x$misclass
-      J <- J + .mcglm_compute_Mhat_multi(psi, x$x, x$K, fam$mu, mc$Pi,
+      J <- J + .mcglm_compute_Mhat_multi(psi, x$x, x$K, fam$linkinv, mc$Pi,
                                          mc$pi_z, wt = wt,
-                                         mu_dot_fun = fam$mu_dot)
+                                         mu_dot_fun = fam$mu.eta)
     }
   }
   # the internal helpers average with weight-sum N; rescale to the

@@ -573,6 +573,8 @@ mcglm <- function(formula, data = NULL, family = "poisson",
     if (is.null(J)) J <- length(unique(y))
     if (any(y < 0L) || any(y >= J))
       stop("For multinomial, y must be integers in {0, ..., J-1}")
+  } else {
+    family <- .normalize_family(family)
   }
 
   # Determine binary vs multicategory. Prefer Pi: length(unique(z_hat))
@@ -1155,9 +1157,9 @@ fitted.mcglm <- function(object, method = NULL, ...) {
     stop("fitted() not yet implemented for multinomial mcglm fits.")
   if (is.null(method)) method <- .mcglm_default_method(object)
   psi <- coef(object, method = method)
-  fam <- .mcglm_get_link_funs(object$family)
+  fam <- .normalize_family(object$family)
   eta <- as.numeric(object$xi_hat %*% unname(psi))
-  setNames(fam$mu(eta), seq_along(eta))
+  setNames(fam$linkinv(eta), seq_along(eta))
 }
 
 
@@ -1220,8 +1222,8 @@ predict.mcglm <- function(object, newdata = NULL,
          object$p, " coefficients.")
   eta <- as.numeric(xi %*% psi)
   if (type == "link") return(eta)
-  fam <- .mcglm_get_link_funs(object$family)
-  fam$mu(eta)
+  fam <- .normalize_family(object$family)
+  fam$linkinv(eta)
 }
 
 
@@ -1239,8 +1241,7 @@ residuals.mcglm <- function(object, method = NULL,
   if (isTRUE(object$is_multinomial))
     stop("residuals() not yet implemented for multinomial mcglm fits.")
   if (is.null(method)) method <- .mcglm_default_method(object)
-  fam_funs <- .mcglm_get_link_funs(object$family)
-  fam      <- fam_funs$family
+  fam      <- .normalize_family(object$family)
   mu_val   <- fitted(object, method = method)
   r        <- object$y - mu_val
   if (type == "response") return(r)
@@ -1263,7 +1264,7 @@ nobs.mcglm <- function(object, ...) object$n
 #' @param ... Unused.
 #' @export
 family.mcglm <- function(object, ...) {
-  .mcglm_get_link_funs(object$family)$family
+  .normalize_family(object$family)
 }
 
 

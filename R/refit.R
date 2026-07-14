@@ -49,7 +49,7 @@ refit.simex <- function(object, extrapolation = "quadratic",
       )
     } else {
       # Standard MC-SIMEX — build xi_hat for variance estimation
-      fam <- get_link_funs(object$family)
+      fam <- .normalize_family(object$family)
       y <- object$naive.model$y
       wt <- if (!is.null(object$naive.model$prior.weights))
         object$naive.model$prior.weights else rep(1.0, object$n)
