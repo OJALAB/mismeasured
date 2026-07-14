@@ -144,6 +144,17 @@ test_that("matrix interface: pi_z auto-estimated when only Pi supplied (binary)"
   expect_true(all(is.finite(fit$coefficients$bcm)))
 })
 
+test_that("pi_z estimation solves the probability system", {
+  Pi <- matrix(c(0.9, 0.1, 0.2, 0.8), 2, 2)
+  latent <- c(0.6, 0.4)
+  observed <- drop(Pi %*% latent)
+  counts <- as.integer(observed * 1000)
+  z_hat <- rep(0:1, counts)
+
+  expect_equal(mismeasured:::.mcglm_estimate_pi_z(z_hat, Pi), latent[2],
+               tolerance = 1e-12)
+})
+
 test_that("matrix interface: pi_z auto-estimated when only Pi supplied (K=3)", {
   set.seed(95)
   n <- 800; K <- 3

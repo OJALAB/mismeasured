@@ -29,7 +29,7 @@
   pi_obs <- tab / sum(tab)
   # Invert: pi_z = Pi^{-1} %*% pi_obs
   pi_raw <- tryCatch(
-    as.numeric(solve(Pi) %*% pi_obs),
+    as.numeric(solve(Pi, pi_obs)),
     error = function(e)
       stop("Cannot estimate pi_z: the misclassification matrix Pi is ",
            "singular. Supply pi_z directly.", call. = FALSE)
