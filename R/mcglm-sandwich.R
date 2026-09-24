@@ -28,7 +28,11 @@
 #' bread \eqn{(\hat I + \hat M)^{-1}} is not symmetric. To assemble by
 #' hand: \code{B \%*\% meat(fit, method = m) \%*\% t(B) / n} with
 #' \code{B = bread(fit, method = m)}, which reproduces
-#' \code{vcov(fit, method = m)} exactly for unweighted fits.
+#' \code{vcov(fit, method = m)} exactly for unweighted fits without
+#' \code{validation}. With estimated probabilities supplied through
+#' \code{validation}, \code{estfun()} still returns scores conditional on
+#' those probabilities; use \code{vcov(fit, method = "cs")} to include
+#' validation uncertainty and the internal-validation cross covariance.
 #'
 #' @param x An \code{mcglm} object.
 #' @param method Estimation method; defaults to the last fitted one.

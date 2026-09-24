@@ -164,6 +164,21 @@
 #'   \code{FALSE} (default), the drifting-regime asymptotic variance
 #'   \eqn{A^{-1} C A^{-1}} is used. Both share the same point estimate.
 #' @param weights Optional positive frequency weights of length \eqn{n}.
+#' @param validation Optional list describing the sample used to estimate the
+#'   probabilities for \code{method = "cs"}. For independent external
+#'   validation use \code{list(z = true_codes, z_hat = proxy_codes)}. For an
+#'   internal simple random subsample use
+#'   \code{list(z = true_codes, index = regression_row_numbers)}; proxy codes
+#'   are taken from those rows, which remain in the regression. Codes must be
+#'   numeric integers in \code{0, ..., K-1}, in the model's category order.
+#'   Supply \code{pi_z} and \code{Pi} (or binary \code{p01/p10}, or
+#'   \code{c1/c2}) computed from these same validation observations using
+#'   empirical proportions. This argument changes only the CS covariance,
+#'   adding validation uncertainty and, for internal validation, the overlap
+#'   covariance. Requires unweighted observations (or all weights equal to
+#'   one) and every true category present in validation. With \code{NULL},
+#'   the existing variance conditional on the supplied probabilities is used,
+#'   including when \code{pi_z} is inferred from proxy frequencies.
 #' @param J Number of response categories (multinomial family only;
 #'   auto-detected).
 #' @param homoskedastic Logical. For one-step Gaussian fits, assume a
@@ -299,7 +314,7 @@ mcglm <- function(formula, data = NULL, family = "poisson",
                   J = NULL,
                   homoskedastic = TRUE,
                   optim_control = list(),
-                  z_hat = NULL, x = NULL) {
+                  z_hat = NULL, x = NULL, validation = NULL) {
 
   cl <- match.call()
   jacobian <- match.arg(jacobian)
@@ -382,7 +397,8 @@ mcglm <- function(formula, data = NULL, family = "poisson",
                     weights = weights, J = J,
                     homoskedastic = homoskedastic,
                     optim_control = optim_control,
-                    z_levels = z_levels, x_names = x_names)
+                    z_levels = z_levels, x_names = x_names,
+                    validation = validation)
   out$call     <- cl
   out$formula  <- formula_obj
   out$z_levels <- z_levels
@@ -534,7 +550,7 @@ mcglm <- function(formula, data = NULL, family = "poisson",
                        homoskedastic = TRUE,
                        optim_control = list(),
                        z_levels = NULL,
-                       x_names = NULL) {
+                       x_names = NULL, validation = NULL) {
 
   # --- input validation ---
   y     <- as.numeric(y)
@@ -663,6 +679,15 @@ mcglm <- function(formula, data = NULL, family = "poisson",
         stopifnot(nrow(Pi) == K, ncol(Pi) == K)
       }
     }
+  }
+
+  # Validation affects only the CS covariance; probabilities and point
+  # estimates continue to use the existing interface and fitting code.
+  if (!is.null(validation)) {
+    if (!"cs" %in% method)
+      stop("validation requires method = 'cs'.", call. = FALSE)
+    validation <- .mcglm_prepare_cs_validation(validation, z_hat, K, wt,
+                                                c1, c2, Pi, pi_z)
   }
 
   # --- build xi_hat once ---
@@ -841,11 +866,11 @@ mcglm <- function(formula, data = NULL, family = "poisson",
           if (is_binary)
             .mcglm_vcov_cs_bin(psi_nm, y, xi_hat, x, family, p01, p10, pi_z,
                                c1 = c1, c2 = c2,
-                               wt = wt)
+                               wt = wt, validation = validation)
           else
             .mcglm_vcov_cs_multi(psi_nm, y, xi_hat, z_hat, x, K, family,
                                  Pi, pi_z, wt = wt,
-                                 jacobian = jacobian)
+                                 jacobian = jacobian, validation = validation)
         } else if (nm == "cs_akn") {
           .mcglm_vcov_cs_akn(psi_nm, y, x_akn, x, K, family, wt = wt)
         } else if (nm == "onestep") {
@@ -892,6 +917,7 @@ mcglm <- function(formula, data = NULL, family = "poisson",
                         pi_z = pi_z, Pi = Pi)
   )
   if (!is_multinomial) out$xi_hat <- xi_hat
+  if (!is.null(validation)) out$validation <- validation
   if (is_multinomial)  out$J     <- J
 
   if (!is.null(onestep_vcov)) {
