@@ -15,7 +15,8 @@
   Pi,
   pi_z,
   wt = NULL,
-  jacobian = c("analytical", "numerical")
+  jacobian = c("analytical", "numerical"),
+  validation = NULL
 )
 }
 \description{

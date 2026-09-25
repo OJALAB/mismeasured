@@ -25,7 +25,8 @@ mcglm(
   homoskedastic = TRUE,
   optim_control = list(),
   z_hat = NULL,
-  x = NULL
+  x = NULL,
+  validation = NULL
 )
 }
 \arguments{
@@ -109,6 +110,22 @@ of \eqn{\hat m(\hat\psi)} (joint score-and-drift sandwich); if
 \eqn{A^{-1} C A^{-1}} is used. Both share the same point estimate.}
 
 \item{weights}{Optional positive frequency weights of length \eqn{n}.}
+
+\item{validation}{Optional list describing the sample used to estimate the
+probabilities for \code{method = "cs"}. For independent external
+validation use \code{list(z = true_codes, z_hat = proxy_codes)}. For an
+internal simple random subsample use
+\code{list(z = true_codes, index = regression_row_numbers)}; proxy codes
+are taken from those rows, which remain in the regression. Codes must be
+numeric integers in \code{0, ..., K-1}, in the model's category order.
+Supply \code{pi_z} and \code{Pi} (or binary \code{p01/p10}, or
+\code{c1/c2}) computed from these same validation observations using
+empirical proportions. This argument changes only the CS covariance,
+adding validation uncertainty and, for internal validation, the overlap
+covariance. Requires unweighted observations (or all weights equal to
+one) and every true category present in validation. With \code{NULL},
+the existing variance conditional on the supplied probabilities is used,
+including when \code{pi_z} is inferred from proxy frequencies.}
 
 \item{J}{Number of response categories (multinomial family only;
 auto-detected).}
