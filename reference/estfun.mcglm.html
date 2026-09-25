@@ -88,7 +88,7 @@ One of <code>"naive"</code>, <code>"bca"</code>, <code>"bcm"</code>, <code>"cs"<
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>An \(n \times p\) numeric matrix. With frequency weights the
   rows are multiplied by the weights (the <span class="pkg">sandwich</span> convention for
-  <code>glm</code>), in which case <code><a href="https://sandwich.R-Forge.R-project.org/reference/sandwich.html" class="external-link">sandwich::sandwich()</a></code> treats them as
+  <code>glm</code>), in which case <code><a href="https://zeileis.codeberg.page/sandwich/reference/sandwich.html" class="external-link">sandwich::sandwich()</a></code> treats them as
   probability weights and differs from <code><a href="https://rdrr.io/r/stats/vcov.html" class="external-link">vcov()</a></code>, which treats them
   as frequencies.</p>
     </div>
@@ -104,15 +104,19 @@ with the <span class="pkg">sandwich</span> ecosystem (<code>meat()</code>,
 
 <p>Prefer <code>vcov(fit, method = )</code>: it already <em>is</em> the correct
 sandwich \(J^{-1} S J^{-\top}/n\). Do not pass <code>method</code> to
-<code><a href="https://sandwich.R-Forge.R-project.org/reference/sandwich.html" class="external-link">sandwich::sandwich()</a></code> – it forwards extra arguments to the meat
+<code><a href="https://zeileis.codeberg.page/sandwich/reference/sandwich.html" class="external-link">sandwich::sandwich()</a></code> – it forwards extra arguments to the meat
 but <em>not</em> to the bread, silently mixing estimators – and note
-that <code><a href="https://sandwich.R-Forge.R-project.org/reference/sandwich.html" class="external-link">sandwich::sandwich()</a></code> assembles <code>bread %*% meat %*%
+that <code><a href="https://zeileis.codeberg.page/sandwich/reference/sandwich.html" class="external-link">sandwich::sandwich()</a></code> assembles <code>bread %*% meat %*%
 bread</code> without a transpose, which is only valid for the symmetric
 bread of <code>"naive"</code>/<code>"bca"</code>/<code>"bcm"</code>; the corrected-score
 bread \((\hat I + \hat M)^{-1}\) is not symmetric. To assemble by
 hand: <code>B %*% meat(fit, method = m) %*% t(B) / n</code> with
 <code>B = bread(fit, method = m)</code>, which reproduces
-<code>vcov(fit, method = m)</code> exactly for unweighted fits.</p>
+<code>vcov(fit, method = m)</code> exactly for unweighted fits without
+<code>validation</code>. With estimated probabilities supplied through
+<code>validation</code>, <code>estfun()</code> still returns scores conditional on
+those probabilities; use <code>vcov(fit, method = "cs")</code> to include
+validation uncertainty and the internal-validation cross covariance.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>

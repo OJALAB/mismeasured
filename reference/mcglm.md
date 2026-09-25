@@ -32,7 +32,8 @@ mcglm(
   homoskedastic = TRUE,
   optim_control = list(),
   z_hat = NULL,
-  x = NULL
+  x = NULL,
+  validation = NULL
 )
 ```
 
@@ -145,6 +146,24 @@ mcglm(
 - weights:
 
   Optional positive frequency weights of length \\n\\.
+
+- validation:
+
+  Optional list describing the sample used to estimate the probabilities
+  for `method = "cs"`. For independent external validation use
+  `list(z = true_codes, z_hat = proxy_codes)`. For an internal simple
+  random subsample use
+  `list(z = true_codes, index = regression_row_numbers)`; proxy codes
+  are taken from those rows, which remain in the regression. Codes must
+  be numeric integers in `0, ..., K-1`, in the model's category order.
+  Supply `pi_z` and `Pi` (or binary `p01/p10`, or `c1/c2`) computed from
+  these same validation observations using empirical proportions. This
+  argument changes only the CS covariance, adding validation uncertainty
+  and, for internal validation, the overlap covariance. Requires
+  unweighted observations (or all weights equal to one) and every true
+  category present in validation. With `NULL`, the existing variance
+  conditional on the supplied probabilities is used, including when
+  `pi_z` is inferred from proxy frequencies.
 
 - J:
 

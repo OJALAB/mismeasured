@@ -87,7 +87,8 @@ supported.</p>
 <span>  homoskedastic <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  optim_control <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  z_hat <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  x <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  x <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  validation <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -206,6 +207,24 @@ of \(\hat m(\hat\psi)\) (joint score-and-drift sandwich); if
 
 <dt id="arg-weights">weights<a class="anchor" aria-label="anchor" href="#arg-weights"></a></dt>
 <dd><p>Optional positive frequency weights of length \(n\).</p></dd>
+
+
+<dt id="arg-validation">validation<a class="anchor" aria-label="anchor" href="#arg-validation"></a></dt>
+<dd><p>Optional list describing the sample used to estimate the
+probabilities for <code>method = "cs"</code>. For independent external
+validation use <code>list(z = true_codes, z_hat = proxy_codes)</code>. For an
+internal simple random subsample use
+<code>list(z = true_codes, index = regression_row_numbers)</code>; proxy codes
+are taken from those rows, which remain in the regression. Codes must be
+numeric integers in <code>0, ..., K-1</code>, in the model's category order.
+Supply <code>pi_z</code> and <code>Pi</code> (or binary <code>p01/p10</code>, or
+<code>c1/c2</code>) computed from these same validation observations using
+empirical proportions. This argument changes only the CS covariance,
+adding validation uncertainty and, for internal validation, the overlap
+covariance. Requires unweighted observations (or all weights equal to
+one) and every true category present in validation. With <code>NULL</code>,
+the existing variance conditional on the supplied probabilities is used,
+including when <code>pi_z</code> is inferred from proxy frequencies.</p></dd>
 
 
 <dt id="arg-j">J<a class="anchor" aria-label="anchor" href="#arg-j"></a></dt>

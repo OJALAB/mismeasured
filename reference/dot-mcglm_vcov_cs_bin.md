@@ -16,6 +16,7 @@ Sandwich variance for corrected-score estimator (binary)
   pi_z,
   c1 = NULL,
   c2 = NULL,
-  wt = NULL
+  wt = NULL,
+  validation = NULL
 )
 ```

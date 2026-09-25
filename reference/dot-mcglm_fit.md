@@ -27,6 +27,7 @@ Core mcglm fitting (internal, called by mcglm after dispatch)
   homoskedastic = TRUE,
   optim_control = list(),
   z_levels = NULL,
-  x_names = NULL
+  x_names = NULL,
+  validation = NULL
 )
 ```

@@ -43,7 +43,7 @@
   corrected-score bread `(I + M)^{-1}` is not symmetric — see
   [`?estfun.mcglm`](https://ojalab.github.io/mismeasured/reference/estfun.mcglm.md)
   before assembling with
-  [`sandwich::sandwich()`](https://sandwich.R-Forge.R-project.org/reference/sandwich.html);
+  [`sandwich::sandwich()`](https://zeileis.codeberg.page/sandwich/reference/sandwich.html);
   [`vcov()`](https://rdrr.io/r/stats/vcov.html) already returns the
   correct sandwich `J^{-1} S J^{-T}/n`).
   [`lmtest::coeftest()`](https://rdrr.io/pkg/lmtest/man/coeftest.html)

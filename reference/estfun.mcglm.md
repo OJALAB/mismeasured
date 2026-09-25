@@ -36,7 +36,7 @@ estfun(x, method = NULL, ...)
 An \\n \times p\\ numeric matrix. With frequency weights the rows are
 multiplied by the weights (the sandwich convention for `glm`), in which
 case
-[`sandwich::sandwich()`](https://sandwich.R-Forge.R-project.org/reference/sandwich.html)
+[`sandwich::sandwich()`](https://zeileis.codeberg.page/sandwich/reference/sandwich.html)
 treats them as probability weights and differs from
 [`vcov()`](https://rdrr.io/r/stats/vcov.html), which treats them as
 frequencies.
@@ -52,16 +52,20 @@ this makes `mcglm` fits work with the sandwich ecosystem (`meat()`,
 
 Prefer `vcov(fit, method = )`: it already *is* the correct sandwich
 \\J^{-1} S J^{-\top}/n\\. Do not pass `method` to
-[`sandwich::sandwich()`](https://sandwich.R-Forge.R-project.org/reference/sandwich.html)
+[`sandwich::sandwich()`](https://zeileis.codeberg.page/sandwich/reference/sandwich.html)
 – it forwards extra arguments to the meat but *not* to the bread,
 silently mixing estimators – and note that
-[`sandwich::sandwich()`](https://sandwich.R-Forge.R-project.org/reference/sandwich.html)
+[`sandwich::sandwich()`](https://zeileis.codeberg.page/sandwich/reference/sandwich.html)
 assembles `bread %*% meat %*% bread` without a transpose, which is only
 valid for the symmetric bread of `"naive"`/`"bca"`/`"bcm"`; the
 corrected-score bread \\(\hat I + \hat M)^{-1}\\ is not symmetric. To
 assemble by hand: `B %*% meat(fit, method = m) %*% t(B) / n` with
 `B = bread(fit, method = m)`, which reproduces `vcov(fit, method = m)`
-exactly for unweighted fits.
+exactly for unweighted fits without `validation`. With estimated
+probabilities supplied through `validation`, `estfun()` still returns
+scores conditional on those probabilities; use
+`vcov(fit, method = "cs")` to include validation uncertainty and the
+internal-validation cross covariance.
 
 ## See also
 
