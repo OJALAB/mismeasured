@@ -1,3 +1,17 @@
+# mismeasured 0.7.1
+
+## New features
+
+* **Estimated misclassification probabilities for the corrected score.**
+  `mcglm()` gains a `validation` argument describing the sample used to
+  estimate `Pi`/`pi_z` for `method = "cs"`: `list(z = , z_hat = )` for an
+  independent external validation sample or `list(z = , index = )` for an
+  internal simple random subsample of the regression rows. The CS sandwich
+  then adds the validation term `(n / n_V) D Sigma_eta D'` and, for internal
+  validation, the overlap terms `Gamma D' + D Gamma'`; point estimates and
+  the other methods are unchanged. The supplied probabilities must be the
+  empirical proportions from the validation sample.
+
 # mismeasured 0.7.0
 
 ## New features
