@@ -23,7 +23,7 @@
 
 # Methods whose misclassification nuisance is estimated from a validation
 # sample (rather than supplied) when mcglm(validation = ) is used.
-.mcglm_validated_methods <- c("sub")
+.mcglm_validated_methods <- c("sub", "ec", "il")
 
 #' Parse and check a validation-sample description
 #'
@@ -90,12 +90,17 @@
 #' @param control A \code{\link{control_mc}} object (\code{beta_equation},
 #'   \code{variance}).
 #' @param label Method label for messages.
+#' @param true_fun Optional list of \code{U(psi)} (rows for the internal
+#'   validation units at their true category) and \code{J(psi, w)} (their
+#'   sum-scale Jacobian). Defaults to the canonical GLM score
+#'   \eqn{\xi_i\{Y_i - \mu(\psi^\top\xi_i)\}}.
 #' @return List with \code{coefficients}, convergence fields, \code{vcov}
 #'   (psi block), \code{nuisance} and \code{beta_equation}.
 #' @keywords internal
 .mcglm_fit_validated <- function(psi_init, est, y, x, z_hat, K, fam,
                                  U_fun, J_fun, wt = NULL,
-                                 control = control_mc(), label = "method") {
+                                 control = control_mc(), label = "method",
+                                 true_fun = NULL) {
   .mcglm_check_estimate(est, z_hat, K, wt)
   vb  <- est$validation
   n   <- length(y)
@@ -114,12 +119,18 @@
     d_main[idx] <- vb$d
     w_U <- wt_m
     if (beq == "yi") w_U[idx] <- 0
+    if (is.null(true_fun))
+      true_fun <- list(
+        U = function(psi) .mcglm_true_parts(psi, y_v, vb$z, x_v, K, fam)$U,
+        J = function(psi, w)
+          .mcglm_true_jacobian(.mcglm_true_parts(psi, y_v, vb$z, x_v, K,
+                                                 fam), w))
   }
 
   psi_rows <- function(psi, par) {
     G <- U_fun(psi, par)
     if (internal) {
-      S <- .mcglm_true_parts(psi, y_v, vb$z, x_v, K, fam)$U
+      S <- true_fun$U(psi)
       G[idx, ] <- if (beq == "yi") S else
         G[idx, , drop = FALSE] + vb$d * (S - G[idx, , drop = FALSE])
     }
@@ -127,12 +138,11 @@
   }
   psi_jac <- function(psi, par) {
     if (!internal) return(J_fun(psi, par, wt_m))
-    tp <- .mcglm_true_parts(psi, y_v, vb$z, x_v, K, fam)
     if (beq == "yi")
-      J_fun(psi, par, w_U) + .mcglm_true_jacobian(tp, wt_m[idx])
+      J_fun(psi, par, w_U) + true_fun$J(psi, wt_m[idx])
     else
       J_fun(psi, par, wt_m) - J_fun(psi, par, d_main * wt_m) +
-        .mcglm_true_jacobian(tp, vb$d * wt_m[idx])
+        true_fun$J(psi, vb$d * wt_m[idx])
   }
 
   par0 <- est$map(est$eta)

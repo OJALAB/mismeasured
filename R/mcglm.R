@@ -7,11 +7,13 @@
 #' \emph{BCA} (additive bias correction), \emph{BCM} (multiplicative bias
 #' correction), \emph{CS} (drift-corrected score), \emph{CS-AKN}
 #' (Akazawa--Kinukawa--Nakamura corrected score), \emph{SUB} (subtraction
-#' correction, the default corrected estimator) and \emph{one-step} (joint
+#' correction, the default corrected estimator), \emph{EC} (expectation
+#' correction), \emph{IL} (induced likelihood) and \emph{one-step} (joint
 #' mixture likelihood via \pkg{RTMB}). Both binary and multicategory latent
 #' regressors are supported. Misclassification probabilities are either
-#' supplied or, for SUB, estimated from an internal or external validation
-#' sample (argument \code{validation}).
+#' supplied or, for SUB, EC and IL, estimated from an internal or external
+#' validation sample (argument \code{validation}; see
+#' \code{vignette("validation", "mismeasured")}).
 #'
 #' @section Model and notation:
 #' Let \eqn{Y_i} denote a scalar response, \eqn{x_i \in \mathbb{R}^r} a
@@ -65,6 +67,22 @@
 #'     both have the same Jacobian and SUB has the smaller middle matrix,
 #'     so SUB is at least as efficient as CS (Yi et al., 2019, Section
 #'     3.2).}
+#'   \item{EC:}{solves \eqn{\sum_i \sum_\ell \omega_{i\ell}(\psi)\,
+#'     S_{i\ell}(\psi) = 0}, the posterior mean of the complete-data score
+#'     \eqn{S_{i\ell}} at \eqn{Z_i = \ell}, with weights
+#'     \eqn{\omega_{i\ell} \propto \Pr(Z = \ell \mid \hat Z_i)\,
+#'     f(Y_i \mid Z = \ell, x_i; \psi)} (Yi et al., 2019, Section 3.3). It
+#'     uses the full response distribution (Poisson, Bernoulli, or normal
+#'     with a jointly estimated \eqn{\sigma}).}
+#'   \item{IL:}{maximises the induced likelihood
+#'     \eqn{\prod_i \sum_\ell \Pr(Z = \ell \mid \hat Z_i)\,
+#'     f(Y_i \mid Z = \ell, x_i; \psi)}. Its score is the EC estimating
+#'     function, so with known probabilities EC and IL coincide (and equal
+#'     one-step with \code{fix_omega = TRUE}); they are the efficient
+#'     estimators for a correctly specified response distribution. With a
+#'     validation sample, EC plugs in the estimated probabilities while IL
+#'     estimates them jointly with \eqn{\psi} from the main study and the
+#'     validation sample (Yi et al., 2019, Section 4.1).}
 #'   \item{one-step:}{maximizes the integrated mixture likelihood
 #'     \eqn{\prod_i \sum_\ell \pi_\ell\, \Pi_{\hat z_i+1, \ell+1}\, f(Y_i \mid Z = \ell, \psi)}
 #'     by automatic differentiation (\pkg{RTMB}).}
@@ -81,10 +99,11 @@
 #' under drifting misclassification), \eqn{J^{-1} S J^{-\top}} for CS
 #' (Z-estimator sandwich, with \eqn{J = -(\hat I + \hat M)},
 #' \eqn{S = E[\phi_i \phi_i^\top]}), and the inverse Hessian of the
-#' integrated log-likelihood for one-step. SUB uses the Z-estimator
-#' sandwich \eqn{J^{-1} S J^{-\top}}, or, with a validation sample, the
-#' stacked sandwich for the regression and misclassification parameters
-#' (Yi et al., 2019, Section 4.2). See \code{vcov_corrected} below for an
+#' integrated log-likelihood for one-step. SUB and EC use the Z-estimator
+#' sandwich \eqn{J^{-1} S J^{-\top}} (EC with the Louis-identity Jacobian),
+#' or, with a validation sample, the stacked sandwich for the regression
+#' and misclassification parameters (Yi et al., 2019, Section 4.2). IL with
+#' a validation sample uses the sandwich of its joint (pseudo-)likelihood. See \code{vcov_corrected} below for an
 #' alternative, more conservative BCA/BCM sandwich.
 #'
 #' @section Required inputs by method:
@@ -95,7 +114,7 @@
 #'   \strong{Method}    \tab \strong{Binary (K = 2)}                    \tab \strong{Multicategory (K > 2)} \cr
 #'   \code{"naive"}    \tab \emph{none}                                 \tab \emph{none} \cr
 #'   \code{"bca"}, \code{"bcm"}, \code{"cs"} \tab \code{c1} and \code{c2}, or \code{p01}/\code{p10}/\code{pi_z}, or \code{Pi} \tab \code{Pi} and \code{pi_z} \cr
-#'   \code{"sub"} \tab \code{p01}/\code{p10}/\code{pi_z} or \code{Pi} (+ \code{pi_z}), or \code{validation} \tab \code{Pi} (+ \code{pi_z}), or \code{validation} \cr
+#'   \code{"sub"}, \code{"ec"}, \code{"il"} \tab \code{p01}/\code{p10}/\code{pi_z} or \code{Pi} (+ \code{pi_z}), or \code{validation} \tab \code{Pi} (+ \code{pi_z}), or \code{validation} \cr
 #'   \code{"onestep"} (\code{fix_omega = FALSE}) \tab \emph{none} (mixture weights estimated) \tab \emph{none} \cr
 #'   \code{"onestep"} (\code{fix_omega = TRUE})  \tab \code{p01}, \code{p10}, \code{pi_z} \tab \code{Pi}, \code{pi_z}
 #' }
@@ -129,7 +148,8 @@
 #'   (any \eqn{K}, all methods), or \code{"multinomial"}
 #'   (\code{naive} and \code{onestep} only).
 #' @param method Character vector of estimators to fit. Any subset of
-#'   \code{c("naive", "bca", "bcm", "cs", "cs_akn", "sub", "onestep")}; the
+#'   \code{c("naive", "bca", "bcm", "cs", "cs_akn", "sub", "ec", "il",
+#'   "onestep")}; the
 #'   default is \code{c("naive", "bca", "bcm", "sub")} (version 0.7.1 and
 #'   earlier used \code{c("naive", "bca", "bcm", "cs")}). The \code{"sub"}
 #'   entry selects
@@ -137,7 +157,11 @@
 #'   \eqn{\sum_i \hat\xi_i\{Y_i - \nu(\hat Z_i, x_i; \psi)\} = 0} with
 #'   \eqn{\nu(j, x; \psi) = \sum_\ell \Pr(Z = \ell \mid \hat Z = j)\,
 #'   \mu(\gamma_\ell + \alpha^\top x)}; it needs \eqn{\Pi} and
-#'   \eqn{\pi_z} (or \eqn{p_{01}, p_{10}, \pi_z}). The \code{"cs_akn"} entry
+#'   \eqn{\pi_z} (or \eqn{p_{01}, p_{10}, \pi_z}). \code{"ec"} and
+#'   \code{"il"} select the expectation correction and the induced
+#'   likelihood of Yi et al. (2019), which use the full response
+#'   distribution (count response for poisson, 0/1 for binomial) and need
+#'   the same inputs as \code{"sub"}. The \code{"cs_akn"} entry
 #'   selects the Akazawa--Kinukawa--Nakamura (1998) corrected-score
 #'   construction (an alternative formulation of \code{"cs"} based on
 #'   the unbiased-surrogate transform \eqn{x = Q^{-1}(u - p_0)}); it
@@ -213,6 +237,22 @@
 #'       misclassification parameters (or conditional on the latter with
 #'       \code{control_mc(variance = "conditional")}); the estimates are in
 #'       \code{$nuisance} and \code{$mc_estimate}.}
+#'     \item{\code{"ec"}}{as \code{"sub"}: the estimated probabilities are
+#'       plugged into the expectation-corrected score and the stacked
+#'       sandwich propagates their uncertainty.}
+#'     \item{\code{"il"}}{the misclassification probabilities are
+#'       estimated \emph{jointly} with \eqn{\psi} by maximising the
+#'       likelihood of the main study and the validation sample, so the
+#'       main study also informs \eqn{\Pi} and \eqn{\pi}; the
+#'       \code{estimate_mc()} result only provides starting values.
+#'       Internal validation rows contribute their complete-data
+#'       likelihood; selection into an internal audit may depend on the
+#'       observed \eqn{(Y, \hat Z, x)} and design weights are not needed.
+#'       External validation units contribute
+#'       \eqn{\log \Pi_{\hat z z}} and, with
+#'       \code{prevalence = "validation"}, \eqn{\log \pi_z} (design
+#'       weights, normalised to sum to \eqn{n_V}, give a
+#'       pseudo-likelihood). The estimates are in \code{$nuisance$il}.}
 #'     \item{\code{"cs"}}{only the covariance changes: it adds validation
 #'       uncertainty and, for internal validation, the overlap covariance.
 #'       Supports unweighted, unstratified samples with the prevalence
@@ -699,7 +739,7 @@ mcglm <- function(formula, data = NULL, family = "poisson",
   jacobian <- match.arg(jacobian)
   method <- match.arg(method,
                       c("naive", "bca", "bcm", "cs", "cs_akn", "sub",
-                        "onestep"),
+                        "ec", "il", "onestep"),
                       several.ok = TRUE)
 
   stopifnot(nrow(x) == n, length(z_hat) == n)
@@ -744,6 +784,10 @@ mcglm <- function(formula, data = NULL, family = "poisson",
   }
   is_binary <- (K == 2L)
 
+  # ec/il use the full class densities: check the response before fitting.
+  if (any(c("ec", "il") %in% method) && !is_multinomial)
+    invisible(.mcglm_ec_model(y, x, K, family))
+
   if (!is.null(pi_z)) {
     expected <- if (is_binary) 1L else K
     if (length(pi_z) != expected)
@@ -783,7 +827,7 @@ mcglm <- function(formula, data = NULL, family = "poisson",
 
   # --- validate misclassification parameters ---
   needs_correction <- any(method %in% c("bca", "bcm", "cs", "cs_akn", "sub",
-                                        "onestep"))
+                                        "ec", "il", "onestep"))
   needs_cs_akn     <- "cs_akn" %in% method
   if (needs_correction) {
     if (is_binary) {
@@ -842,7 +886,8 @@ mcglm <- function(formula, data = NULL, family = "poisson",
     est <- validation
     vd  <- est$validation
     if (!any(method %in% c("cs", .mcglm_validated_methods)))
-      stop("validation requires method = 'cs' or 'sub'.", call. = FALSE)
+      stop("validation requires method = 'cs', 'sub', 'ec' or 'il'.",
+           call. = FALSE)
     unsupported <- intersect(method, c("cs_akn", "onestep"))
     if (length(unsupported))
       stop("validation is not supported for method(s) ",
@@ -862,18 +907,20 @@ mcglm <- function(formula, data = NULL, family = "poisson",
     }
   }
 
-  # --- SUB needs the full (Pi, pi_z) through P(Z | Z_hat) ---
-  sub_W <- NULL
-  if ("sub" %in% method && is.null(vd)) {
-    Pi_sub <- Pi
-    if (is.null(Pi_sub) && is_binary && !is.null(p01) && !is.null(p10))
-      Pi_sub <- matrix(c(1 - p01, p01, p10, 1 - p10), 2L, 2L)
-    if (is.null(Pi_sub) || is.null(pi_z))
-      stop("For sub, supply Pi (or p01 and p10 when K = 2) and pi_z; ",
-           "c1/c2 alone do not determine P(Z | Z_hat).", call. = FALSE)
-    Pi_sub <- as.matrix(Pi_sub)
-    stopifnot(nrow(Pi_sub) == K, ncol(Pi_sub) == K)
-    sub_W <- .mcglm_predictive_matrix(Pi_sub, pi_z)
+  # --- SUB / EC / IL need the full (Pi, pi_z) through P(Z | Z_hat) ---
+  known_W <- NULL
+  needs_W <- intersect(c("sub", "ec", "il"), method)
+  if (length(needs_W) && is.null(vd)) {
+    Pi_known <- Pi
+    if (is.null(Pi_known) && is_binary && !is.null(p01) && !is.null(p10))
+      Pi_known <- matrix(c(1 - p01, p01, p10, 1 - p10), 2L, 2L)
+    if (is.null(Pi_known) || is.null(pi_z))
+      stop("For ", paste(needs_W, collapse = "/"), ", supply Pi (or p01 ",
+           "and p10 when K = 2) and pi_z; c1/c2 alone do not determine ",
+           "P(Z | Z_hat).", call. = FALSE)
+    Pi_known <- as.matrix(Pi_known)
+    stopifnot(nrow(Pi_known) == K, ncol(Pi_known) == K)
+    known_W <- .mcglm_predictive_matrix(Pi_known, pi_z)
   }
 
   # --- build xi_hat once ---
@@ -978,20 +1025,50 @@ mcglm <- function(formula, data = NULL, family = "poisson",
 
   convergence <- list()
   nuisance    <- list()
-  sub_vcov    <- NULL
+  extra_vcov  <- list()
   if ("sub" %in% method && !is_multinomial) {
     if (is.null(vd)) {
       sub_fit <- .mcglm_fit_sub(results$naive, y, xi_hat, z_hat, x, K,
-                                family, sub_W, wt = wt)
+                                family, known_W, wt = wt)
     } else {
       sub_fit <- .mcglm_fit_sub_validated(results$naive, y, xi_hat, z_hat,
                                           x, K, family, est, wt = wt,
                                           control = mc_control)
-      sub_vcov     <- sub_fit$vcov
-      nuisance$sub <- sub_fit$nuisance
+      extra_vcov$sub <- sub_fit$vcov
+      nuisance$sub   <- sub_fit$nuisance
     }
     results$sub     <- sub_fit$coefficients
     convergence$sub <- sub_fit[c("converged", "termcd", "iterations")]
+  }
+  # EC and IL coincide when the probabilities are known; with a validation
+  # sample EC is two-stage and IL estimates (psi, Pi, pi) jointly.
+  ec_il <- intersect(c("ec", "il"), method)
+  if (length(ec_il) && !is_multinomial) {
+    fits <- list()
+    if (is.null(vd)) {
+      ec_fit <- .mcglm_fit_ec(results$naive, y, xi_hat, z_hat, x, K, family,
+                              known_W, wt = wt,
+                              label = toupper(paste(ec_il, collapse = "/")))
+      for (m in ec_il) fits[[m]] <- ec_fit
+    } else {
+      if ("ec" %in% ec_il)
+        fits$ec <- .mcglm_fit_ec_validated(results$naive, y, xi_hat, z_hat,
+                                           x, K, family, est, wt = wt,
+                                           control = mc_control)
+      if ("il" %in% ec_il)
+        fits$il <- .mcglm_fit_il_validated(results$naive, y, xi_hat, z_hat,
+                                           x, K, family, est, wt = wt,
+                                           control = mc_control)
+    }
+    for (m in ec_il) {
+      f <- fits[[m]]
+      results[[m]]     <- f$coefficients
+      extra_vcov[[m]]  <- f$vcov
+      convergence[[m]] <- f[c("converged", "termcd", "iterations")]
+      nu <- f$nuisance
+      if (is.null(nu) && !is.null(f$sigma)) nu <- list(sigma = f$sigma)
+      if (!is.null(nu)) nuisance[[m]] <- nu
+    }
   }
 
   # --- parameter names ---
@@ -1077,10 +1154,11 @@ mcglm <- function(formula, data = NULL, family = "poisson",
                                  jacobian = jacobian, validation = validation)
         } else if (nm == "cs_akn") {
           .mcglm_vcov_cs_akn(psi_nm, y, x_akn, x, K, family, wt = wt)
+        } else if (nm %in% names(extra_vcov)) {
+          extra_vcov[[nm]]
         } else if (nm == "sub") {
-          if (!is.null(sub_vcov)) sub_vcov else
-            .mcglm_vcov_sub(psi_nm, y, xi_hat, z_hat, x, K, family, sub_W,
-                            wt = wt)
+          .mcglm_vcov_sub(psi_nm, y, xi_hat, z_hat, x, K, family, known_W,
+                          wt = wt)
         } else if (nm == "onestep") {
           onestep_vcov
         },

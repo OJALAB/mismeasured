@@ -39,7 +39,8 @@ variable named in \code{mc()} should be a \code{\link{factor}} or
 integer-valued vector with levels coded as \eqn{0, 1, \dots, K-1}.}
 
 \item{method}{Character vector of estimators to fit. Any subset of
-\code{c("naive", "bca", "bcm", "cs", "cs_akn", "sub", "onestep")}; the
+\code{c("naive", "bca", "bcm", "cs", "cs_akn", "sub", "ec", "il",
+"onestep")}; the
 default is \code{c("naive", "bca", "bcm", "sub")} (version 0.7.1 and
 earlier used \code{c("naive", "bca", "bcm", "cs")}). The \code{"sub"}
 entry selects
@@ -47,7 +48,11 @@ the subtraction correction of Yi et al. (2019), which solves
 \eqn{\sum_i \hat\xi_i\{Y_i - \nu(\hat Z_i, x_i; \psi)\} = 0} with
 \eqn{\nu(j, x; \psi) = \sum_\ell \Pr(Z = \ell \mid \hat Z = j)\,
 \mu(\gamma_\ell + \alpha^\top x)}; it needs \eqn{\Pi} and
-\eqn{\pi_z} (or \eqn{p_{01}, p_{10}, \pi_z}). The \code{"cs_akn"} entry
+\eqn{\pi_z} (or \eqn{p_{01}, p_{10}, \pi_z}). \code{"ec"} and
+\code{"il"} select the expectation correction and the induced
+likelihood of Yi et al. (2019), which use the full response
+distribution (count response for poisson, 0/1 for binomial) and need
+the same inputs as \code{"sub"}. The \code{"cs_akn"} entry
 selects the Akazawa--Kinukawa--Nakamura (1998) corrected-score
 construction (an alternative formulation of \code{"cs"} based on
 the unbiased-surrogate transform \eqn{x = Q^{-1}(u - p_0)}); it

@@ -48,11 +48,13 @@ different ways:
 | Method | Use of the validation sample |
 |---|---|
 | `"sub"` (default) | probabilities estimated from the audit; standard errors include their estimation uncertainty, for every design below |
+| `"ec"` | as `"sub"`, with the expectation-corrected score (uses the full response distribution) |
+| `"il"` | probabilities estimated *jointly* with the regression from the audit and the regression data (induced likelihood); for internal audits no design weights are needed |
 | `"cs"` | probabilities estimated from the audit; standard errors include their uncertainty; only unweighted, unstratified audits with the prevalence taken from the audit |
 | `"bca"`, `"bcm"` | estimated probabilities used as plug-ins; standard errors treat them as known |
 
-Support for `"cs_akn"`, the expectation correction and the induced
-likelihood is being added. The examples below use `"sub"`.
+Support for `"cs_akn"` is being added. The examples below use `"sub"`;
+the last section compares it with `"ec"` and `"il"`.
 
 ## The two basic designs
 
@@ -457,6 +459,45 @@ What the table shows for this draw:
 A single draw is shown; in repeated samples the correctly specified
 designs are unbiased and their standard errors match the sampling spread
 (see the package tests).
+
+## Choice of estimator
+
+The same audit can be used with the expectation correction and the
+induced likelihood. Both use the whole response distribution; the induced
+likelihood also lets the regression data inform the misclassification
+probabilities.
+
+```{r estimators}
+gamma_table <- function(fit)
+  rbind(estimate = sapply(fit$coefficients, function(b) b[["gamma"]]),
+        se       = sapply(fit$se, function(b) b[["gamma"]]))
+fit3_all <- mcglm(y ~ mc(z) + x1, data = df, method = c("sub", "ec", "il"),
+                  validation = val3)
+gamma_table(fit3_all)
+```
+
+With an outcome-dependent audit (scenario 5), `"ec"` and `"sub"` rely on
+the design weights, while `"il"` does not need them because the selection
+depends only on observed variables:
+
+```{r estimators-weights}
+fit5_all <- mcglm(y ~ mc(z) + x1, data = df, method = c("sub", "ec", "il"),
+                  validation = val5)
+g5 <- gamma_table(fit5_all)
+g5
+```
+
+The standard error of $\hat\gamma$ is `r formatC(g5["se", "sub"], format = "f", digits = 3)`
+for `"sub"`, `r formatC(g5["se", "ec"], format = "f", digits = 3)` for `"ec"` and
+`r formatC(g5["se", "il"], format = "f", digits = 3)` for `"il"`: the
+induced likelihood needs no design weights, whose variability inflates
+the other two, and it also uses the regression data to estimate the
+misclassification probabilities. In
+this draw the `"ec"` estimate lies
+`r formatC((0.8 - g5["estimate", "ec"]) / g5["se", "ec"], format = "f", digits = 1)`
+standard errors from the true value; in repeated samples of this design
+all three are unbiased and their standard errors match the sampling
+spread (see the package tests).
 
 ## Summary
 

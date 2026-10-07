@@ -16,7 +16,8 @@
   J_fun,
   wt = NULL,
   control = control_mc(),
-  label = "method"
+  label = "method",
+  true_fun = NULL
 )
 }
 \arguments{
@@ -35,6 +36,11 @@ corrected estimating-function rows for every main-study row, where
 \code{variance}).}
 
 \item{label}{Method label for messages.}
+
+\item{true_fun}{Optional list of \code{U(psi)} (rows for the internal
+validation units at their true category) and \code{J(psi, w)} (their
+sum-scale Jacobian). Defaults to the canonical GLM score
+\eqn{\xi_i\{Y_i - \mu(\psi^\top\xi_i)\}}.}
 }
 \value{
 List with \code{coefficients}, convergence fields, \code{vcov}

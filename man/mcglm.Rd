@@ -47,7 +47,8 @@ the strings \code{"poisson"}, \code{"binomial"}, \code{"gaussian"}
 (\code{naive} and \code{onestep} only).}
 
 \item{method}{Character vector of estimators to fit. Any subset of
-\code{c("naive", "bca", "bcm", "cs", "cs_akn", "sub", "onestep")}; the
+\code{c("naive", "bca", "bcm", "cs", "cs_akn", "sub", "ec", "il",
+"onestep")}; the
 default is \code{c("naive", "bca", "bcm", "sub")} (version 0.7.1 and
 earlier used \code{c("naive", "bca", "bcm", "cs")}). The \code{"sub"}
 entry selects
@@ -55,7 +56,11 @@ the subtraction correction of Yi et al. (2019), which solves
 \eqn{\sum_i \hat\xi_i\{Y_i - \nu(\hat Z_i, x_i; \psi)\} = 0} with
 \eqn{\nu(j, x; \psi) = \sum_\ell \Pr(Z = \ell \mid \hat Z = j)\,
 \mu(\gamma_\ell + \alpha^\top x)}; it needs \eqn{\Pi} and
-\eqn{\pi_z} (or \eqn{p_{01}, p_{10}, \pi_z}). The \code{"cs_akn"} entry
+\eqn{\pi_z} (or \eqn{p_{01}, p_{10}, \pi_z}). \code{"ec"} and
+\code{"il"} select the expectation correction and the induced
+likelihood of Yi et al. (2019), which use the full response
+distribution (count response for poisson, 0/1 for binomial) and need
+the same inputs as \code{"sub"}. The \code{"cs_akn"} entry
 selects the Akazawa--Kinukawa--Nakamura (1998) corrected-score
 construction (an alternative formulation of \code{"cs"} based on
 the unbiased-surrogate transform \eqn{x = Q^{-1}(u - p_0)}); it
@@ -163,6 +168,22 @@ depends on the method:
     misclassification parameters (or conditional on the latter with
     \code{control_mc(variance = "conditional")}); the estimates are in
     \code{$nuisance} and \code{$mc_estimate}.}
+  \item{\code{"ec"}}{as \code{"sub"}: the estimated probabilities are
+    plugged into the expectation-corrected score and the stacked
+    sandwich propagates their uncertainty.}
+  \item{\code{"il"}}{the misclassification probabilities are
+    estimated \emph{jointly} with \eqn{\psi} by maximising the
+    likelihood of the main study and the validation sample, so the
+    main study also informs \eqn{\Pi} and \eqn{\pi}; the
+    \code{estimate_mc()} result only provides starting values.
+    Internal validation rows contribute their complete-data
+    likelihood; selection into an internal audit may depend on the
+    observed \eqn{(Y, \hat Z, x)} and design weights are not needed.
+    External validation units contribute
+    \eqn{\log \Pi_{\hat z z}} and, with
+    \code{prevalence = "validation"}, \eqn{\log \pi_z} (design
+    weights, normalised to sum to \eqn{n_V}, give a
+    pseudo-likelihood). The estimates are in \code{$nuisance$il}.}
   \item{\code{"cs"}}{only the covariance changes: it adds validation
     uncertainty and, for internal validation, the overlap covariance.
     Supports unweighted, unstratified samples with the prevalence
@@ -218,11 +239,13 @@ Christensen, Hansen and Sacher (2025) and Yi, Yan, Liao and Spiegelman
 \emph{BCA} (additive bias correction), \emph{BCM} (multiplicative bias
 correction), \emph{CS} (drift-corrected score), \emph{CS-AKN}
 (Akazawa--Kinukawa--Nakamura corrected score), \emph{SUB} (subtraction
-correction, the default corrected estimator) and \emph{one-step} (joint
+correction, the default corrected estimator), \emph{EC} (expectation
+correction), \emph{IL} (induced likelihood) and \emph{one-step} (joint
 mixture likelihood via \pkg{RTMB}). Both binary and multicategory latent
 regressors are supported. Misclassification probabilities are either
-supplied or, for SUB, estimated from an internal or external validation
-sample (argument \code{validation}).
+supplied or, for SUB, EC and IL, estimated from an internal or external
+validation sample (argument \code{validation}; see
+\code{vignette("validation", "mismeasured")}).
 }
 \section{Model and notation}{
 
@@ -277,6 +300,22 @@ and \eqn{\hat M(\psi) = \partial \hat m / \partial \psi^\top}. Then:
     both have the same Jacobian and SUB has the smaller middle matrix,
     so SUB is at least as efficient as CS (Yi et al., 2019, Section
     3.2).}
+  \item{EC:}{solves \eqn{\sum_i \sum_\ell \omega_{i\ell}(\psi)\,
+    S_{i\ell}(\psi) = 0}, the posterior mean of the complete-data score
+    \eqn{S_{i\ell}} at \eqn{Z_i = \ell}, with weights
+    \eqn{\omega_{i\ell} \propto \Pr(Z = \ell \mid \hat Z_i)\,
+    f(Y_i \mid Z = \ell, x_i; \psi)} (Yi et al., 2019, Section 3.3). It
+    uses the full response distribution (Poisson, Bernoulli, or normal
+    with a jointly estimated \eqn{\sigma}).}
+  \item{IL:}{maximises the induced likelihood
+    \eqn{\prod_i \sum_\ell \Pr(Z = \ell \mid \hat Z_i)\,
+    f(Y_i \mid Z = \ell, x_i; \psi)}. Its score is the EC estimating
+    function, so with known probabilities EC and IL coincide (and equal
+    one-step with \code{fix_omega = TRUE}); they are the efficient
+    estimators for a correctly specified response distribution. With a
+    validation sample, EC plugs in the estimated probabilities while IL
+    estimates them jointly with \eqn{\psi} from the main study and the
+    validation sample (Yi et al., 2019, Section 4.1).}
   \item{one-step:}{maximizes the integrated mixture likelihood
     \eqn{\prod_i \sum_\ell \pi_\ell\, \Pi_{\hat z_i+1, \ell+1}\, f(Y_i \mid Z = \ell, \psi)}
     by automatic differentiation (\pkg{RTMB}).}
@@ -293,10 +332,11 @@ All estimators report an asymptotic variance through
 under drifting misclassification), \eqn{J^{-1} S J^{-\top}} for CS
 (Z-estimator sandwich, with \eqn{J = -(\hat I + \hat M)},
 \eqn{S = E[\phi_i \phi_i^\top]}), and the inverse Hessian of the
-integrated log-likelihood for one-step. SUB uses the Z-estimator
-sandwich \eqn{J^{-1} S J^{-\top}}, or, with a validation sample, the
-stacked sandwich for the regression and misclassification parameters
-(Yi et al., 2019, Section 4.2). See \code{vcov_corrected} below for an
+integrated log-likelihood for one-step. SUB and EC use the Z-estimator
+sandwich \eqn{J^{-1} S J^{-\top}} (EC with the Louis-identity Jacobian),
+or, with a validation sample, the stacked sandwich for the regression
+and misclassification parameters (Yi et al., 2019, Section 4.2). IL with
+a validation sample uses the sandwich of its joint (pseudo-)likelihood. See \code{vcov_corrected} below for an
 alternative, more conservative BCA/BCM sandwich.
 }
 
@@ -309,7 +349,7 @@ to supply parameters for methods you are not fitting.
   \strong{Method}    \tab \strong{Binary (K = 2)}                    \tab \strong{Multicategory (K > 2)} \cr
   \code{"naive"}    \tab \emph{none}                                 \tab \emph{none} \cr
   \code{"bca"}, \code{"bcm"}, \code{"cs"} \tab \code{c1} and \code{c2}, or \code{p01}/\code{p10}/\code{pi_z}, or \code{Pi} \tab \code{Pi} and \code{pi_z} \cr
-  \code{"sub"} \tab \code{p01}/\code{p10}/\code{pi_z} or \code{Pi} (+ \code{pi_z}), or \code{validation} \tab \code{Pi} (+ \code{pi_z}), or \code{validation} \cr
+  \code{"sub"}, \code{"ec"}, \code{"il"} \tab \code{p01}/\code{p10}/\code{pi_z} or \code{Pi} (+ \code{pi_z}), or \code{validation} \tab \code{Pi} (+ \code{pi_z}), or \code{validation} \cr
   \code{"onestep"} (\code{fix_omega = FALSE}) \tab \emph{none} (mixture weights estimated) \tab \emph{none} \cr
   \code{"onestep"} (\code{fix_omega = TRUE})  \tab \code{p01}, \code{p10}, \code{pi_z} \tab \code{Pi}, \code{pi_z}
 }

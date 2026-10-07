@@ -22,6 +22,21 @@
   `(Z_hat, x)`, has the same Jacobian and a smaller middle matrix, and is
   therefore at least as efficient. Solver status is stored in
   `fit$convergence`.
+* **Expectation correction (`method = "ec"`) and induced likelihood
+  (`method = "il"`)** following Yi et al. (2019, Sections 3.1, 3.3 and 4).
+  Both use the full response distribution (Poisson, Bernoulli, or normal
+  with a jointly estimated sigma; `fit$nuisance$<method>$sigma`). The EC
+  estimating function is the posterior mean of the complete-data score and
+  equals the induced-likelihood score, so with known probabilities the two
+  coincide (and equal `onestep` with `fix_omega = TRUE`, without needing
+  RTMB). With a validation sample, `"ec"` plugs in the estimated
+  probabilities (two-stage, stacked sandwich, design weights and both
+  beta equations as for `"sub"`), whereas `"il"` maximises the joint
+  likelihood of the main study and the validation sample over the
+  regression and misclassification parameters (EM followed by Newton
+  steps; sandwich variance). For internal audits `"il"` needs no design
+  weights when selection depends on the observed outcome, proxy and
+  covariates.
 * **Validation samples for `"sub"`.** With a validation sample, `"sub"`
   estimates `Pi` and `pi_z` from it; internal validation rows enter through
   their true category. Standard errors come from a stacked sandwich over the
