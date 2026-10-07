@@ -65,7 +65,13 @@ selects the Akazawa--Kinukawa--Nakamura (1998) corrected-score
 construction (an alternative formulation of \code{"cs"} based on
 the unbiased-surrogate transform \eqn{x = Q^{-1}(u - p_0)}); it
 needs only \eqn{\Pi} (not \eqn{\pi_z}) and is unsupported for
-\code{family = "multinomial"}.}
+\code{family = "multinomial"}. It is the corrected score of Yi et
+al. (2019, eq. 17) and, unlike \code{"cs"}, \code{"sub"},
+\code{"ec"} and \code{"il"}, does not assume that \eqn{Z} is
+independent of \eqn{x}; the price is a larger variance. A nearly
+singular \eqn{Q} is flagged according to \code{mc_control}
+(\code{kappa_max} for \eqn{K > 2}, \code{sigma_min} for
+\eqn{|1 - p_{01} - p_{10}|} when \eqn{K = 2}).}
 
 \item{p01}{False-positive rate \eqn{p_{01} = \Pr(\hat Z = 1 \mid Z = 0)}
 (\code{K = 2} only). Auto-extracted from \code{Pi} when supplied.}
@@ -184,6 +190,12 @@ depends on the method:
     \code{prevalence = "validation"}, \eqn{\log \pi_z} (design
     weights, normalised to sum to \eqn{n_V}, give a
     pseudo-likelihood). The estimates are in \code{$nuisance$il}.}
+  \item{\code{"cs_akn"}}{\eqn{\Pi} is estimated from the validation
+    sample and plugged into the unbiased surrogate; the stacked
+    sandwich propagates its uncertainty. The prevalence is not used,
+    so neither its source nor a dependence of \eqn{Z} on \eqn{x}
+    matters; the design of the audit does (a \eqn{\hat Z}-stratified
+    audit must be declared, otherwise \eqn{\hat\Pi} is biased).}
   \item{\code{"cs"}}{only the covariance changes: it adds validation
     uncertainty and, for internal validation, the overlap covariance.
     Supports unweighted, unstratified samples with the prevalence
@@ -194,8 +206,7 @@ depends on the method:
   \item{\code{"bca"}, \code{"bcm"}}{use the estimated probabilities
     as plug-ins; their variance treats them as known.}
 }
-\code{"cs_akn"} and \code{"onestep"} do not accept a validation
-sample yet. With \code{NULL}, all methods condition on the supplied
+\code{"onestep"} does not accept a validation sample. With \code{NULL}, all methods condition on the supplied
 probabilities, including when \code{pi_z} is inferred from proxy
 frequencies.}
 
@@ -243,8 +254,8 @@ correction, the default corrected estimator), \emph{EC} (expectation
 correction), \emph{IL} (induced likelihood) and \emph{one-step} (joint
 mixture likelihood via \pkg{RTMB}). Both binary and multicategory latent
 regressors are supported. Misclassification probabilities are either
-supplied or, for SUB, EC and IL, estimated from an internal or external
-validation sample (argument \code{validation}; see
+supplied or, for SUB, EC, IL and CS-AKN, estimated from an internal or
+external validation sample (argument \code{validation}; see
 \code{vignette("validation", "mismeasured")}).
 }
 \section{Model and notation}{
@@ -349,6 +360,7 @@ to supply parameters for methods you are not fitting.
   \strong{Method}    \tab \strong{Binary (K = 2)}                    \tab \strong{Multicategory (K > 2)} \cr
   \code{"naive"}    \tab \emph{none}                                 \tab \emph{none} \cr
   \code{"bca"}, \code{"bcm"}, \code{"cs"} \tab \code{c1} and \code{c2}, or \code{p01}/\code{p10}/\code{pi_z}, or \code{Pi} \tab \code{Pi} and \code{pi_z} \cr
+  \code{"cs_akn"} \tab \code{Pi} or \code{p01}/\code{p10}, or \code{validation} \tab \code{Pi}, or \code{validation} \cr
   \code{"sub"}, \code{"ec"}, \code{"il"} \tab \code{p01}/\code{p10}/\code{pi_z} or \code{Pi} (+ \code{pi_z}), or \code{validation} \tab \code{Pi} (+ \code{pi_z}), or \code{validation} \cr
   \code{"onestep"} (\code{fix_omega = FALSE}) \tab \emph{none} (mixture weights estimated) \tab \emph{none} \cr
   \code{"onestep"} (\code{fix_omega = TRUE})  \tab \code{p01}, \code{p10}, \code{pi_z} \tab \code{Pi}, \code{pi_z}

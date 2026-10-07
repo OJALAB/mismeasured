@@ -50,11 +50,12 @@ different ways:
 | `"sub"` (default) | probabilities estimated from the audit; standard errors include their estimation uncertainty, for every design below |
 | `"ec"` | as `"sub"`, with the expectation-corrected score (uses the full response distribution) |
 | `"il"` | probabilities estimated *jointly* with the regression from the audit and the regression data (induced likelihood); for internal audits no design weights are needed |
+| `"cs_akn"` | only $\Pi$ estimated from the audit; the prevalence is not used, so it remains valid when $Z$ depends on the covariates |
 | `"cs"` | probabilities estimated from the audit; standard errors include their uncertainty; only unweighted, unstratified audits with the prevalence taken from the audit |
 | `"bca"`, `"bcm"` | estimated probabilities used as plug-ins; standard errors treat them as known |
 
-Support for `"cs_akn"` is being added. The examples below use `"sub"`;
-the last section compares it with `"ec"` and `"il"`.
+The examples below use `"sub"`; the last sections compare it with the
+other estimators.
 
 ## The two basic designs
 
@@ -498,6 +499,53 @@ this draw the `"ec"` estimate lies
 standard errors from the true value; in repeated samples of this design
 all three are unbiased and their standard errors match the sampling
 spread (see the package tests).
+
+## When the true category depends on the covariates
+
+`"sub"`, `"ec"` and `"il"` (and `"cs"`) assume that $Z$ is independent of
+the covariates $x$: they use one prevalence $\pi$ for every row. When, for
+example, occupations differ by region or firm size, that assumption fails.
+The corrected score `"cs_akn"` needs only $\Pi$ and stays consistent:
+
+```{r dependence}
+df_dep <- df
+df_dep$z_true <- rbinom(nrow(df), 1, plogis(-0.8 + 1.2 * df$x1))
+df_dep$z <- ifelse(df_dep$z_true == 1, rbinom(nrow(df), 1, Pi_true[2, 2]),
+                   rbinom(nrow(df), 1, Pi_true[2, 1]))
+df_dep$y <- rpois(nrow(df), exp(-0.3 + 0.8 * df_dep$z_true + 0.5 * df$x1))
+idx_dep <- sample(nrow(df), 500)
+fit_dep <- mcglm(y ~ mc(z) + x1, data = df_dep,
+                 method = c("sub", "il", "cs_akn"),
+                 validation = validation_sample(df_dep$z_true[idx_dep],
+                                                index = idx_dep))
+fit_dep_true <- glm(y ~ z_true + x1, family = poisson, data = df_dep)
+
+dep <- cbind(
+  "true Z (infeasible)" = c(coef(fit_dep_true)[c("z_true", "x1")],
+                            sqrt(diag(vcov(fit_dep_true)))[c("z_true", "x1")]),
+  sapply(c("sub", "il", "cs_akn"), function(m)
+    c(coef(fit_dep, method = m)[c("gamma", "x1")],
+      fit_dep$se[[m]][c("gamma", "x1")])))
+rownames(dep) <- c("gamma", "x1", "se_gamma", "se_x1")
+round(dep, 3)
+```
+
+```{r dependence-numbers, include = FALSE}
+d3 <- function(m) formatC(dep["x1", m] - dep["x1", "true Z (infeasible)"],
+                          format = "f", digits = 3, flag = "+")
+```
+
+The fit on the true category is the reference for this draw (its slope of
+`x1` is `r formatC(dep["x1", 1], format = "f", digits = 3)`; the true value
+is 0.5). Against it, `"sub"` and `"il"` move the slope by `r d3("sub")` and
+`r d3("il")`: with $Z$ correlated with `x1`, a single prevalence makes them
+attribute part of the effect of $Z$ to `x1`, and this bias does not shrink
+with the sample size. `"cs_akn"` differs by `r d3("cs_akn")`, that is
+`r formatC(abs(dep["x1", "cs_akn"] - dep["x1", 1]) / dep["se_x1", "cs_akn"], format = "f", digits = 1)`
+of its standard errors
+(`r formatC(dep["se_x1", "cs_akn"], format = "f", digits = 3)`), which is
+ordinary sampling variation; in repeated samples it is unbiased. Its standard errors are larger, so it is the
+estimator to use when the independence of $Z$ and $x$ is doubtful.
 
 ## Summary
 

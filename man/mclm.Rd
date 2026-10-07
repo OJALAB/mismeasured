@@ -57,7 +57,13 @@ selects the Akazawa--Kinukawa--Nakamura (1998) corrected-score
 construction (an alternative formulation of \code{"cs"} based on
 the unbiased-surrogate transform \eqn{x = Q^{-1}(u - p_0)}); it
 needs only \eqn{\Pi} (not \eqn{\pi_z}) and is unsupported for
-\code{family = "multinomial"}.}
+\code{family = "multinomial"}. It is the corrected score of Yi et
+al. (2019, eq. 17) and, unlike \code{"cs"}, \code{"sub"},
+\code{"ec"} and \code{"il"}, does not assume that \eqn{Z} is
+independent of \eqn{x}; the price is a larger variance. A nearly
+singular \eqn{Q} is flagged according to \code{mc_control}
+(\code{kappa_max} for \eqn{K > 2}, \code{sigma_min} for
+\eqn{|1 - p_{01} - p_{10}|} when \eqn{K = 2}).}
 
 \item{p01}{False-positive rate \eqn{p_{01} = \Pr(\hat Z = 1 \mid Z = 0)}
 (\code{K = 2} only). Auto-extracted from \code{Pi} when supplied.}

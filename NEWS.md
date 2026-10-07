@@ -37,6 +37,16 @@
   steps; sandwich variance). For internal audits `"il"` needs no design
   weights when selection depends on the observed outcome, proxy and
   covariates.
+* **`"cs_akn"` with validation samples.** The corrected score of
+  Akazawa, Kinukawa and Nakamura (Yi et al., 2019, eq. 17) estimates `Pi`
+  from an internal or external audit and propagates its uncertainty
+  through the stacked sandwich (design weights and both beta equations as
+  for `"sub"`). It needs only `Pi`, so it remains consistent when the latent
+  category depends on the covariates, where `"cs"`, `"sub"`, `"ec"` and
+  `"il"` are biased. The ill-conditioning warning for its matrix `Q`, which
+  fired only above a condition number of 1e8, is replaced by the
+  `control_mc()` thresholds (`kappa_max`, or `sigma_min` for
+  `|1 - p01 - p10|` when K = 2) and `on_ill`.
 * **Validation samples for `"sub"`.** With a validation sample, `"sub"`
   estimates `Pi` and `pi_z` from it; internal validation rows enter through
   their true category. Standard errors come from a stacked sandwich over the

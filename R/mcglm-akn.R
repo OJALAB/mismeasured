@@ -35,16 +35,40 @@
   P_mat <- Pi[-1, , drop = FALSE]               # (K-1) x K
   p0    <- P_mat[, 1]                            # length K-1
   Q     <- P_mat[, -1, drop = FALSE] - p0        # (K-1) x (K-1)
-  cond_Q <- tryCatch(kappa(Q, exact = FALSE),
-                     error = function(e) Inf)
-  if (!is.finite(cond_Q) || cond_Q > 1e8)
-    warning("cs_akn: Q is near-singular (condition number ",
-            signif(cond_Q, 3), "); estimates may be unstable.")
   Q_inv <- tryCatch(solve(Q),
                     error = function(e)
                       stop("cs_akn: Q matrix [p_1 - p_0, ..., p_{K-1} - p_0] ",
                            "is singular; AKN98 surrogate is not identified."))
   list(Q_inv = Q_inv, p0 = p0)
+}
+
+#' Guard against an ill-conditioned AKN transform
+#'
+#' The corrected score inverts \eqn{Q = [p_1 - p_0, \dots, p_{K-1} - p_0]};
+#' when it is close to singular the estimates are unstable. Flags
+#' \eqn{|1 - p_{01} - p_{10}|} below \code{control$sigma_min} for
+#' \eqn{K = 2} and the condition number of \eqn{Q} above
+#' \code{control$kappa_max} for \eqn{K > 2}, then warns or errors as set by
+#' \code{control$on_ill}.
+#' @keywords internal
+.akn_check_Q <- function(Pi, K, control = control_mc()) {
+  Pi <- as.matrix(Pi)
+  if (K == 2L) {
+    v <- abs(1 - Pi[2L, 1L] - Pi[1L, 2L])
+    if (v >= control$sigma_min) return(invisible(TRUE))
+    msg <- sprintf("|1 - p01 - p10| = %.3g is below %g", v, control$sigma_min)
+  } else {
+    Q <- Pi[-1L, -1L, drop = FALSE] - Pi[-1L, 1L]
+    v <- tryCatch(kappa(Q, exact = TRUE), error = function(e) Inf)
+    if (is.finite(v) && v <= control$kappa_max) return(invisible(TRUE))
+    msg <- sprintf("the condition number of Q is %.3g, above %g", v,
+                   control$kappa_max)
+  }
+  msg <- paste0("cs_akn: ", msg, "; the corrected score inverts Q and its ",
+                "estimates are unstable (see control_mc()).")
+  if (control$on_ill == "error") stop(msg, call. = FALSE)
+  if (control$on_ill == "warn") warning(msg, call. = FALSE)
+  invisible(FALSE)
 }
 
 #' Build AKN98 unbiased surrogate
@@ -210,4 +234,37 @@
   J     <- -I_akn
   J_inv <- solve(J)
   J_inv %*% S %*% t(J_inv) / N
+}
+
+#' AKN98 corrected score with a validation sample
+#'
+#' Rebuilds the unbiased surrogate from the misclassification matrix of an
+#' \code{\link{estimate_mc}} object and solves the corrected score with
+#' \code{.mcglm_fit_validated} (score at the true category on internal
+#' validation rows; stacked sandwich). Only \eqn{\Pi} enters the
+#' estimating function, so the prevalence part of the estimate does not
+#' affect the regression estimates or their covariance.
+#' @keywords internal
+.mcglm_fit_cs_akn_validated <- function(psi_init, y, x, z_hat, K, family,
+                                        est, wt = NULL,
+                                        control = control_mc()) {
+  fam <- .normalize_family(family)
+  .akn_check_Q(unname(est$Pi), K, control)
+  surrogate <- function(Pi) {
+    Q_pack <- .akn_build_Q(Pi, K)
+    .akn_unbiased_surrogate(z_hat, Q_pack$Q_inv, Q_pack$p0, K)
+  }
+  U_fun <- function(psi, par) .akn_phi(psi, y, surrogate(par$Pi), x, K, fam)
+  J_fun <- function(psi, par, w)
+    -sum(w) * .akn_information(psi, y, surrogate(par$Pi), x, K, fam, wt = w)
+  fit <- .mcglm_fit_validated(psi_init, est, y, x, z_hat, K, fam, U_fun,
+                              J_fun, wt = wt, control = control,
+                              label = "cs_akn")
+  s <- K - 1L
+  keep <- seq_len(K * s)
+  fit$nuisance <- list(eta = est$eta[keep],
+                       vcov = est$vcov[keep, keep, drop = FALSE],
+                       Pi = est$Pi, variance = control$variance,
+                       beta_equation = fit$nuisance$beta_equation)
+  fit
 }

@@ -152,11 +152,8 @@ test_that("cs_akn helper reports non-identification clearly", {
     mismeasured:::.akn_build_Q(diag(2), K = 3),
     "K x K"
   )
-  expect_warning(
-    expect_error(mismeasured:::.akn_build_Q(matrix(0.5, 2, 2), K = 2),
-                 "singular"),
-    "near-singular"
-  )
+  expect_error(mismeasured:::.akn_build_Q(matrix(0.5, 2, 2), K = 2),
+               "singular")
 })
 
 # ---- weights ----

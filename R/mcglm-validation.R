@@ -23,7 +23,7 @@
 
 # Methods whose misclassification nuisance is estimated from a validation
 # sample (rather than supplied) when mcglm(validation = ) is used.
-.mcglm_validated_methods <- c("sub", "ec", "il")
+.mcglm_validated_methods <- c("sub", "ec", "il", "cs_akn")
 
 #' Parse and check a validation-sample description
 #'

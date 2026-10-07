@@ -11,8 +11,8 @@
 #' correction), \emph{IL} (induced likelihood) and \emph{one-step} (joint
 #' mixture likelihood via \pkg{RTMB}). Both binary and multicategory latent
 #' regressors are supported. Misclassification probabilities are either
-#' supplied or, for SUB, EC and IL, estimated from an internal or external
-#' validation sample (argument \code{validation}; see
+#' supplied or, for SUB, EC, IL and CS-AKN, estimated from an internal or
+#' external validation sample (argument \code{validation}; see
 #' \code{vignette("validation", "mismeasured")}).
 #'
 #' @section Model and notation:
@@ -114,6 +114,7 @@
 #'   \strong{Method}    \tab \strong{Binary (K = 2)}                    \tab \strong{Multicategory (K > 2)} \cr
 #'   \code{"naive"}    \tab \emph{none}                                 \tab \emph{none} \cr
 #'   \code{"bca"}, \code{"bcm"}, \code{"cs"} \tab \code{c1} and \code{c2}, or \code{p01}/\code{p10}/\code{pi_z}, or \code{Pi} \tab \code{Pi} and \code{pi_z} \cr
+#'   \code{"cs_akn"} \tab \code{Pi} or \code{p01}/\code{p10}, or \code{validation} \tab \code{Pi}, or \code{validation} \cr
 #'   \code{"sub"}, \code{"ec"}, \code{"il"} \tab \code{p01}/\code{p10}/\code{pi_z} or \code{Pi} (+ \code{pi_z}), or \code{validation} \tab \code{Pi} (+ \code{pi_z}), or \code{validation} \cr
 #'   \code{"onestep"} (\code{fix_omega = FALSE}) \tab \emph{none} (mixture weights estimated) \tab \emph{none} \cr
 #'   \code{"onestep"} (\code{fix_omega = TRUE})  \tab \code{p01}, \code{p10}, \code{pi_z} \tab \code{Pi}, \code{pi_z}
@@ -166,7 +167,13 @@
 #'   construction (an alternative formulation of \code{"cs"} based on
 #'   the unbiased-surrogate transform \eqn{x = Q^{-1}(u - p_0)}); it
 #'   needs only \eqn{\Pi} (not \eqn{\pi_z}) and is unsupported for
-#'   \code{family = "multinomial"}.
+#'   \code{family = "multinomial"}. It is the corrected score of Yi et
+#'   al. (2019, eq. 17) and, unlike \code{"cs"}, \code{"sub"},
+#'   \code{"ec"} and \code{"il"}, does not assume that \eqn{Z} is
+#'   independent of \eqn{x}; the price is a larger variance. A nearly
+#'   singular \eqn{Q} is flagged according to \code{mc_control}
+#'   (\code{kappa_max} for \eqn{K > 2}, \code{sigma_min} for
+#'   \eqn{|1 - p_{01} - p_{10}|} when \eqn{K = 2}).
 #' @param p01 False-positive rate \eqn{p_{01} = \Pr(\hat Z = 1 \mid Z = 0)}
 #'   (\code{K = 2} only). Auto-extracted from \code{Pi} when supplied.
 #' @param p10 False-negative rate \eqn{p_{10} = \Pr(\hat Z = 0 \mid Z = 1)}
@@ -253,6 +260,12 @@
 #'       \code{prevalence = "validation"}, \eqn{\log \pi_z} (design
 #'       weights, normalised to sum to \eqn{n_V}, give a
 #'       pseudo-likelihood). The estimates are in \code{$nuisance$il}.}
+#'     \item{\code{"cs_akn"}}{\eqn{\Pi} is estimated from the validation
+#'       sample and plugged into the unbiased surrogate; the stacked
+#'       sandwich propagates its uncertainty. The prevalence is not used,
+#'       so neither its source nor a dependence of \eqn{Z} on \eqn{x}
+#'       matters; the design of the audit does (a \eqn{\hat Z}-stratified
+#'       audit must be declared, otherwise \eqn{\hat\Pi} is biased).}
 #'     \item{\code{"cs"}}{only the covariance changes: it adds validation
 #'       uncertainty and, for internal validation, the overlap covariance.
 #'       Supports unweighted, unstratified samples with the prevalence
@@ -263,8 +276,7 @@
 #'     \item{\code{"bca"}, \code{"bcm"}}{use the estimated probabilities
 #'       as plug-ins; their variance treats them as known.}
 #'   }
-#'   \code{"cs_akn"} and \code{"onestep"} do not accept a validation
-#'   sample yet. With \code{NULL}, all methods condition on the supplied
+#'   \code{"onestep"} does not accept a validation sample. With \code{NULL}, all methods condition on the supplied
 #'   probabilities, including when \code{pi_z} is inferred from proxy
 #'   frequencies.
 #' @param mc_control A \code{\link{control_mc}} object: how the
@@ -886,9 +898,9 @@ mcglm <- function(formula, data = NULL, family = "poisson",
     est <- validation
     vd  <- est$validation
     if (!any(method %in% c("cs", .mcglm_validated_methods)))
-      stop("validation requires method = 'cs', 'sub', 'ec' or 'il'.",
+      stop("validation requires method = 'cs', 'sub', 'ec', 'il' or 'cs_akn'.",
            call. = FALSE)
-    unsupported <- intersect(method, c("cs_akn", "onestep"))
+    unsupported <- intersect(method, "onestep")
     if (length(unsupported))
       stop("validation is not supported for method(s) ",
            paste(unsupported, collapse = ", "), ".", call. = FALSE)
@@ -930,7 +942,8 @@ mcglm <- function(formula, data = NULL, family = "poisson",
 
   # --- AKN98 unbiased surrogate (built once, reused for fit + variance) ---
   x_akn <- NULL
-  if (needs_cs_akn) {
+  if (needs_cs_akn && is.null(vd)) {
+    .akn_check_Q(Pi, K, mc_control)
     Q_pack <- .akn_build_Q(Pi, K)
     x_akn  <- .akn_unbiased_surrogate(z_hat, Q_pack$Q_inv, Q_pack$p0, K)
   }
@@ -976,7 +989,7 @@ mcglm <- function(formula, data = NULL, family = "poisson",
     if ("cs"  %in% method)
       results$cs  <- .mcglm_fit_cs_bin(psi, y, xi_hat, x, family, c1, c2,
                                         wt = wt)
-    if ("cs_akn" %in% method)
+    if ("cs_akn" %in% method && is.null(vd))
       results$cs_akn <- .mcglm_fit_cs_akn(psi, y, x_akn, x, K, family, wt = wt)
 
     if ("onestep" %in% method) {
@@ -1008,7 +1021,7 @@ mcglm <- function(formula, data = NULL, family = "poisson",
       results$cs  <- .mcglm_fit_cs_multi(psi, y, xi_hat, z_hat, x, K, family,
                                           Pi, pi_z, wt = wt,
                                           jacobian = jacobian)
-    if ("cs_akn" %in% method)
+    if ("cs_akn" %in% method && is.null(vd))
       results$cs_akn <- .mcglm_fit_cs_akn(psi, y, x_akn, x, K, family, wt = wt)
 
     if ("onestep" %in% method) {
@@ -1039,6 +1052,15 @@ mcglm <- function(formula, data = NULL, family = "poisson",
     }
     results$sub     <- sub_fit$coefficients
     convergence$sub <- sub_fit[c("converged", "termcd", "iterations")]
+  }
+  if ("cs_akn" %in% method && !is.null(vd) && !is_multinomial) {
+    akn_fit <- .mcglm_fit_cs_akn_validated(results$naive, y, x, z_hat, K,
+                                           family, est, wt = wt,
+                                           control = mc_control)
+    results$cs_akn     <- akn_fit$coefficients
+    extra_vcov$cs_akn  <- akn_fit$vcov
+    convergence$cs_akn <- akn_fit[c("converged", "termcd", "iterations")]
+    nuisance$cs_akn    <- akn_fit$nuisance
   }
   # EC and IL coincide when the probabilities are known; with a validation
   # sample EC is two-stage and IL estimates (psi, Pi, pi) jointly.
@@ -1152,10 +1174,10 @@ mcglm <- function(formula, data = NULL, family = "poisson",
             .mcglm_vcov_cs_multi(psi_nm, y, xi_hat, z_hat, x, K, family,
                                  Pi, pi_z, wt = wt,
                                  jacobian = jacobian, validation = validation)
-        } else if (nm == "cs_akn") {
-          .mcglm_vcov_cs_akn(psi_nm, y, x_akn, x, K, family, wt = wt)
         } else if (nm %in% names(extra_vcov)) {
           extra_vcov[[nm]]
+        } else if (nm == "cs_akn") {
+          .mcglm_vcov_cs_akn(psi_nm, y, x_akn, x, K, family, wt = wt)
         } else if (nm == "sub") {
           .mcglm_vcov_sub(psi_nm, y, xi_hat, z_hat, x, K, family, known_W,
                           wt = wt)

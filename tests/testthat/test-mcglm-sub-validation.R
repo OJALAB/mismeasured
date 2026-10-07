@@ -191,8 +191,8 @@ test_that("validation is rejected for methods that cannot use it", {
   expect_error(mcglm(d$y, z_hat = d$z_hat, x = d$x, method = "bcm",
                      validation = d$v), "requires method")
   expect_error(mcglm(d$y, z_hat = d$z_hat, x = d$x,
-                     method = c("sub", "cs_akn"), validation = d$v),
-               "not supported for method\\(s\\) cs_akn")
+                     method = c("sub", "onestep"), validation = d$v),
+               "not supported for method\\(s\\) onestep")
   bad <- d
   bad$v$z <- bad$v$z * 0L
   expect_error(.subv_fit(bad), "Every true category")
