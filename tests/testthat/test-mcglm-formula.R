@@ -50,7 +50,7 @@ test_that("minimal formula: only Pi, pi_z auto-estimated (binary)", {
   expect_equal(fit$K, 2L)
   expect_equal(fit$n, d$n)
   expect_equal(fit$p, 3)
-  expect_named(fit$coefficients, c("naive", "bca", "bcm", "cs"))
+  expect_named(fit$coefficients, c("naive", "bca", "bcm", "sub"))
   for (nm in names(fit$coefficients)) {
     expect_true(all(is.finite(fit$coefficients[[nm]])),
                 info = paste("method:", nm))
@@ -287,13 +287,16 @@ test_that("formula: multicategory with I(x^2)", {
 
 test_that("formula: corrections reduce bias (binary Poisson)", {
   d <- gen_binary(n = 5000); Pi <- d$Pi
-  fit <- mcglm(y ~ mc(z, Pi) + x1, data = d$df, family = "poisson")
+  fit <- mcglm(y ~ mc(z, Pi) + x1, data = d$df, family = "poisson",
+               method = c("naive", "bca", "cs", "sub"))
 
   bias_naive <- abs(fit$coefficients$naive[1] - d$psi0[1])
   bias_bca   <- abs(fit$coefficients$bca[1] - d$psi0[1])
   bias_cs    <- abs(fit$coefficients$cs[1] - d$psi0[1])
+  bias_sub   <- abs(fit$coefficients$sub[1] - d$psi0[1])
   expect_lt(bias_bca, bias_naive)
   expect_lt(bias_cs, bias_naive)
+  expect_lt(bias_sub, bias_naive)
 })
 
 

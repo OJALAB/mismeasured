@@ -8,7 +8,7 @@ mcglm(
   formula,
   data = NULL,
   family = "poisson",
-  method = c("naive", "bca", "bcm", "cs"),
+  method = c("naive", "bca", "bcm", "sub"),
   p01 = NULL,
   p10 = NULL,
   pi_z = NULL,
@@ -43,13 +43,14 @@ integer-valued vector with levels coded as \eqn{0, 1, \dots, K-1}.}
 
 \item{family}{A \code{\link[stats]{family}} object or one of
 the strings \code{"poisson"}, \code{"binomial"}, \code{"gaussian"}
-(any \eqn{K}, all five methods), or \code{"multinomial"}
+(any \eqn{K}, all methods), or \code{"multinomial"}
 (\code{naive} and \code{onestep} only).}
 
 \item{method}{Character vector of estimators to fit. Any subset of
 \code{c("naive", "bca", "bcm", "cs", "cs_akn", "sub", "onestep")}; the
-default is the four analytical estimators
-\code{c("naive", "bca", "bcm", "cs")}. The \code{"sub"} entry selects
+default is \code{c("naive", "bca", "bcm", "sub")} (version 0.7.1 and
+earlier used \code{c("naive", "bca", "bcm", "cs")}). The \code{"sub"}
+entry selects
 the subtraction correction of Yi et al. (2019), which solves
 \eqn{\sum_i \hat\xi_i\{Y_i - \nu(\hat Z_i, x_i; \psi)\} = 0} with
 \eqn{\nu(j, x; \psi) = \sum_\ell \Pr(Z = \ell \mid \hat Z = j)\,
@@ -204,12 +205,16 @@ An object of class \code{"mcglm"} with components:
 \description{
 Fits a GLM in which one covariate is observed through a misclassified
 proxy and applies the bias-correction estimators of Battaglia,
-Christensen, Hansen and Sacher (2025). Five estimators are available:
-\emph{naive} (uncorrected proxy-score), \emph{BCA} (additive bias
-correction), \emph{BCM} (multiplicative bias correction), \emph{CS}
-(corrected score), and \emph{one-step} (joint mixture likelihood via
-\pkg{RTMB}). Both binary and multicategory latent regressors are
-supported.
+Christensen, Hansen and Sacher (2025) and Yi, Yan, Liao and Spiegelman
+(2019). The estimators are \emph{naive} (uncorrected proxy-score),
+\emph{BCA} (additive bias correction), \emph{BCM} (multiplicative bias
+correction), \emph{CS} (drift-corrected score), \emph{CS-AKN}
+(Akazawa--Kinukawa--Nakamura corrected score), \emph{SUB} (subtraction
+correction, the default corrected estimator) and \emph{one-step} (joint
+mixture likelihood via \pkg{RTMB}). Both binary and multicategory latent
+regressors are supported. Misclassification probabilities are either
+supplied or, for SUB, estimated from an internal or external validation
+sample (argument \code{validation}).
 }
 \section{Model and notation}{
 
@@ -255,6 +260,15 @@ and \eqn{\hat M(\psi) = \partial \hat m / \partial \psi^\top}. Then:
   \item{BCM:}{\eqn{\hat\psi_{\mathrm{bcm}} = \hat\psi - (\hat I(\hat\psi) + \hat M(\hat\psi))^{-1} \hat m(\hat\psi)}}
   \item{CS:}{solves \eqn{n^{-1} \sum_i \phi_i(\psi) = 0} with
     \eqn{\phi_i(\psi) = \hat\xi_i \{Y_i - \mu(\psi^\top \hat\xi_i)\} - m_i(\psi)}}
+  \item{SUB:}{solves \eqn{n^{-1} \sum_i \hat\xi_i \{Y_i - \nu_i(\psi)\} = 0}
+    with \eqn{\nu_i(\psi) = \sum_\ell \Pr(Z = \ell \mid \hat Z_i)\,
+    \mu(\gamma_\ell + \alpha^\top x_i)}. Since
+    \eqn{m_i(\psi) = E_\psi[\hat\xi_i\{Y_i - \mu(\psi^\top\hat\xi_i)\} \mid x_i]},
+    CS subtracts the conditional expectation of the naive score given
+    \eqn{x_i}, whereas SUB subtracts it given \eqn{(\hat Z_i, x_i)};
+    both have the same Jacobian and SUB has the smaller middle matrix,
+    so SUB is at least as efficient as CS (Yi et al., 2019, Section
+    3.2).}
   \item{one-step:}{maximizes the integrated mixture likelihood
     \eqn{\prod_i \sum_\ell \pi_\ell\, \Pi_{\hat z_i+1, \ell+1}\, f(Y_i \mid Z = \ell, \psi)}
     by automatic differentiation (\pkg{RTMB}).}
@@ -265,14 +279,17 @@ Multicategory analogues replace \eqn{(p_{01}, p_{10}, \pi)} with
 (2025) for explicit formulas.
 
 \emph{Inference.}
-All five estimators report an asymptotic variance through
+All estimators report an asymptotic variance through
 \code{\link{vcov.mcglm}}: \eqn{A^{-1} C A^{-1}} for naive / BCA / BCM
 (Theorems on the two-step expansion and on bias-corrected estimators
 under drifting misclassification), \eqn{J^{-1} S J^{-\top}} for CS
 (Z-estimator sandwich, with \eqn{J = -(\hat I + \hat M)},
 \eqn{S = E[\phi_i \phi_i^\top]}), and the inverse Hessian of the
-integrated log-likelihood for one-step. See \code{vcov_corrected}
-below for an alternative, more conservative BCA/BCM sandwich.
+integrated log-likelihood for one-step. SUB uses the Z-estimator
+sandwich \eqn{J^{-1} S J^{-\top}}, or, with a validation sample, the
+stacked sandwich for the regression and misclassification parameters
+(Yi et al., 2019, Section 4.2). See \code{vcov_corrected} below for an
+alternative, more conservative BCA/BCM sandwich.
 }
 
 \section{Required inputs by method}{
@@ -284,6 +301,7 @@ to supply parameters for methods you are not fitting.
   \strong{Method}    \tab \strong{Binary (K = 2)}                    \tab \strong{Multicategory (K > 2)} \cr
   \code{"naive"}    \tab \emph{none}                                 \tab \emph{none} \cr
   \code{"bca"}, \code{"bcm"}, \code{"cs"} \tab \code{c1} and \code{c2}, or \code{p01}/\code{p10}/\code{pi_z}, or \code{Pi} \tab \code{Pi} and \code{pi_z} \cr
+  \code{"sub"} \tab \code{p01}/\code{p10}/\code{pi_z} or \code{Pi} (+ \code{pi_z}), or \code{validation} \tab \code{Pi} (+ \code{pi_z}), or \code{validation} \cr
   \code{"onestep"} (\code{fix_omega = FALSE}) \tab \emph{none} (mixture weights estimated) \tab \emph{none} \cr
   \code{"onestep"} (\code{fix_omega = TRUE})  \tab \code{p01}, \code{p10}, \code{pi_z} \tab \code{Pi}, \code{pi_z}
 }
@@ -332,6 +350,16 @@ confint(fit, method = "cs")
 fit_akn <- mcglm(y ~ mc(z, Pi) + x1, data = df, family = "poisson",
                  method = c("cs", "cs_akn"))
 coef(fit_akn, method = "cs_akn")
+
+# --- Subtraction correction with an external validation sample ---
+# Pi and pi_z are estimated from (z_val, z_hat_val); mc() takes no matrix.
+z_val     <- rbinom(300, 1, 0.4)
+z_hat_val <- ifelse(z_val == 1, rbinom(300, 1, 0.85), rbinom(300, 1, 0.10))
+fit_v <- mcglm(y ~ mc(z) + x1, data = df, family = "poisson",
+               method = c("naive", "sub"),
+               validation = list(z = z_val, z_hat = z_hat_val))
+summary(fit_v)
+fit_v$nuisance$sub$Pi
 
 # --- Matrix interface, supplying p01/p10/pi_z directly ---
 x_mat <- cbind(1, x1)

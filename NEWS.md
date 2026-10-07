@@ -1,3 +1,37 @@
+# mismeasured (development version)
+
+## Breaking changes
+
+* **`mcglm()` and `mclm()` now fit `method = c("naive", "bca", "bcm", "sub")`
+  by default** instead of `c("naive", "bca", "bcm", "cs")`. Request `"cs"`
+  explicitly to keep the previous corrected estimator.
+
+## New features
+
+* **Subtraction correction (`method = "sub"`)** following Yi, Yan, Liao and
+  Spiegelman (2019, *Int. J. Biostat.*, doi:10.1515/ijb-2017-0002, Section
+  3.2). It solves `sum_i xi_hat_i {Y_i - nu_i(psi)} = 0`, where `nu_i` averages
+  the class means over `P(Z | Z_hat_i)`, for any K, the poisson/binomial/
+  gaussian families and frequency weights. `"cs"` subtracts the conditional
+  expectation of the naive score given `x` only; `"sub"` conditions on
+  `(Z_hat, x)`, has the same Jacobian and a smaller middle matrix, and is
+  therefore at least as efficient. Solver status is stored in
+  `fit$convergence`.
+* **Validation samples for `"sub"`.** With `validation = list(z, z_hat)`
+  (external) or `list(z, index)` (internal), `"sub"` estimates `Pi` and
+  `pi_z` from the validation sample; internal validation rows contribute the
+  score at their true category. Standard errors come from a stacked sandwich
+  over the regression and misclassification parameters; the latter are
+  returned in `fit$nuisance$sub`, and `fit$validation_design` records the
+  design. New argument `pi_source = c("validation", "main")` takes the
+  prevalence either from the validation sample or from `Pi^{-1}` applied to
+  the main-study proxy frequencies. Supplying `Pi` (also inside `mc()`),
+  `p01`, `p10`, `pi_z`, `c1` or `c2` together with a validation sample is an
+  error for `"sub"`; use `mc(z)` without a matrix.
+* When a validation sample is given without probabilities, `"bca"`, `"bcm"`
+  and `"cs"` use the validation-sample proportions (for `"cs"` these are the
+  empirical probabilities its validation covariance requires).
+
 # mismeasured 0.7.1
 
 ## New features

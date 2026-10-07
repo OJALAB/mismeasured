@@ -7,7 +7,7 @@
 mclm(
   formula,
   data = NULL,
-  method = c("naive", "bca", "bcm", "cs"),
+  method = c("naive", "bca", "bcm", "sub"),
   p01 = NULL,
   p10 = NULL,
   pi_z = NULL,
@@ -40,8 +40,9 @@ integer-valued vector with levels coded as \eqn{0, 1, \dots, K-1}.}
 
 \item{method}{Character vector of estimators to fit. Any subset of
 \code{c("naive", "bca", "bcm", "cs", "cs_akn", "sub", "onestep")}; the
-default is the four analytical estimators
-\code{c("naive", "bca", "bcm", "cs")}. The \code{"sub"} entry selects
+default is \code{c("naive", "bca", "bcm", "sub")} (version 0.7.1 and
+earlier used \code{c("naive", "bca", "bcm", "cs")}). The \code{"sub"}
+entry selects
 the subtraction correction of Yi et al. (2019), which solves
 \eqn{\sum_i \hat\xi_i\{Y_i - \nu(\hat Z_i, x_i; \psi)\} = 0} with
 \eqn{\nu(j, x; \psi) = \sum_\ell \Pr(Z = \ell \mid \hat Z = j)\,

@@ -30,7 +30,7 @@
 #'
 #' @export
 mclm <- function(formula, data = NULL,
-                 method = c("naive", "bca", "bcm", "cs"),
+                 method = c("naive", "bca", "bcm", "sub"),
                  p01 = NULL, p10 = NULL, pi_z = NULL,
                  Pi = NULL, K = NULL,
                  c1 = NULL, c2 = NULL,

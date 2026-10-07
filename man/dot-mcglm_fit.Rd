@@ -9,7 +9,7 @@
   z_hat,
   x,
   family = "poisson",
-  method = c("naive", "bca", "bcm", "cs"),
+  method = c("naive", "bca", "bcm", "sub"),
   p01 = NULL,
   p10 = NULL,
   pi_z = NULL,
