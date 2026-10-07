@@ -1,0 +1,481 @@
+---
+title: "Specifying validation samples for misclassification correction"
+author: "Maciej Beresewicz, Michal Warmuz"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Specifying validation samples for misclassification correction}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(mismeasured)
+set.seed(2026)
+```
+
+## Why a validation sample
+
+`mcglm()` corrects a regression for a covariate $Z$ that is observed only
+through a proxy $\hat Z$, for example an occupation code assigned to online
+job ads by a classifier. The correction needs the misclassification
+probabilities
+
+$$
+\Pi_{j\ell} = \Pr(\hat Z = j \mid Z = \ell), \qquad
+\pi_\ell = \Pr(Z = \ell),
+$$
+
+or equivalently the predictive probabilities
+$W_{j\ell} = \Pr(Z = \ell \mid \hat Z = j)$. When they are not known, they
+are estimated from a **validation (audit) sample** in which the true
+category $Z$ is recorded next to $\hat Z$. How the audit was drawn decides
+how it must be described to the package. This vignette walks through the
+common designs.
+
+The workflow has three steps:
+
+1. describe the audit with `validation_sample()`;
+2. optionally estimate and inspect the probabilities with `estimate_mc()`
+   and `diagnose_mc()`;
+3. fit the model with `mc(z, estimate)` in the formula or with
+   `validation =`.
+
+The corrected estimators of `mcglm()` use the estimated probabilities in
+different ways:
+
+| Method | Use of the validation sample |
+|---|---|
+| `"sub"` (default) | probabilities estimated from the audit; standard errors include their estimation uncertainty, for every design below |
+| `"cs"` | probabilities estimated from the audit; standard errors include their uncertainty; only unweighted, unstratified audits with the prevalence taken from the audit |
+| `"bca"`, `"bcm"` | estimated probabilities used as plug-ins; standard errors treat them as known |
+
+Support for `"cs_akn"`, the expectation correction and the induced
+likelihood is being added. The examples below use `"sub"`.
+
+## The two basic designs
+
+| | Internal validation | External validation |
+|---|---|---|
+| Who is audited | a subsample of the rows used in the regression | units outside the regression data |
+| What is recorded | true $Z$ for the audited rows | true $Z$ and proxy $\hat Z$ |
+| Specification | `validation_sample(z, index = rows)` | `validation_sample(z, z_hat = proxies)` |
+| What must carry over | nothing; the audit is part of the data | $\Pi$ (always) and $\pi$ (unless `prevalence = "em"`) |
+
+**Categories are matched by label.** `z` and `z_hat` can be factors,
+character vectors or numbers, and they are matched to the categories of
+the `mc()` variable by their labels, never by position. If the proxy in
+the data is a factor `occ` with levels `"clerk"`, `"manager"`, `"sales"`,
+pass the audit as those labels, in any order:
+
+```{r coding, eval = FALSE}
+validation_sample(z = audit$true_occ, index = audit$row)   # "clerk", "sales", ...
+```
+
+Numbers are compared as labels too. They fit an integer-coded proxy
+(categories `0, 1, ...`) or a factor whose levels are those numbers (e.g.
+ISCO major groups `1`, ..., `9`), and are rejected with an explanatory
+error for a proxy with other labels. A label that is not a category of the
+model, such as a typo, is an error. The estimated $\Pi$, $\pi$ and $W$ are
+labelled by category.
+
+**Rows.** For internal validation, `index` gives row numbers of the data
+passed to `mcglm()`. Subset or remove missing values **before** building
+the index.
+
+## A running example
+
+```{r generator}
+Pi_true <- matrix(c(0.88, 0.12,     # column 1: P(z_hat | Z = 0)
+                    0.15, 0.85),    # column 2: P(z_hat | Z = 1)
+                  2, 2)
+simulate <- function(n, prev = 0.35, Pi = Pi_true) {
+  z     <- rbinom(n, 1, prev)
+  z_hat <- ifelse(z == 1, rbinom(n, 1, Pi[2, 2]), rbinom(n, 1, Pi[2, 1]))
+  x1    <- rnorm(n)
+  y     <- rpois(n, exp(-0.3 + 0.8 * z + 0.5 * x1))
+  data.frame(y, z_true = z, z = z_hat, x1)
+}
+df <- simulate(5000)
+```
+
+The regression data `df` contain the proxy `z`; the true category `z_true`
+is used below only to create audits and for comparison. The target is
+$\gamma = 0.8$ with intercept $-0.3$.
+
+```{r naive}
+fit_naive <- mcglm(y ~ mc(z) + x1, data = df, method = "naive")
+coef(summary(fit_naive))$naive
+```
+
+## Scenario 1: external validation from the same population
+
+A separate gold-standard sample of 400 units, drawn the same way as the
+regression data, has both the true and the predicted category.
+
+```{r ext-srs}
+df_gold <- simulate(400)
+val1 <- validation_sample(z = df_gold$z_true, z_hat = df_gold$z)
+val1
+fit1 <- mcglm(y ~ mc(z) + x1, data = df, method = c("naive", "sub"),
+              validation = val1)
+summary(fit1)
+```
+
+Note that `mc(z)` has no matrix: the probabilities come from the audit.
+Supplying a matrix (or `pi_z`, `p01`, ...) together with a validation
+sample is an error, so the two sources cannot be mixed by accident.
+
+The estimated quantities are kept in the fit:
+
+```{r ext-srs-nuis}
+fit1$nuisance$sub$Pi
+fit1$nuisance$sub$pi_z
+```
+
+## Scenario 2: external validation from a different population
+
+Often the gold-standard data come from elsewhere, e.g. a labelled
+benchmark with a different occupational mix. Then only the classifier's
+error rates $\Pi$ can be assumed to carry over, not the prevalence. Use
+`prevalence = "em"`: $\pi$ is re-estimated by maximum likelihood from the
+proxy frequencies in `df` given $\hat\Pi$ (the EM procedure of Saerens,
+Latinne and Decaestecker, 2002).
+
+```{r ext-shift}
+df_bench <- simulate(400, prev = 0.6)          # different prevalence
+val2 <- validation_sample(df_bench$z_true, df_bench$z)
+
+fit2_audit <- mcglm(y ~ mc(z) + x1, data = df, method = "sub",
+                    validation = val2)
+fit2_em    <- mcglm(y ~ mc(z) + x1, data = df, method = "sub",
+                    validation = val2,
+                    mc_control = control_mc(prevalence = "em"))
+rbind(prevalence_from_audit = coef(fit2_audit),
+      prevalence_from_df    = coef(fit2_em))
+```
+
+```{r ext-shift-numbers, include = FALSE}
+f3 <- function(x) formatC(unname(x), format = "f", digits = 3)
+pi_audit  <- fit2_audit$nuisance$sub$pi_z[2]
+pi_em     <- fit2_em$nuisance$sub$pi_z[2]
+int_audit <- coef(fit2_audit)["(Intercept)"]
+int_em    <- coef(fit2_em)["(Intercept)"]
+```
+
+Taking the prevalence from the benchmark gives
+$\hat\pi = `r f3(pi_audit)`$, while the prevalence in the regression
+data is `r f3(mean(df$z_true))`. The correction is then miscalibrated,
+most visibly in the intercept (`r f3(int_audit)` against the true
+$-0.3$). With `prevalence = "em"` the prevalence is re-estimated from `df`
+as `r f3(pi_em)` and the intercept becomes `r f3(int_em)`.
+If $\hat\Pi^{-1}\hat p$ falls outside the simplex, EM returns the boundary
+estimate with a warning instead of clamping; the standard errors are then
+not available.
+
+## Scenario 3: internal simple random subsample
+
+A random 10% of the regression rows are sent for manual coding.
+
+```{r int-srs}
+idx3 <- sample(nrow(df), 500)
+val3 <- validation_sample(z = df$z_true[idx3], index = idx3)
+fit3 <- mcglm(y ~ mc(z) + x1, data = df, method = "sub", validation = val3)
+coef(summary(fit3))$sub
+fit3$nuisance$sub$beta_equation
+```
+
+The proxies of the audited rows are read from `df`. The audited rows also
+enter the regression with their **true** category, replacing the
+corrected score (Yi, Yan, Liao and Spiegelman, 2019, eq. 23;
+`beta_equation = "yi"`). This uses the extra information and is valid
+whenever selection into the audit depends only on $(\hat Z, x)$.
+
+## Scenario 4: audit stratified by the predicted category
+
+Audits are usually drawn per predicted class, e.g. 250 ads predicted as
+each occupation, regardless of how common the class is. The audited units
+are then **not** representative: rare predicted classes are oversampled.
+Declare the stratification with `strata = "z_hat"`; the weights
+$N_j/n_j$ are computed from the proxy counts in `df`.
+
+```{r int-strata}
+idx4 <- unlist(lapply(0:1, function(j) sample(which(df$z == j), 250)))
+val4 <- validation_sample(df$z_true[idx4], index = idx4, strata = "z_hat")
+val4_ignored <- validation_sample(df$z_true[idx4], index = idx4)
+
+est4 <- estimate_mc(val4, z_hat = df$z)
+est4_ignored <- estimate_mc(val4_ignored, z_hat = df$z)
+list(true = Pi_true, stratified = round(est4$Pi, 3),
+     ignored = round(est4_ignored$Pi, 3))
+```
+
+Ignoring the design distorts $\hat\Pi$ because column proportions are
+computed over a sample with the wrong mix of predicted classes, and it
+distorts the audit's share of each true class:
+
+```{r int-strata-pi}
+rbind(stratified = est4$pi, ignored = est4_ignored$pi,
+      truth = prop.table(table(df$z_true)))
+```
+
+The predictive matrix $W$, however, is the within-stratum proportion of
+each true class either way, because sampling within predicted classes
+does not change $\Pr(Z \mid \hat Z)$:
+
+```{r int-strata-W}
+all.equal(est4$W, est4_ignored$W)
+```
+
+`"sub"` with the prevalence taken from the audit uses only $W$, so for it
+declaring or ignoring the strata gives the same fit. The design matters as
+soon as $\hat\Pi$ or $\hat\pi$ are used on their own, for instance when
+the prevalence is re-estimated from `df` with `prevalence = "em"`:
+
+```{r int-strata-fit}
+fit4 <- mcglm(y ~ mc(z) + x1, data = df, method = "sub", validation = val4)
+fit4_ignored <- mcglm(y ~ mc(z) + x1, data = df, method = "sub",
+                      validation = val4_ignored)
+em <- control_mc(prevalence = "em")
+fit4_em <- mcglm(y ~ mc(z) + x1, data = df, method = "sub",
+                 validation = val4, mc_control = em)
+fit4_ignored_em <- mcglm(y ~ mc(z) + x1, data = df, method = "sub",
+                         validation = val4_ignored, mc_control = em)
+rbind(declared = coef(fit4), ignored = coef(fit4_ignored),
+      declared_em = coef(fit4_em), ignored_em = coef(fit4_ignored_em))
+```
+
+Declaring the design is therefore always the safe choice.
+
+## Scenario 5: audit with known, unequal inclusion probabilities
+
+Suppose the audit is a subsample of a nonprobability sample (e.g. scraped
+job ads) drawn with inclusion probabilities that depend on the ad, for
+instance oversampling ads with a high response or a low classifier
+confidence. Pass the design weights $d_i = 1/\text{inclusion probability}$:
+
+```{r int-weights}
+p_incl <- ifelse(df$y == 0, 0.04, 0.15)          # depends on the outcome
+idx5   <- which(runif(nrow(df)) < p_incl)
+val5 <- validation_sample(df$z_true[idx5], index = idx5,
+                          weights = 1 / p_incl[idx5])
+fit5 <- mcglm(y ~ mc(z) + x1, data = df, method = "sub", validation = val5)
+coef(summary(fit5))$sub
+fit5$nuisance$sub$beta_equation
+```
+
+With design weights, `beta_equation = "auto"` switches to the
+design-weighted estimating equation
+
+$$
+\sum_{i} U_i(\psi) + \sum_{i \in V} d_i\{S_i(\psi) - U_i(\psi)\} = 0,
+$$
+
+where the first sum runs over all rows of `df`, $V$ is the audit, $U$ the
+corrected score and $S$ the score at the true category. It is unbiased for
+any known inclusion probabilities, including selection that depends on
+the outcome. Both equations can be requested explicitly with
+`control_mc(beta_equation = "yi")` or `"weighted"`.
+
+### Hajek or Horvitz--Thompson
+
+`estimator` chooses how weighted totals are turned into proportions:
+
+```{r ht}
+val5_ht <- validation_sample(df$z_true[idx5], index = idx5,
+                             weights = 1 / p_incl[idx5], estimator = "ht")
+est5    <- estimate_mc(val5, z_hat = df$z)
+est5_ht <- estimate_mc(val5_ht, z_hat = df$z)
+rbind(hajek = est5$pi, ht = est5_ht$pi)
+all.equal(est5$Pi, est5_ht$Pi)
+fit5_ht <- mcglm(y ~ mc(z) + x1, data = df, method = "sub",
+                 validation = val5_ht)
+```
+
+The misclassification matrix is a ratio of two weighted totals and is the
+same under both. The prevalence differs: Hajek divides by $\sum d_i$, HT by
+the frame size $N$ (for an internal audit, the number of rows of `df`).
+Hajek is the usual choice; HT is exactly design-unbiased for totals when
+$N$ is known.
+
+## Scenario 6: external audit stratified by predicted class
+
+When a stratified audit was drawn from a separate frame (e.g. last
+quarter's ads), give the frame's stratum sizes:
+
+```{r ext-strata}
+df_frame <- simulate(20000)
+idx6 <- unlist(lapply(0:1, function(j) sample(which(df_frame$z == j), 200)))
+val6 <- validation_sample(df_frame$z_true[idx6], df_frame$z[idx6],
+                          strata = "z_hat",
+                          N_strata = c(`0` = sum(df_frame$z == 0),
+                                       `1` = sum(df_frame$z == 1)))
+fit6 <- mcglm(y ~ mc(z) + x1, data = df, method = "sub", validation = val6)
+coef(summary(fit6))$sub
+```
+
+User-defined strata work the same way (`strata = region`, with
+`N_strata` named by stratum, or with explicit `weights`). For an external
+sample, standard errors use a stratum-centred, with-replacement variance.
+
+## Estimate once, inspect, then fit
+
+`estimate_mc()` can be run on its own to look at the estimates before any
+regression is fitted:
+
+```{r inspect}
+est3 <- estimate_mc(val3, z_hat = df$z)
+summary(est3)
+```
+
+`diagnose_mc()` reports the smallest singular value and condition number
+of $\hat\Pi$, the number of audited units per true class, empty cells, and
+whether the prevalence is on the boundary. Problems produce a warning by
+default; use `control_mc(on_ill = "error")` to stop instead. A nearly
+uninformative classifier is flagged:
+
+```{r diagnose}
+weak <- validation_sample(z     = rep(0:1, each = 100),
+                          z_hat = c(rep(0:1, c(51, 49)), rep(0:1, c(49, 51))))
+diagnose_mc(estimate_mc(weak, control = control_mc(on_ill = "none")))
+```
+
+The estimate can then be passed in the formula:
+
+```{r reuse}
+fit3_est <- mcglm(y ~ mc(z, est3) + x1, data = df, method = "sub")
+all.equal(coef(fit3_est), coef(fit3))
+```
+
+An estimate that used the proxies of `df` (internal audits, or
+`prevalence = "em"`/`"inverse"`) belongs to that data set; `mcglm()`
+refuses to apply it to other data. An external estimate with
+`prevalence = "validation"` can be reused across data sets.
+
+## Propagating or ignoring the estimation uncertainty
+
+By default (`variance = "delta"`), the regression and misclassification
+estimating equations are stacked, so standard errors include the
+uncertainty from a finite audit. `variance = "conditional"` treats the
+estimates as known, which shows how much the audit size costs:
+
+```{r variance}
+val_small <- validation_sample(df_gold$z_true[1:150], df_gold$z[1:150])
+fit_small <- mcglm(y ~ mc(z) + x1, data = df, method = "sub",
+                   validation = val_small)
+fit_small_cond <- mcglm(y ~ mc(z) + x1, data = df, method = "sub",
+                        validation = val_small,
+                        mc_control = control_mc(variance = "conditional"))
+rbind(delta = fit_small$se$sub, conditional = fit_small_cond$se$sub)
+```
+
+## Comparing the designs
+
+The table collects the estimates of $\gamma$ (true value 0.8) and the
+intercept (true value $-0.3$) with their standard errors for the fits
+above. Two benchmarks frame them: the infeasible regression on the true
+category, and `"sub"` with the true misclassification probabilities.
+
+```{r compare}
+fit_true  <- glm(y ~ z_true + x1, family = poisson, data = df)
+fit_known <- mcglm(y ~ mc(z, Pi_true) + x1, data = df, method = "sub",
+                   pi_z = 0.35)
+
+estimates <- function(fit) {
+  if (inherits(fit, "glm")) {
+    cf <- coef(summary(fit))
+    g  <- "z_true"
+  } else {
+    cf <- coef(summary(fit))[[fit$method[length(fit$method)]]]
+    g  <- "gamma"
+  }
+  c(gamma = cf[g, 1], se_gamma = cf[g, 2],
+    intercept = cf["(Intercept)", 1], se_intercept = cf["(Intercept)", 2])
+}
+
+fits <- list(
+  "true Z (infeasible)"               = fit_true,
+  "naive"                             = fit_naive,
+  "known Pi and pi"                   = fit_known,
+  "1 external, same population"       = fit1,
+  "2 external, prevalence from audit" = fit2_audit,
+  "2 external, prevalence by EM"      = fit2_em,
+  "3 internal SRS"                    = fit3,
+  "4 internal, strata declared"       = fit4,
+  "4 internal, strata ignored"        = fit4_ignored,
+  "4 strata declared, EM prevalence"  = fit4_em,
+  "4 strata ignored, EM prevalence"   = fit4_ignored_em,
+  "5 internal, weights (Hajek)"       = fit5,
+  "5 internal, weights (HT)"          = fit5_ht,
+  "6 external, strata"                = fit6,
+  "small external audit"              = fit_small
+)
+n_audit <- c(NA, NA, NA, nrow(df_gold), nrow(df_bench), nrow(df_bench),
+             length(idx3), rep(length(idx4), 4), length(idx5),
+             length(idx5), length(idx6), 150)
+comparison <- data.frame(n_audit, t(sapply(fits, estimates)))
+knitr::kable(comparison, digits = 3)
+```
+
+```{r compare-numbers, include = FALSE}
+cmp <- function(row, col) formatC(comparison[row, col], format = "f", digits = 3)
+```
+
+What the table shows for this draw:
+
+- The naive estimate of $\gamma$ is attenuated
+  (`r cmp("naive", "gamma")`).
+- Even with the true probabilities, the correction costs precision: the
+  standard error of $\hat\gamma$ rises from
+  `r cmp("true Z (infeasible)", "se_gamma")` with the true category to
+  `r cmp("known Pi and pi", "se_gamma")`.
+- Estimating the probabilities from an audit adds to it, and the smaller
+  the audit, the larger the addition:
+  `r cmp("1 external, same population", "se_gamma")` with 400 external
+  units against `r cmp("small external audit", "se_gamma")` with 150.
+- The internal SRS audit of `r length(idx3)` rows also contributes their
+  true category to the regression; its standard error is
+  `r cmp("3 internal SRS", "se_gamma")`.
+- A misspecified design is not flagged by the standard errors; it moves
+  the point estimates. With the benchmark's prevalence the intercept is
+  `r cmp("2 external, prevalence from audit", "intercept")` against
+  `r cmp("2 external, prevalence by EM", "intercept")` with EM. Ignoring
+  the stratification leaves the default fit unchanged
+  (`r cmp("4 internal, strata ignored", "gamma")`), but with EM it moves
+  $\hat\gamma$ from `r cmp("4 strata declared, EM prevalence", "gamma")`
+  to `r cmp("4 strata ignored, EM prevalence", "gamma")`.
+- The audit with outcome-dependent inclusion probabilities (scenario 5)
+  has the largest standard error,
+  `r cmp("5 internal, weights (Hajek)", "se_gamma")`: the
+  design-weighted equation protects against selection on the outcome at
+  the price of variable weights.
+- Scenario 6 lies
+  `r formatC((0.8 - comparison["6 external, strata", "gamma"]) / comparison["6 external, strata", "se_gamma"], format = "f", digits = 1)`
+  standard errors from the true $\gamma$, which a single draw can produce.
+
+A single draw is shown; in repeated samples the correctly specified
+designs are unbiased and their standard errors match the sampling spread
+(see the package tests).
+
+## Summary
+
+| Audit design | `validation_sample()` call | Notes |
+|---|---|---|
+| External, same population | `(z, z_hat)` | assumes $\Pi$ and $\pi$ carry over |
+| External, different population | `(z, z_hat)` + `control_mc(prevalence = "em")` | only $\Pi$ carries over |
+| Internal SRS | `(z, index = rows)` | audited rows use their true category |
+| Internal, fixed $n$ per predicted class | `(z, index = rows, strata = "z_hat")` | weights $N_j/n_j$ from the data |
+| Internal, unequal known probabilities | `(z, index = rows, weights = 1/p)` | design-weighted equation; Hajek or `estimator = "ht"` |
+| External, stratified | `(z, z_hat, strata = ..., N_strata = ...)` | stratum-centred variance |
+
+## References
+
+Saerens, M., Latinne, P. and Decaestecker, C. (2002). Adjusting the outputs
+of a classifier to new a priori probabilities: a simple procedure.
+*Neural Computation*, 14(1), 21--41. doi:10.1162/089976602753284446.
+
+Yi, G. Y., Yan, Y., Liao, X. and Spiegelman, D. (2019). Parametric
+regression analysis with covariate misclassification in main
+study/validation study designs. *The International Journal of
+Biostatistics*, 15(1), 20170002. doi:10.1515/ijb-2017-0002.

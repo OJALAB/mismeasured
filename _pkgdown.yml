@@ -29,6 +29,13 @@ reference:
       - build.mc.matrix
       - check.mc.matrix
       - diag.block
+  - title: "Validation samples and estimated misclassification"
+    contents:
+      - validation_sample
+      - as_validation_sample
+      - estimate_mc
+      - control_mc
+      - diagnose_mc
   - title: "Methods for mcglm fits"
     desc: "S3 methods for objects returned by mcglm() and mclm()."
     contents:
@@ -67,3 +74,4 @@ articles:
     contents:
       - simex
       - mcglm
+      - validation
