@@ -1,6 +1,6 @@
 ---
 title: "Bias-corrected GLMs with misclassified covariates: mcglm() and mclm()"
-author: "Maciej Beresewicz, Michal Warmuz"
+author: "Maciej Beresewicz"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
