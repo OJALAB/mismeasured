@@ -188,45 +188,50 @@
 #'   \code{FALSE} (default), the drifting-regime asymptotic variance
 #'   \eqn{A^{-1} C A^{-1}} is used. Both share the same point estimate.
 #' @param weights Optional positive frequency weights of length \eqn{n}.
-#' @param validation Optional list describing a validation sample in which
-#'   the true category is observed next to the proxy. For an independent
-#'   external validation sample use
-#'   \code{list(z = true_codes, z_hat = proxy_codes)}; for an internal
-#'   simple random subsample of the regression rows use
-#'   \code{list(z = true_codes, index = regression_row_numbers)} (proxy
-#'   codes are taken from those rows). Codes must be numeric integers in
+#' @param validation Optional validation (audit) sample in which the true
+#'   category is observed next to the proxy: a
+#'   \code{\link{validation_sample}} (with optional design weights, strata
+#'   and Hajek/Horvitz--Thompson estimator), an \code{\link{estimate_mc}}
+#'   result, or the list forms \code{list(z = true_codes, z_hat =
+#'   proxy_codes)} (external) and \code{list(z = true_codes, index =
+#'   regression_row_numbers)} (internal; proxies taken from those rows).
+#'   Equivalently, pass an \code{estimate_mc()} result inside the formula
+#'   as \code{mc(z, estimate)}. Codes must be integers in
 #'   \code{0, ..., K-1}, in the model's category order, and every true
 #'   category must occur. Its effect depends on the method:
 #'   \describe{
 #'     \item{\code{"sub"}}{\eqn{\Pi} and \eqn{\pi_z} are \emph{estimated}
-#'       from the validation sample (see \code{pi_source}); supplying
+#'       (see \code{\link{estimate_mc}} and \code{mc_control}); supplying
 #'       \code{Pi} (also inside \code{mc()}), \code{p01}, \code{p10},
 #'       \code{pi_z}, \code{c1} or \code{c2} is then an error. With
-#'       internal validation the validated rows contribute the score at
-#'       their true category (Yi et al., 2019, Section 4.2). The reported
+#'       internal validation the validated rows enter the estimating
+#'       equation through their true category (see
+#'       \code{\link{control_mc}(beta_equation = )}). The reported
 #'       covariance is the stacked sandwich for the regression and
-#'       misclassification parameters; the latter are returned in
-#'       \code{$nuisance}.}
+#'       misclassification parameters (or conditional on the latter with
+#'       \code{control_mc(variance = "conditional")}); the estimates are in
+#'       \code{$nuisance} and \code{$mc_estimate}.}
 #'     \item{\code{"cs"}}{only the covariance changes: it adds validation
 #'       uncertainty and, for internal validation, the overlap covariance.
-#'       The probabilities must be the empirical proportions of the
-#'       validation sample; when none are supplied they are computed from
-#'       it. Requires unweighted observations (or all weights equal to
-#'       one).}
-#'     \item{\code{"bca"}, \code{"bcm"}}{use the validation-sample
-#'       probabilities as plug-ins; their variance treats them as known.}
+#'       Supports unweighted, unstratified samples with the prevalence
+#'       taken from the validation sample. The probabilities must be the
+#'       empirical proportions of the validation sample; when none are
+#'       supplied they are computed from it. Requires unweighted
+#'       observations (or all weights equal to one).}
+#'     \item{\code{"bca"}, \code{"bcm"}}{use the estimated probabilities
+#'       as plug-ins; their variance treats them as known.}
 #'   }
 #'   \code{"cs_akn"} and \code{"onestep"} do not accept a validation
 #'   sample yet. With \code{NULL}, all methods condition on the supplied
 #'   probabilities, including when \code{pi_z} is inferred from proxy
 #'   frequencies.
-#' @param pi_source Where \code{"sub"} takes the latent prevalence from when
-#'   a validation sample is supplied: \code{"validation"} (default; the
-#'   proportions of \code{validation$z}, which assumes the validation
-#'   sample has the main study's prevalence) or \code{"main"}
-#'   (\eqn{\hat\pi = \hat\Pi^{-1}\hat p}, with \eqn{\hat p} the proxy
-#'   frequencies of the regression rows, so only \eqn{\Pi} is transported
-#'   from the validation sample).
+#' @param mc_control A \code{\link{control_mc}} object: how the
+#'   misclassification probabilities are estimated from \code{validation}
+#'   (prevalence source, diagnostics) and how their estimation enters the
+#'   fit (\code{variance}, \code{beta_equation}). When \code{validation}
+#'   is already an \code{estimate_mc()} result, its own estimation settings
+#'   are kept and only \code{variance} and \code{beta_equation} are taken
+#'   from here.
 #' @param J Number of response categories (multinomial family only;
 #'   auto-detected).
 #' @param homoskedastic Logical. For one-step Gaussian fits, assume a
@@ -379,11 +384,12 @@ mcglm <- function(formula, data = NULL, family = "poisson",
                   homoskedastic = TRUE,
                   optim_control = list(),
                   z_hat = NULL, x = NULL, validation = NULL,
-                  pi_source = c("validation", "main")) {
+                  mc_control = control_mc()) {
 
   cl <- match.call()
   jacobian <- match.arg(jacobian)
-  pi_source <- match.arg(pi_source)
+  if (!inherits(mc_control, "mc_control"))
+    stop("mc_control must be created by control_mc().", call. = FALSE)
   formula_obj <- NULL
 
   # --- Dispatch: formula vs matrix interface ---
@@ -402,6 +408,12 @@ mcglm <- function(formula, data = NULL, family = "poisson",
     x     <- parsed$x
     if (is.null(Pi) && !is.null(parsed$Pi)) Pi <- parsed$Pi
     if (is.null(K))  K  <- parsed$K
+    if (!is.null(parsed$estimate)) {
+      if (!is.null(validation))
+        stop("Give the validation either in mc(z, estimate) or through ",
+             "validation =, not both.", call. = FALSE)
+      validation <- parsed$estimate
+    }
     z_levels <- parsed$z_levels
     x_levels <- parsed$x_levels
     x_names  <- colnames(parsed$x)
@@ -447,17 +459,25 @@ mcglm <- function(formula, data = NULL, family = "poisson",
            "misclassification probabilities from it; remove ",
            paste(names(supplied)[supplied], collapse = ", "),
            " (including a matrix given in mc()).", call. = FALSE)
-    if (!any(supplied)) {
-      .mcglm_check_z_hat(z_hat)
+    .mcglm_check_z_hat(z_hat)
+    if (inherits(validation, "mc_estimate")) {
+      if (!is.null(K) && K != validation$K)
+        stop("K = ", K, " differs from the estimate_mc() object's K = ",
+             validation$K, ".", call. = FALSE)
+      K <- validation$K
+    } else {
       K_v <- K
       if (is.null(K_v)) {
         unique_z <- sort(unique(as.integer(z_hat)))
         K_v <- if (all(unique_z %in% c(0L, 1L))) 2L else length(unique_z)
       }
-      vd <- .mcglm_parse_validation(validation, as.integer(z_hat), K_v)
-      probs <- .mcglm_validation_probabilities(vd, K_v)
-      Pi    <- probs$Pi
-      pi_z  <- probs$pi_z
+      validation <- estimate_mc(validation, z_hat = as.integer(z_hat),
+                                K = K_v, main_weights = weights,
+                                control = mc_control)
+    }
+    if (!any(supplied)) {
+      Pi   <- validation$Pi
+      pi_z <- if (validation$K == 2L) validation$pi[2L] else validation$pi
     }
   }
 
@@ -490,7 +510,7 @@ mcglm <- function(formula, data = NULL, family = "poisson",
                     homoskedastic = homoskedastic,
                     optim_control = optim_control,
                     z_levels = z_levels, x_names = x_names,
-                    validation = validation, pi_source = pi_source)
+                    validation = validation, mc_control = mc_control)
   out$call     <- cl
   out$formula  <- formula_obj
   out$z_levels <- z_levels
@@ -555,6 +575,11 @@ mcglm <- function(formula, data = NULL, family = "poisson",
   } else {
     NULL
   }
+  estimate <- NULL
+  if (inherits(mat_val, "mc_estimate")) {
+    estimate <- mat_val
+    mat_val <- NULL
+  }
   mc_info <- list(variable = var_name,
                   Pi = if (is.null(mat_val)) NULL else as.matrix(mat_val))
 
@@ -598,6 +623,7 @@ mcglm <- function(formula, data = NULL, family = "poisson",
   # Determine K (reference levels, when supplied, fix K regardless of
   # which categories happen to appear in this particular data set)
   K <- if (!is.null(Pi)) nrow(Pi)
+       else if (!is.null(estimate)) estimate$K
        else if (!is.null(z_levels)) length(z_levels)
        else length(unique(z_hat))
 
@@ -619,10 +645,14 @@ mcglm <- function(formula, data = NULL, family = "poisson",
   x_levels_out <- .getXlevels(attr(mf, "terms"), mf)
   if (is.null(x_levels_out)) x_levels_out <- list()
 
-  list(y = if (is.null(y)) NULL else as.numeric(y),
-       z_hat = z_hat, x = x, Pi = Pi, K = K,
-       z_levels = z_levels,
-       x_levels = if (is.null(x_levels)) x_levels_out else x_levels)
+  out <- list(y = if (is.null(y)) NULL else as.numeric(y),
+              z_hat = z_hat, x = x, Pi = Pi, K = K,
+              z_levels = z_levels,
+              x_levels = if (is.null(x_levels)) x_levels_out else x_levels)
+  # Only present for mc(z, estimate_mc_object), keeping the exported
+  # mc_parse_formula() value unchanged otherwise.
+  if (!is.null(estimate)) out$estimate <- estimate
+  out
 }
 
 
@@ -643,7 +673,7 @@ mcglm <- function(formula, data = NULL, family = "poisson",
                        optim_control = list(),
                        z_levels = NULL,
                        x_names = NULL, validation = NULL,
-                       pi_source = "validation") {
+                       mc_control = control_mc()) {
 
   # --- input validation ---
   y     <- as.numeric(y)
@@ -776,21 +806,37 @@ mcglm <- function(formula, data = NULL, family = "poisson",
     }
   }
 
-  # A validation sample makes "sub" estimate (Pi, pi_z) itself and adds
-  # the validation term to the "cs" covariance; bca/bcm use the
-  # validation-sample probabilities as plug-ins.
-  vd <- NULL
+  # A validation sample (an estimate_mc() object by now) makes "sub" use
+  # the estimated probabilities with a stacked sandwich and adds the
+  # validation term to the "cs" covariance; bca/bcm use the estimated
+  # probabilities as plug-ins.
+  vd  <- NULL
+  est <- NULL
   if (!is.null(validation)) {
+    if (!inherits(validation, "mc_estimate"))
+      validation <- estimate_mc(validation, z_hat = z_hat, K = K,
+                                main_weights = wt, control = mc_control)
+    est <- validation
+    vd  <- est$validation
     if (!any(method %in% c("cs", .mcglm_validated_methods)))
       stop("validation requires method = 'cs' or 'sub'.", call. = FALSE)
     unsupported <- intersect(method, c("cs_akn", "onestep"))
     if (length(unsupported))
       stop("validation is not supported for method(s) ",
            paste(unsupported, collapse = ", "), ".", call. = FALSE)
-    vd <- .mcglm_parse_validation(validation, z_hat, K)
-    validation <- if ("cs" %in% method)
-      .mcglm_prepare_cs_validation(validation, z_hat, K, wt,
-                                   c1, c2, Pi, pi_z)
+    validation <- NULL
+    if ("cs" %in% method) {
+      if (vd$user_weights || !is.null(vd$strata) || vd$estimator != "hajek" ||
+          est$prevalence$method != "validation")
+        stop("method = 'cs' with a validation sample supports only an ",
+             "unweighted, unstratified sample with prevalence = 'validation'; ",
+             "use method = 'sub' for design weights, strata or other ",
+             "prevalence sources.", call. = FALSE)
+      v_list <- if (vd$type == "internal") list(z = vd$z, index = vd$index)
+                else list(z = vd$z, z_hat = vd$proxy)
+      validation <- .mcglm_prepare_cs_validation(v_list, z_hat, K, wt,
+                                                 c1, c2, Pi, pi_z)
+    }
   }
 
   # --- SUB needs the full (Pi, pi_z) through P(Z | Z_hat) ---
@@ -916,8 +962,8 @@ mcglm <- function(formula, data = NULL, family = "poisson",
                                 family, sub_W, wt = wt)
     } else {
       sub_fit <- .mcglm_fit_sub_validated(results$naive, y, xi_hat, z_hat,
-                                          x, K, family, vd, pi_source,
-                                          wt = wt)
+                                          x, K, family, est, wt = wt,
+                                          control = mc_control)
       sub_vcov     <- sub_fit$vcov
       nuisance$sub <- sub_fit$nuisance
     }
@@ -1059,6 +1105,7 @@ mcglm <- function(formula, data = NULL, family = "poisson",
   if (length(convergence)) out$convergence <- convergence
   if (length(nuisance)) out$nuisance <- nuisance
   out$validation_design <- if (is.null(vd)) "known" else vd$type
+  if (!is.null(est)) out$mc_estimate <- est
   if (!is.null(validation)) out$validation <- validation
   if (is_multinomial)  out$J     <- J
 

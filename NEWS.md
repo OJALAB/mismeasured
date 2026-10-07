@@ -2,6 +2,11 @@
 
 ## Breaking changes
 
+* **Latent prevalence from proxy frequencies** (when `pi_z` is not supplied)
+  is now the maximum-likelihood (EM) estimate of Saerens, Latinne and
+  Decaestecker (2002). It equals `Pi^{-1} p` when that is a valid
+  probability vector, as before; otherwise it returns the boundary estimate
+  with a warning instead of clamping to `[0.01, 0.99]`.
 * **`mcglm()` and `mclm()` now fit `method = c("naive", "bca", "bcm", "sub")`
   by default** instead of `c("naive", "bca", "bcm", "cs")`. Request `"cs"`
   explicitly to keep the previous corrected estimator.
@@ -17,17 +22,31 @@
   `(Z_hat, x)`, has the same Jacobian and a smaller middle matrix, and is
   therefore at least as efficient. Solver status is stored in
   `fit$convergence`.
-* **Validation samples for `"sub"`.** With `validation = list(z, z_hat)`
-  (external) or `list(z, index)` (internal), `"sub"` estimates `Pi` and
-  `pi_z` from the validation sample; internal validation rows contribute the
-  score at their true category. Standard errors come from a stacked sandwich
-  over the regression and misclassification parameters; the latter are
-  returned in `fit$nuisance$sub`, and `fit$validation_design` records the
-  design. New argument `pi_source = c("validation", "main")` takes the
-  prevalence either from the validation sample or from `Pi^{-1}` applied to
-  the main-study proxy frequencies. Supplying `Pi` (also inside `mc()`),
-  `p01`, `p10`, `pi_z`, `c1` or `c2` together with a validation sample is an
-  error for `"sub"`; use `mc(z)` without a matrix.
+* **Validation samples for `"sub"`.** With a validation sample, `"sub"`
+  estimates `Pi` and `pi_z` from it; internal validation rows enter through
+  their true category. Standard errors come from a stacked sandwich over the
+  regression and misclassification parameters; the latter are returned in
+  `fit$nuisance$sub` and `fit$mc_estimate`, and `fit$validation_design`
+  records the design. Supplying `Pi` (also inside `mc()`), `p01`, `p10`,
+  `pi_z`, `c1` or `c2` together with a validation sample is an error for
+  `"sub"`; use `mc(z)` without a matrix, or `mc(z, estimate)`.
+* **Estimated misclassification matrices as objects.**
+  `validation_sample()` describes an internal (`index`) or external
+  (`z_hat`) audit sample with optional design weights (inverse inclusion
+  probabilities, e.g. an audit subsample of a nonprobability sample), strata
+  (`strata = "z_hat"` for audits stratified by the predicted class) and a
+  Hajek or Horvitz-Thompson estimator. `estimate_mc()` estimates `Pi`, the
+  prevalence and `P(Z | Z_hat)` with a sandwich covariance; `diagnose_mc()`
+  flags ill-conditioned or thinly validated matrices. Pass the result as
+  `mc(z, estimate)` or `validation = estimate`; the old list form is still
+  accepted (`as_validation_sample()`).
+* **`mc_control = control_mc()`** controls the prevalence source
+  (`"validation"`, `"em"` from the main study's proxies, `"inverse"`),
+  whether the nuisance uncertainty is propagated (`variance = "delta"`) or
+  conditioned on, and the regression equation for internal audits
+  (`beta_equation`: Yi et al.'s true-score swap, or a design-weighted
+  augmentation that stays unbiased for any known inclusion probabilities;
+  the default picks the latter when design weights are given).
 * When a validation sample is given without probabilities, `"bca"`, `"bcm"`
   and `"cs"` use the validation-sample proportions (for `"cs"` these are the
   empirical probabilities its validation covariance requires).

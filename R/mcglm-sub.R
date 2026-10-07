@@ -80,41 +80,20 @@
 #' Solve the subtraction-corrected estimating equation
 #'
 #' @param W Predictive matrix from \code{.mcglm_predictive_matrix}.
-#' @param true_rows Optional list \code{(index, z)} for internal
-#'   validation: those regression rows contribute the score at the true
-#'   category instead of the corrected score (Yi et al., 2019, eq. 23).
 #' @return List with \code{coefficients}, \code{converged}, \code{termcd}
 #'   and \code{iterations}.
 #' @keywords internal
 .mcglm_fit_sub <- function(psi_init, y, xi_hat, z_hat, x, K, family, W,
-                           wt = NULL, true_rows = NULL) {
+                           wt = NULL) {
   fam <- .normalize_family(family)
   w   <- if (is.null(wt)) rep(1, length(y)) else wt
   N   <- sum(w)
-  w_sub <- w
-  if (!is.null(true_rows)) {
-    idx <- true_rows$index
-    w_sub[idx] <- 0
-    y_v <- y[idx]
-    x_v <- x[idx, , drop = FALSE]
-    w_v <- w[idx]
-  }
 
-  score_mean <- function(psi) {
-    out <- colSums(w_sub *
-                     .mcglm_sub_parts(psi, y, xi_hat, z_hat, x, K, fam, W)$U)
-    if (!is.null(true_rows))
-      out <- out + colSums(w_v * .mcglm_true_parts(psi, y_v, true_rows$z,
-                                                   x_v, K, fam)$U)
-    out / N
-  }
+  score_mean <- function(psi)
+    colSums(w * .mcglm_sub_parts(psi, y, xi_hat, z_hat, x, K, fam, W)$U) / N
   score_jac <- function(psi) {
     D <- .mcglm_sub_parts(psi, y, xi_hat, z_hat, x, K, fam, W)$D
-    out <- -crossprod(xi_hat * w_sub, D)
-    if (!is.null(true_rows))
-      out <- out + .mcglm_true_jacobian(
-        .mcglm_true_parts(psi, y_v, true_rows$z, x_v, K, fam), w_v)
-    out / N
+    -crossprod(xi_hat * w, D) / N
   }
 
   sol <- nleqslv::nleqslv(psi_init, score_mean, jac = score_jac,
@@ -125,44 +104,24 @@
        termcd = sol$termcd, iterations = sol$iter)
 }
 
-#' Subtraction correction with a validation sample
+#' Subtraction correction with estimated misclassification probabilities
 #'
-#' Estimates the misclassification nuisance from the validation sample,
-#' solves the SUB equation (true-category score on internal validation
-#' rows) and returns the stacked \eqn{(\psi, \eta)} sandwich.
-#' @return List with \code{coefficients}, \code{vcov} (psi block),
-#'   \code{nuisance} and convergence fields.
+#' Solves the SUB equation with the predictive matrix from an
+#' \code{\link{estimate_mc}} object (true-category score on internal
+#' validation rows, per \code{control$beta_equation}) and returns the
+#' stacked \eqn{(\psi, \eta)} sandwich via \code{.mcglm_fit_validated}.
 #' @keywords internal
 .mcglm_fit_sub_validated <- function(psi_init, y, xi_hat, z_hat, x, K,
-                                     family, vd, pi_source, wt = NULL) {
-  fam  <- .normalize_family(family)
-  nuis <- .mcglm_nuisance_setup(vd, z_hat, K, pi_source, wt = wt)
-  W_of <- function(eta) {
-    pr <- nuis$map(eta)
-    .mcglm_predictive_matrix(pr$Pi, pr$pi)
-  }
-  true_rows <- if (vd$type == "internal")
-    list(index = vd$index, z = vd$z) else NULL
-  fit <- .mcglm_fit_sub(psi_init, y, xi_hat, z_hat, x, K, family,
-                        W_of(nuis$eta), wt = wt, true_rows = true_rows)
-  psi <- fit$coefficients
-
-  main_rows <- function(psi, eta)
-    .mcglm_sub_parts(psi, y, xi_hat, z_hat, x, K, fam, W_of(eta))$U
-  main_jac <- function(psi, eta, w)
+                                     family, est, wt = NULL,
+                                     control = control_mc()) {
+  fam <- .normalize_family(family)
+  U_fun <- function(psi, par)
+    .mcglm_sub_parts(psi, y, xi_hat, z_hat, x, K, fam, par$W)$U
+  J_fun <- function(psi, par, w)
     -crossprod(xi_hat * w,
-               .mcglm_sub_parts(psi, y, xi_hat, z_hat, x, K, fam,
-                                W_of(eta))$D)
-  true_parts <- if (is.null(true_rows)) NULL else
-    .mcglm_true_parts(psi, y[vd$index], vd$z, x[vd$index, , drop = FALSE],
-                      K, fam)
-  sw <- .mcglm_validation_sandwich(psi, nuis, vd, main_rows, main_jac,
-                                   true_parts)
-  pr <- nuis$map(nuis$eta)
-  dimnames(sw$eta) <- list(nuis$names, nuis$names)
-  c(fit, list(vcov = sw$psi,
-              nuisance = list(eta = nuis$eta, vcov = sw$eta, Pi = pr$Pi,
-                              pi_z = pr$pi, pi_source = pi_source)))
+               .mcglm_sub_parts(psi, y, xi_hat, z_hat, x, K, fam, par$W)$D)
+  .mcglm_fit_validated(psi_init, est, y, x, z_hat, K, fam, U_fun, J_fun,
+                       wt = wt, control = control, label = "SUB")
 }
 
 #' Sandwich variance of the subtraction-corrected estimator

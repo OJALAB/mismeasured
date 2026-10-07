@@ -40,15 +40,15 @@
        K = K, family = family, psi = c(gamma[-1L], -0.3, 0.5))
 }
 
-.subv_fit <- function(d, pi_source = "validation", ...) {
+.subv_fit <- function(d, prevalence = "validation", ...) {
   mcglm(d$y, z_hat = d$z_hat, x = d$x, family = d$family,
         method = c("naive", "sub"), validation = d$v,
-        pi_source = pi_source, ...)
+        mc_control = control_mc(prevalence = prevalence), ...)
 }
 
 # Independent stacked estimating function: rows for every unit, columns
 # (psi, eta), written without the package's helpers.
-.subv_reference_vcov <- function(d, fit, pi_source) {
+.subv_reference_vcov <- function(d, fit, prevalence) {
   K <- d$K; s <- K - 1L; n <- length(d$y)
   fam <- stats::family(fit)
   internal <- !is.null(d$v$index)
@@ -62,8 +62,7 @@
     Pi <- matrix(e[seq_len(K * s)], s, K)
     Pi <- rbind(1 - colSums(Pi), Pi)
     pr <- e[K * s + seq_len(s)]
-    pi <- if (pi_source == "validation") c(1 - sum(pr), pr) else
-      solve(Pi, c(1 - sum(pr), pr))
+    pi <- c(1 - sum(pr), pr)
     joint <- t(t(Pi) * pi)
     W <- joint / rowSums(joint)
     mu <- fam$linkinv(outer(drop(d$x %*% b[-seq_len(s)]), c(0, b[seq_len(s)]),
@@ -82,20 +81,21 @@
       U[idx, ] <- xi_t * (d$y[idx] - mu[cbind(idx, zt + 1L)])
       G <- cbind(U, matrix(0, n, q))
       G[idx, p + seq_len(K * s)] <- nuis(zt, d$z_hat[idx])
-      if (pi_source == "validation")
+      if (prevalence == "validation")
         G[idx, p + K * s + seq_len(s)] <-
           outer(zt, seq_len(s), "==") - rep(pr, each = length(idx))
     } else {
       zv <- d$v$z; m <- length(zv)
       Gv <- cbind(matrix(0, m, p), nuis(zv, d$v$z_hat), matrix(0, m, s))
-      if (pi_source == "validation")
+      if (prevalence == "validation")
         Gv[, p + K * s + seq_len(s)] <-
           outer(zv, seq_len(s), "==") - rep(pr, each = m)
       G <- rbind(cbind(U, matrix(0, n, q)), Gv)
     }
-    if (pi_source == "main")
+    # EM fixed point: P(Z = l | Z_hat_i) - pi_l on every main unit
+    if (prevalence == "em")
       G[seq_len(n), p + K * s + seq_len(s)] <-
-        outer(d$z_hat, seq_len(s), "==") - rep(pr, each = n)
+        W[d$z_hat + 1L, -1L, drop = FALSE] - rep(pr, each = n)
     G
   }
   theta <- c(psi, eta)
@@ -119,7 +119,7 @@ test_that("nuisance estimates are the validation-sample proportions", {
     expect_identical(fit$validation_design, type)
   }
   d <- .subv_data(seed = 211L)
-  fit <- .subv_fit(d, pi_source = "main")
+  fit <- .subv_fit(d, prevalence = "em")
   expect_equal(fit$nuisance$sub$pi_z,
                as.numeric(solve(fit$nuisance$sub$Pi,
                                 prop.table(table(d$z_hat)))))
@@ -127,10 +127,10 @@ test_that("nuisance estimates are the validation-sample proportions", {
 
 test_that("stacked sandwich matches an independent numerical reference", {
   for (K in 2:3) for (type in c("external", "internal"))
-    for (src in c("validation", "main")) {
+    for (src in c("validation", "em")) {
       d <- .subv_data(K = K, type = type, family = "binomial",
                       n = 900L, nv = 250L, seed = 220L + K)
-      fit <- .subv_fit(d, pi_source = src)
+      fit <- .subv_fit(d, prevalence = src)
       ref <- .subv_reference_vcov(d, fit, src)
       # The fitted (psi, eta) solve the stacked equations, including the
       # true-category score on internal validation rows.
@@ -197,7 +197,7 @@ test_that("validation is rejected for methods that cannot use it", {
   expect_error(.subv_fit(bad), "Every true category")
 })
 
-test_that("pi_source = 'main' rejects inconsistent proxy frequencies", {
+test_that("main-study prevalence: EM boundary warns, inversion errors", {
   d <- .subv_data(n = 400L, nv = 200L, seed = 270L)
   # Validation proxies almost never flip, main proxies are rare: Pi^{-1} p
   # then leaves (0, 1).
@@ -205,7 +205,18 @@ test_that("pi_source = 'main' rejects inconsistent proxy frequencies", {
   d$v$z_hat[1:2] <- 1L - d$v$z_hat[1:2]
   d$z_hat[] <- 0L
   d$z_hat[1:3] <- 1L
-  expect_error(.subv_fit(d, pi_source = "main"), "outside \\(0, 1\\)")
+  expect_error(suppressWarnings(.subv_fit(d, prevalence = "inverse")),
+               "outside \\(0, 1\\)")
+  msgs <- character()
+  fit <- withCallingHandlers(
+    .subv_fit(d, prevalence = "em"),
+    warning = function(w) {
+      msgs <<- c(msgs, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    })
+  expect_true(any(grepl("boundary", msgs)))
+  expect_true(any(grepl("singular Jacobian", msgs)))
+  expect_true(all(is.na(fit$se$sub)))
 })
 
 test_that("validated sub is consistent and its SEs are calibrated", {

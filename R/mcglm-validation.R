@@ -1,27 +1,24 @@
 # ---------------------------------------------------------------------------
-# Main study / validation study designs (Yi, Yan, Liao and Spiegelman, 2019,
-# Section 4).
+# Main study / validation study designs for the regression estimators
+# (Yi, Yan, Liao and Spiegelman, 2019, Section 4).
 #
-# A validation sample V observes the true category Z next to the proxy
-# Z_hat. It is either internal (a subsample of the regression rows, so Y and
-# x are also available for it) or external (separate units without Y). The
-# misclassification nuisance eta is estimated from V by closed-form
-# (multinomial ML) proportions; the regression parameter psi then solves
+# The misclassification nuisance eta comes from estimate_mc() (an
+# "mc_estimate" object with design-weighted estimating functions). The
+# regression parameter psi solves, over the main-study units,
 #
-#   internal: sum_{i in M \ V} U_i(psi, eta) + sum_{i in V} S_i(psi) = 0,
-#   external: sum_{i in M} U_i(psi, eta) = 0,
+#   external validation:          sum_M w_i U_i(psi, eta) = 0,
+#   internal, beta_equation "yi":  sum_{M \ V} w_i U_i + sum_V w_i S_i = 0,
+#   internal, "weighted":          sum_M w_i U_i + sum_V w_i d_i (S_i - U_i) = 0,
 #
-# where U is the method's corrected estimating function and S the score at
-# the true Z. Inference stacks theta = (psi, eta) over all units:
+# where U is the method's corrected estimating function, S the score at the
+# true category, w main-study frequency weights and d design weights.
+# "yi" (eq. 23) needs selection into V to depend on (Z_hat, x) only;
+# "weighted" is unbiased for any known inclusion probabilities.
+#
+# Inference stacks theta = (psi, eta):
 #   Var(theta_hat) = A^{-1} B A^{-T},  A = sum_u w_u d g_u / d theta',
-#   B = sum_u w_u g_u g_u',
-# which covers both designs without an explicit n_V / n ratio.
-#
-# Nuisance parameterization (K categories, baseline category 0 implicit):
-#   Pi[j, l], j = 1..K-1, l = 0..K-1    from V:   1{Z = l}(1{Z_hat = j} - Pi[j, l])
-#   pi_source = "validation": pi_l, l = 1..K-1 from V:   1{Z = l} - pi_l
-#   pi_source = "main":       p_j,  j = 1..K-1 from M:   1{Z_hat = j} - p_j,
-#                             with pi = Pi^{-1} p (only Pi is transported).
+# with B from .mc_meat() (validation rows merged into their main unit for
+# internal designs; stratum-centred for stratified external designs).
 # ---------------------------------------------------------------------------
 
 # Methods whose misclassification nuisance is estimated from a validation
@@ -34,117 +31,10 @@
 #'   \code{list(z, index)} (internal) or a \code{\link{validation_sample}}.
 #' @param z_hat Main-study proxy codes (0-based).
 #' @param K Number of categories.
-#' @return List with \code{z}, \code{proxy}, \code{index}, \code{n},
-#'   \code{type}.
+#' @return The bound sample from \code{.mc_bind_validation}.
 #' @keywords internal
 .mcglm_parse_validation <- function(validation, z_hat, K) {
-  val <- as_validation_sample(validation)
-  if (!is.null(val$weights) || val$strata_type != "none" ||
-      val$estimator != "hajek")
-    stop("Design weights, strata and estimator = 'ht' are not yet ",
-         "supported by mcglm().", call. = FALSE)
-  .mc_bind_validation(val, z_hat, K)
-}
-
-#' Empirical (Pi, pi_z) from a validation sample
-#'
-#' Column-conditional rates \eqn{\hat\Pi_{j\ell} = \#(\hat Z = j, Z = \ell)
-#' / \#(Z = \ell)} and true-category proportions, in the format expected
-#' by \code{mcglm} (scalar \code{pi_z} when \eqn{K = 2}).
-#' @keywords internal
-.mcglm_validation_probabilities <- function(vd, K) {
-  B <- matrix(tabulate(vd$proxy + 1L + K * vd$z, nbins = K * K), K) / vd$n
-  pi_v <- colSums(B)
-  list(Pi = sweep(B, 2, pi_v, "/"),
-       pi_z = if (K == 2L) pi_v[2L] else pi_v)
-}
-
-#' Misclassification nuisance estimated from a validation sample
-#'
-#' @param vd Parsed validation description.
-#' @param z_hat Main-study proxy codes.
-#' @param K Number of categories.
-#' @param pi_source \code{"validation"} or \code{"main"}.
-#' @param wt Main-study frequency weights (\code{NULL} for unit weights);
-#'   internal validation rows inherit them.
-#' @return List with \code{eta}, \code{map(eta)} returning
-#'   \code{list(Pi, pi)}, per-unit estimating-function rows
-#'   \code{rows_v} (validation units) and \code{rows_m} (main units), the
-#'   sum-scale Jacobian \code{A} and validation-unit weights \code{w_v}.
-#' @keywords internal
-.mcglm_nuisance_setup <- function(vd, z_hat, K, pi_source, wt = NULL) {
-  s  <- K - 1L
-  n  <- length(z_hat)
-  w_m <- if (is.null(wt)) rep(1, n) else wt
-  w_v <- if (vd$type == "internal") w_m[vd$index] else rep(1, vd$n)
-
-  Zv <- outer(vd$z, 0:s, "==") * 1          # n_V x K indicators of Z
-  Hv <- outer(vd$proxy, 0:s, "==") * 1      # n_V x K indicators of Z_hat
-  Hm <- outer(z_hat, 0:s, "==") * 1         # n x K
-
-  zw <- colSums(w_v * Zv)                   # weighted count of each Z
-  Pi_hat <- crossprod(Hv * w_v, Zv) / rep(zw, each = K)
-  n_pi <- K * s
-  if (pi_source == "validation") {
-    prev <- colSums(w_v * Zv)[-1L] / sum(w_v)
-  } else {
-    prev <- colSums(w_m * Hm)[-1L] / sum(w_m)
-  }
-  eta <- c(as.numeric(Pi_hat[-1L, , drop = FALSE]), prev)
-  q <- length(eta)
-
-  map <- function(eta) {
-    eta <- unname(eta)
-    P <- matrix(eta[seq_len(n_pi)], s, K)
-    Pi <- rbind(1 - colSums(P), P)
-    prev <- eta[n_pi + seq_len(s)]
-    if (pi_source == "validation") {
-      pi <- c(1 - sum(prev), prev)
-    } else {
-      pi <- tryCatch(as.numeric(solve(Pi, c(1 - sum(prev), prev))),
-                     error = function(e)
-                       stop("pi_source = 'main': the estimated Pi is ",
-                            "singular.", call. = FALSE))
-    }
-    list(Pi = Pi, pi = pi)
-  }
-
-  # Per-unit rows at eta_hat; columns ordered as eta.
-  rows_v <- matrix(0, vd$n, q)
-  for (l in seq_len(K)) {
-    cols <- (l - 1L) * s + seq_len(s)
-    rows_v[, cols] <- Zv[, l] *
-      (Hv[, -1L, drop = FALSE] - rep(Pi_hat[-1L, l], each = vd$n))
-  }
-  rows_m <- matrix(0, n, q)
-  prev_cols <- n_pi + seq_len(s)
-  if (pi_source == "validation") {
-    rows_v[, prev_cols] <- Zv[, -1L, drop = FALSE] - rep(prev, each = vd$n)
-  } else {
-    rows_m[, prev_cols] <- Hm[, -1L, drop = FALSE] - rep(prev, each = n)
-  }
-
-  # d(sum of rows)/d eta is diagonal: minus the weighted count entering each
-  # proportion.
-  A <- diag(c(rep(-zw, each = s),
-              rep(if (pi_source == "validation") -sum(w_v) else -sum(w_m),
-                  s)), q)
-
-  pi_hat <- map(eta)$pi
-  if (any(!is.finite(pi_hat)) || any(pi_hat <= 0 | pi_hat >= 1))
-    stop("pi_source = 'main': Pi^{-1} applied to the main-study proxy ",
-         "frequencies gives prevalences (",
-         paste(round(pi_hat, 4), collapse = ", "),
-         ") outside (0, 1); the validation Pi is inconsistent with the ",
-         "main study. Use pi_source = 'validation'.", call. = FALSE)
-
-  nms <- c(as.vector(outer(seq_len(s), 0:s,
-                           function(j, l) sprintf("Pi[%d,%d]", j, l))),
-           sprintf(if (pi_source == "validation") "pi[%d]" else "p_hat[%d]",
-                   seq_len(s)))
-  names(eta) <- nms
-  list(eta = eta, map = map, rows_v = rows_v, rows_m = rows_m, A = A,
-       w_v = w_v, w_m = w_m, pi_source = pi_source, names = nms)
+  .mc_bind_validation(as_validation_sample(validation), z_hat, K)
 }
 
 #' Score at the true category for internal validation rows
@@ -164,63 +54,121 @@
   -crossprod(parts$xi * (w * parts$mud), parts$xi)
 }
 
-#' Stacked sandwich for (psi, eta) under a validation design
-#'
-#' @param psi Point estimate.
-#' @param nuis Output of \code{.mcglm_nuisance_setup}.
-#' @param vd Parsed validation description.
-#' @param main_rows \code{function(psi, eta)} returning the n x p matrix of
-#'   corrected estimating-function rows for every main-study unit.
-#' @param main_jac \code{function(psi, eta, w)}: sum-scale Jacobian of
-#'   \code{colSums(w * main_rows(psi, eta))} with respect to \code{psi}.
-#' @param true_parts For internal validation, \code{.mcglm_true_parts} at
-#'   \code{psi} for the validation rows; \code{NULL} otherwise.
-#' @return List with \code{vcov} (full, (p + q) square), \code{psi}
-#'   (p x p block) and \code{eta} (q x q block).
+#' Check that an estimate object belongs to the main study being fitted
 #' @keywords internal
-.mcglm_validation_sandwich <- function(psi, nuis, vd, main_rows, main_jac,
-                                       true_parts = NULL) {
-  p <- length(psi)
-  q <- length(nuis$eta)
-  n <- nrow(nuis$rows_m)
-  w_use <- nuis$w_m
-  if (vd$type == "internal") w_use[vd$index] <- 0
-
-  U <- main_rows(psi, nuis$eta)
-  A_pp <- main_jac(psi, nuis$eta, w_use)
-  if (!is.null(true_parts))
-    A_pp <- A_pp + .mcglm_true_jacobian(true_parts, nuis$w_v)
-
-  # d sum(w U) / d eta by central differences (q is at most K^2 - 1).
-  f <- function(e) colSums(w_use * main_rows(psi, e))
-  A_pe <- vapply(seq_len(q), function(k) {
-    h <- 1e-6
-    e1 <- e2 <- nuis$eta
-    e1[k] <- e1[k] + h
-    e2[k] <- e2[k] - h
-    (f(e1) - f(e2)) / (2 * h)
-  }, numeric(p))
-  A_pe <- matrix(A_pe, p, q)
-
-  A <- rbind(cbind(A_pp, A_pe), cbind(matrix(0, q, p), nuis$A))
-
-  # Unit rows: main units first, then (external) validation units.
-  G_m <- cbind(U * (w_use > 0), nuis$rows_m)
-  if (vd$type == "internal") {
-    G_m[vd$index, seq_len(p)] <- true_parts$U
-    G_m[vd$index, p + seq_len(q)] <- G_m[vd$index, p + seq_len(q)] +
-      nuis$rows_v
-    G <- G_m
-    w <- nuis$w_m
-  } else {
-    G <- rbind(G_m, cbind(matrix(0, vd$n, p), nuis$rows_v))
-    w <- c(nuis$w_m, nuis$w_v)
+.mcglm_check_estimate <- function(est, z_hat, K, wt) {
+  if (est$K != K)
+    stop("The estimate_mc() object has K = ", est$K, " but the model has K = ",
+         K, ".", call. = FALSE)
+  if (isTRUE(est$main_dependent)) {
+    if (!identical(as.integer(est$z_hat), as.integer(z_hat)))
+      stop("The estimate_mc() object was computed with different main-study ",
+           "proxies (internal validation or prevalence = 'em'/'inverse' ",
+           "use them); pass the fitted data's z_hat to estimate_mc().",
+           call. = FALSE)
+    same_w <- if (is.null(est$main_weights)) is.null(wt) || all(wt == 1) else
+      !is.null(wt) && isTRUE(all.equal(est$main_weights, wt))
+    if (!same_w)
+      stop("The estimate_mc() object was computed with different main-study ",
+           "weights.", call. = FALSE)
   }
-  B <- crossprod(G * w, G)
+  invisible(TRUE)
+}
 
-  A_inv <- solve(A)
-  V <- A_inv %*% B %*% t(A_inv)
-  list(vcov = V,
-       psi = V[seq_len(p), seq_len(p), drop = FALSE],
-       eta = V[p + seq_len(q), p + seq_len(q), drop = FALSE])
+#' Fit a corrected estimating equation with estimated misclassification
+#'
+#' Generic solver and stacked sandwich for a method whose corrected
+#' estimating function depends on the misclassification probabilities.
+#'
+#' @param psi_init Starting values (typically the naive estimate).
+#' @param est An \code{"mc_estimate"} object.
+#' @param U_fun \code{function(psi, par)} returning the n x p matrix of
+#'   corrected estimating-function rows for every main-study row, where
+#'   \code{par = est$map(eta)} has \code{Pi}, \code{pi}, \code{W}.
+#' @param J_fun \code{function(psi, par, w)}: sum-scale Jacobian of
+#'   \code{colSums(w * U_fun(psi, par))} with respect to \code{psi}.
+#' @param control A \code{\link{control_mc}} object (\code{beta_equation},
+#'   \code{variance}).
+#' @param label Method label for messages.
+#' @return List with \code{coefficients}, convergence fields, \code{vcov}
+#'   (psi block), \code{nuisance} and \code{beta_equation}.
+#' @keywords internal
+.mcglm_fit_validated <- function(psi_init, est, y, x, z_hat, K, fam,
+                                 U_fun, J_fun, wt = NULL,
+                                 control = control_mc(), label = "method") {
+  .mcglm_check_estimate(est, z_hat, K, wt)
+  vb  <- est$validation
+  n   <- length(y)
+  p   <- length(psi_init)
+  q   <- length(est$eta)
+  wt_m <- if (is.null(wt)) rep(1, n) else wt
+  internal <- vb$type == "internal"
+
+  beq <- control$beta_equation
+  if (beq == "auto") beq <- if (vb$user_weights) "weighted" else "yi"
+  if (internal) {
+    idx <- vb$index
+    y_v <- y[idx]
+    x_v <- x[idx, , drop = FALSE]
+    d_main <- numeric(n)
+    d_main[idx] <- vb$d
+    w_U <- wt_m
+    if (beq == "yi") w_U[idx] <- 0
+  }
+
+  psi_rows <- function(psi, par) {
+    G <- U_fun(psi, par)
+    if (internal) {
+      S <- .mcglm_true_parts(psi, y_v, vb$z, x_v, K, fam)$U
+      G[idx, ] <- if (beq == "yi") S else
+        G[idx, , drop = FALSE] + vb$d * (S - G[idx, , drop = FALSE])
+    }
+    G
+  }
+  psi_jac <- function(psi, par) {
+    if (!internal) return(J_fun(psi, par, wt_m))
+    tp <- .mcglm_true_parts(psi, y_v, vb$z, x_v, K, fam)
+    if (beq == "yi")
+      J_fun(psi, par, w_U) + .mcglm_true_jacobian(tp, wt_m[idx])
+    else
+      J_fun(psi, par, wt_m) - J_fun(psi, par, d_main * wt_m) +
+        .mcglm_true_jacobian(tp, vb$d * wt_m[idx])
+  }
+
+  par0 <- est$map(est$eta)
+  N <- sum(wt_m)
+  sol <- nleqslv::nleqslv(
+    psi_init,
+    function(psi) colSums(wt_m * psi_rows(psi, par0)) / N,
+    jac = function(psi) psi_jac(psi, par0) / N,
+    control = list(maxit = 500, ftol = 1e-12))
+  if (sol$termcd > 2)
+    warning(label, " solver did not converge (termcd = ", sol$termcd, ")")
+  psi <- sol$x
+
+  # Stacked sandwich over (psi, eta).
+  A_pp <- psi_jac(psi, par0)
+  A_pe <- .mc_num_jacobian(
+    function(e) colSums(wt_m * psi_rows(psi, est$map(e))), unname(est$eta))
+  A <- rbind(cbind(A_pp, A_pe), cbind(matrix(0, q, p), est$A))
+  r <- est$rows(est$eta)
+  G_m <- cbind(psi_rows(psi, par0),
+               if (is.null(r$m)) matrix(0, n, q) else r$m)
+  G_v <- cbind(matrix(0, vb$n, p), r$v)
+  B <- .mc_meat(G_m, G_v, vb, wt_m, n)
+
+  V_psi <- .mc_sandwich_or_na(
+    if (control$variance == "conditional") A_pp else A,
+    if (control$variance == "conditional")
+      B[seq_len(p), seq_len(p), drop = FALSE] else B,
+    label)[seq_len(p), seq_len(p), drop = FALSE]
+
+  list(coefficients = psi, converged = sol$termcd <= 2,
+       termcd = sol$termcd, iterations = sol$iter, vcov = V_psi,
+       beta_equation = if (internal) beq else NA_character_,
+       nuisance = list(eta = est$eta, vcov = est$vcov, Pi = par0$Pi,
+                       pi_z = par0$pi, W = par0$W,
+                       prevalence = est$prevalence$method,
+                       variance = control$variance,
+                       beta_equation = if (internal) beq else NA_character_))
 }

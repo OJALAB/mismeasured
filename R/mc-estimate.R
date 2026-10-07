@@ -275,8 +275,7 @@ estimate_mc <- function(validation, z_hat = NULL, K = NULL,
 
   r <- rows(eta)
   B <- .mc_meat(r$m, r$v, vb, wt_m, n_m)
-  A_inv <- solve(A)
-  V <- A_inv %*% B %*% t(A_inv)
+  V <- .mc_sandwich_or_na(A, B, "estimate_mc()")
 
   nms <- c(as.vector(outer(seq_len(s), 0:s,
                            function(j, l) sprintf("Pi[%d,%d]", j, l))),
@@ -287,6 +286,22 @@ estimate_mc <- function(validation, z_hat = NULL, K = NULL,
   list(eta = eta, map = map, rows = rows, A = A, vcov = V,
        prevalence = list(method = prevalence, em = em_info,
                          boundary = !is.null(em_info) && em_info$boundary))
+}
+
+#' Sandwich covariance, or NA with a warning when the bread is singular
+#'
+#' A singular bread arises at a boundary prevalence (EM) or with an empty
+#' cell, where the delta-method covariance is not defined.
+#' @keywords internal
+.mc_sandwich_or_na <- function(A, B, label) {
+  A_inv <- tryCatch(solve(A), error = function(e) NULL)
+  if (is.null(A_inv)) {
+    warning(label, ": the stacked estimating equations have a singular ",
+            "Jacobian (e.g. a prevalence on the boundary); covariances are ",
+            "set to NA.", call. = FALSE)
+    return(matrix(NA_real_, nrow(B), ncol(B)))
+  }
+  A_inv %*% B %*% t(A_inv)
 }
 
 #' Central-difference Jacobian of a vector function

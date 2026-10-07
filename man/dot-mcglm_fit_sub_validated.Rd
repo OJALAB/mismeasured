@@ -2,7 +2,7 @@
 % Please edit documentation in R/mcglm-sub.R
 \name{.mcglm_fit_sub_validated}
 \alias{.mcglm_fit_sub_validated}
-\title{Subtraction correction with a validation sample}
+\title{Subtraction correction with estimated misclassification probabilities}
 \usage{
 .mcglm_fit_sub_validated(
   psi_init,
@@ -12,18 +12,15 @@
   x,
   K,
   family,
-  vd,
-  pi_source,
-  wt = NULL
+  est,
+  wt = NULL,
+  control = control_mc()
 )
 }
-\value{
-List with \code{coefficients}, \code{vcov} (psi block),
-  \code{nuisance} and convergence fields.
-}
 \description{
-Estimates the misclassification nuisance from the validation sample,
-solves the SUB equation (true-category score on internal validation
-rows) and returns the stacked \eqn{(\psi, \eta)} sandwich.
+Solves the SUB equation with the predictive matrix from an
+\code{\link{estimate_mc}} object (true-category score on internal
+validation rows, per \code{control$beta_equation}) and returns the
+stacked \eqn{(\psi, \eta)} sandwich via \code{.mcglm_fit_validated}.
 }
 \keyword{internal}

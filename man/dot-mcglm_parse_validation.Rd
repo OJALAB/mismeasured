@@ -15,8 +15,7 @@
 \item{K}{Number of categories.}
 }
 \value{
-List with \code{z}, \code{proxy}, \code{index}, \code{n},
-  \code{type}.
+The bound sample from \code{.mc_bind_validation}.
 }
 \description{
 Parse and check a validation-sample description

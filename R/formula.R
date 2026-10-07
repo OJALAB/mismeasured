@@ -360,6 +360,9 @@ parse_simex_formula <- function(formula, data, env) {
     }
   )
 
+  if (inherits(mat_val, "mc_estimate"))
+    stop("simex() does not accept estimate_mc() objects in mc() yet; ",
+         "use mc(z, est$Pi) to treat the estimate as known.", call. = FALSE)
   if (!is.matrix(mat_val))
     mat_val <- as.matrix(mat_val)
 
