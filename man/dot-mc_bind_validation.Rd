@@ -4,28 +4,39 @@
 \alias{.mc_bind_validation}
 \title{Bind a validation sample to the main study}
 \usage{
-.mc_bind_validation(val, z_hat, K, wt = NULL)
+.mc_bind_validation(
+  val,
+  z_hat,
+  K,
+  wt = NULL,
+  levels = as.character(seq_len(K) - 1L)
+)
 }
 \arguments{
 \item{val}{An \code{"mc_validation"} object.}
 
-\item{z_hat}{Main-study proxy codes (required for internal validation
-and for main-study-based quantities; may be \code{NULL} otherwise).}
+\item{z_hat}{Main-study proxies as 0-based codes (required for internal
+validation and for main-study-based quantities; may be \code{NULL}
+otherwise).}
 
 \item{K}{Number of categories.}
 
 \item{wt}{Main-study frequency weights (\code{NULL} for unit weights).}
+
+\item{levels}{Category labels of the model (code k has label
+\code{levels[k + 1]}); defaults to \code{"0", ..., "K-1"}.}
 }
 \value{
-List with \code{type}, \code{z}, \code{proxy}, \code{index},
-  \code{n}, \code{d} (design weights), \code{w_v} (frequency weights of
-  validation rows), \code{strata} (factor or \code{NULL}), \code{N},
-  \code{N_h} (frame size per validation unit's stratum),
-  \code{estimator} and \code{user_weights}.
+List with \code{type}, \code{z}, \code{proxy} (0-based codes),
+  \code{index}, \code{n}, \code{d} (design weights), \code{w_v}
+  (frequency weights of validation rows), \code{strata} (factor or
+  \code{NULL}), \code{N}, \code{N_h} (frame size per validation unit's
+  stratum), \code{estimator}, \code{user_weights} and \code{levels}.
 }
 \description{
-Checks the codes against \code{K} and the main-study proxies, resolves
-internal proxies, and computes the design weights, frame sizes and
-strata used by the estimating functions.
+Maps the audit's labels to the model's category codes, checks them
+against the main-study proxies, resolves internal proxies, and computes
+the design weights, frame sizes and strata used by the estimating
+functions.
 }
 \keyword{internal}

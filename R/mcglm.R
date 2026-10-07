@@ -196,9 +196,11 @@
 #'   proxy_codes)} (external) and \code{list(z = true_codes, index =
 #'   regression_row_numbers)} (internal; proxies taken from those rows).
 #'   Equivalently, pass an \code{estimate_mc()} result inside the formula
-#'   as \code{mc(z, estimate)}. Codes must be integers in
-#'   \code{0, ..., K-1}, in the model's category order, and every true
-#'   category must occur. Its effect depends on the method:
+#'   as \code{mc(z, estimate)}. Categories are matched to the levels of the
+#'   \code{mc()} variable \emph{by label} (factor, character, or numbers
+#'   compared as labels; integer codes \code{0, ..., K-1} for an
+#'   integer-coded proxy), and every true category must occur. Its effect
+#'   depends on the method:
 #'   \describe{
 #'     \item{\code{"sub"}}{\eqn{\Pi} and \eqn{\pi_z} are \emph{estimated}
 #'       (see \code{\link{estimate_mc}} and \code{mc_control}); supplying
@@ -471,13 +473,15 @@ mcglm <- function(formula, data = NULL, family = "poisson",
         unique_z <- sort(unique(as.integer(z_hat)))
         K_v <- if (all(unique_z %in% c(0L, 1L))) 2L else length(unique_z)
       }
-      validation <- estimate_mc(validation, z_hat = as.integer(z_hat),
-                                K = K_v, main_weights = weights,
-                                control = mc_control)
+      validation <- .estimate_mc_codes(
+        as_validation_sample(validation), as.integer(z_hat),
+        .mcglm_model_levels(z_levels, K_v), main_weights = weights,
+        control = mc_control)
     }
     if (!any(supplied)) {
-      Pi   <- validation$Pi
-      pi_z <- if (validation$K == 2L) validation$pi[2L] else validation$pi
+      Pi   <- unname(validation$Pi)
+      pi_z <- unname(if (validation$K == 2L) validation$pi[2L] else
+        validation$pi)
     }
   }
 
@@ -516,6 +520,17 @@ mcglm <- function(formula, data = NULL, family = "poisson",
   out$z_levels <- z_levels
   out$x_levels <- x_levels
   out
+}
+
+
+#' Category labels of an mcglm model
+#'
+#' The levels of a factor or character \code{mc()} variable, otherwise the
+#' integer codes \code{"0", ..., "K-1"}.
+#' @keywords internal
+.mcglm_model_levels <- function(z_levels, K) {
+  if (!is.null(z_levels) && length(z_levels) == K) as.character(z_levels)
+  else as.character(seq_len(K) - 1L)
 }
 
 
@@ -813,9 +828,17 @@ mcglm <- function(formula, data = NULL, family = "poisson",
   vd  <- NULL
   est <- NULL
   if (!is.null(validation)) {
+    model_levels <- .mcglm_model_levels(z_levels, K)
     if (!inherits(validation, "mc_estimate"))
-      validation <- estimate_mc(validation, z_hat = z_hat, K = K,
-                                main_weights = wt, control = mc_control)
+      validation <- .estimate_mc_codes(as_validation_sample(validation),
+                                       z_hat, model_levels, main_weights = wt,
+                                       control = mc_control)
+    if (!identical(validation$levels, model_levels))
+      stop("The estimate_mc() object's categories (",
+           paste(validation$levels, collapse = ", "), ") differ from the ",
+           "model's (", paste(model_levels, collapse = ", "), "). Build it ",
+           "with estimate_mc(..., z_hat = <the mc() variable>) or ",
+           "levels = levels(<the mc() variable>).", call. = FALSE)
     est <- validation
     vd  <- est$validation
     if (!any(method %in% c("cs", .mcglm_validated_methods)))

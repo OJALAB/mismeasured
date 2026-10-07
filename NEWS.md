@@ -39,7 +39,11 @@
   prevalence and `P(Z | Z_hat)` with a sandwich covariance; `diagnose_mc()`
   flags ill-conditioned or thinly validated matrices. Pass the result as
   `mc(z, estimate)` or `validation = estimate`; the old list form is still
-  accepted (`as_validation_sample()`).
+  accepted (`as_validation_sample()`). Audit categories may be factors,
+  character vectors or numbers and are matched to the levels of the `mc()`
+  variable by label, never by position; numeric codes for a model with
+  non-numeric labels, and labels that are not categories of the model, are
+  errors. Estimated matrices and prevalences are labelled by category.
 * **`mc_control = control_mc()`** controls the prevalence source
   (`"validation"`, `"em"` from the main study's proxies, `"inverse"`),
   whether the nuisance uncertainty is propagated (`variance = "delta"`) or

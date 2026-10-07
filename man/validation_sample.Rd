@@ -16,10 +16,11 @@ validation_sample(
 )
 }
 \arguments{
-\item{z}{Integer codes \eqn{0, \dots, K-1} of the true category.}
+\item{z}{True categories of the validation units (factor, character or
+numeric labels).}
 
-\item{z_hat}{Proxy codes for the same units (external validation). For
-internal validation they are taken from the main study at
+\item{z_hat}{Proxy categories for the same units (external validation).
+For internal validation they are taken from the main study at
 \code{index}; if supplied too, they must agree.}
 
 \item{index}{Row numbers of the validated units in the main study
@@ -46,8 +47,9 @@ frame size \code{N} or stratum sizes \code{N_strata}). Column ratios of
 (weighted) number of main-study rows for internal validation; required
 for \code{estimator = "ht"} with an external sample.}
 
-\item{N_strata}{Named numeric vector of stratum sizes in the frame.
-Computed from the main-study proxies for internal validation with
+\item{N_strata}{Named numeric vector of stratum sizes in the frame; for
+\code{strata = "z_hat"} the names are the category labels. Computed
+from the main-study proxies for internal validation with
 \code{strata = "z_hat"}; otherwise required when \code{strata} is
 given without \code{weights}.}
 }
@@ -60,12 +62,29 @@ to its proxy \eqn{\hat Z}, together with its sampling design. The object
 is passed to \code{\link{estimate_mc}} or directly to
 \code{\link{mcglm}(validation = )}.
 }
+\section{Categories}{
+
+\code{z} and \code{z_hat} hold category labels: a factor, a character
+vector or numbers. They are matched \emph{by label} to the categories of
+the model -- the levels of the \code{mc()} variable in
+\code{\link{mcglm}}, or \code{levels(z_hat)} / \code{levels} in
+\code{\link{estimate_mc}} -- so the order of factor levels in the audit
+does not matter. Numbers are compared as labels as well: they fit an
+integer-coded model (categories \code{"0"}, \code{"1"}, ...) or a factor
+whose levels are those numbers, and are rejected for a model with other
+labels.
+}
+
 \examples{
 set.seed(1)
 z     <- rbinom(200, 1, 0.4)
 z_hat <- ifelse(z == 1, rbinom(200, 1, 0.85), rbinom(200, 1, 0.1))
 val <- validation_sample(z, z_hat)
 val
+
+# labels work directly; their order does not matter
+occ <- c("clerk", "manager")
+validation_sample(factor(occ[z + 1]), occ[z_hat + 1])
 }
 \seealso{
 \code{\link{estimate_mc}}, \code{\link{mcglm}}

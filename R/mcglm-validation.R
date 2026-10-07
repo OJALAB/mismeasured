@@ -166,8 +166,8 @@
   list(coefficients = psi, converged = sol$termcd <= 2,
        termcd = sol$termcd, iterations = sol$iter, vcov = V_psi,
        beta_equation = if (internal) beq else NA_character_,
-       nuisance = list(eta = est$eta, vcov = est$vcov, Pi = par0$Pi,
-                       pi_z = par0$pi, W = par0$W,
+       nuisance = list(eta = est$eta, vcov = est$vcov, Pi = est$Pi,
+                       pi_z = est$pi, W = est$W,
                        prevalence = est$prevalence$method,
                        variance = control$variance,
                        beta_equation = if (internal) beq else NA_character_))

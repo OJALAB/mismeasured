@@ -113,15 +113,23 @@ control_mc <- function(estimator = "mle",
 #'
 #' @param validation A \code{\link{validation_sample}} or the list form
 #'   \code{list(z, z_hat)} / \code{list(z, index)}.
-#' @param z_hat Main-study proxy codes. Required for internal validation
-#'   and for \code{prevalence = "em"} or \code{"inverse"}.
-#' @param K Number of categories (default: from the codes).
+#' @param z_hat Main-study proxies (factor, character or integer codes
+#'   \code{0, ..., K-1}). Required for internal validation and for
+#'   \code{prevalence = "em"} or \code{"inverse"}; a factor also fixes the
+#'   category labels and their order.
+#' @param K Number of categories (default: from the labels).
+#' @param levels Optional category labels in model order. Defaults to
+#'   \code{levels(z_hat)} for a factor (sorted values for character),
+#'   \code{"0", ..., "K-1"} for integer codes, and otherwise the audit's
+#'   own labels. Use it so that the estimate matches the levels of the
+#'   \code{mc()} variable when \code{z_hat} is not given.
 #' @param main_weights Optional main-study frequency weights.
 #' @param control A \code{\link{control_mc}} object.
 #' @return An object of class \code{"mc_estimate"} with components
-#'   \code{Pi}, \code{pi}, \code{W}, \code{K}, \code{eta} (free
-#'   parameters), \code{vcov} (their covariance), \code{diagnostics}, the
-#'   bound validation sample and the control settings.
+#'   \code{Pi}, \code{pi}, \code{W} (labelled by category), \code{K},
+#'   \code{levels}, \code{eta} (free parameters), \code{vcov} (their
+#'   covariance), \code{diagnostics}, the bound validation sample and the
+#'   control settings.
 #' @references
 #' Saerens, M., Latinne, P. and Decaestecker, C. (2002). Adjusting the
 #' outputs of a classifier to new a priori probabilities: a simple
@@ -137,23 +145,26 @@ control_mc <- function(estimator = "mle",
 #' est
 #' summary(est)
 #' @export
-estimate_mc <- function(validation, z_hat = NULL, K = NULL,
+estimate_mc <- function(validation, z_hat = NULL, K = NULL, levels = NULL,
                         main_weights = NULL, control = control_mc()) {
   val <- as_validation_sample(validation)
   if (!inherits(control, "mc_control"))
     stop("control must be created by control_mc().", call. = FALSE)
-  if (!is.null(z_hat)) {
-    .mcglm_check_z_hat(z_hat)
-    z_hat <- as.integer(z_hat)
-  }
-  if (is.null(K)) K <- max(2L, max(c(val$z, val$z_hat, z_hat)) + 1L)
-  K <- as.integer(K)
+  cats <- .mc_category_levels(val, z_hat, K, levels)
+  .estimate_mc_codes(val, cats$z_hat, cats$levels, main_weights, control)
+}
+
+#' estimate_mc() on 0-based main-study codes and known category labels
+#' @keywords internal
+.estimate_mc_codes <- function(val, z_hat, levels, main_weights = NULL,
+                               control = control_mc()) {
+  K <- length(levels)
   needs_main <- val$type == "internal" ||
     control$prevalence %in% c("em", "inverse")
   if (needs_main && is.null(z_hat))
     stop("estimate_mc() needs the main-study proxies z_hat for internal ",
          "validation and for prevalence = 'em' or 'inverse'.", call. = FALSE)
-  if (!is.null(z_hat) && any(z_hat >= K))
+  if (!is.null(z_hat) && any(z_hat < 0L | z_hat >= K))
     stop("z_hat must be coded 0, ..., K-1 (K = ", K, ").", call. = FALSE)
   if (!is.null(main_weights) &&
       (length(main_weights) != length(z_hat) ||
@@ -161,13 +172,18 @@ estimate_mc <- function(validation, z_hat = NULL, K = NULL,
     stop("main_weights must be positive, one per main-study row.",
          call. = FALSE)
 
-  vb   <- .mc_bind_validation(val, z_hat, K, main_weights)
+  vb   <- .mc_bind_validation(val, z_hat, K, main_weights, levels = levels)
   nuis <- .mc_nuisance(vb, z_hat, K, control, main_weights)
 
-  est <- c(nuis$map(nuis$eta),
-           list(K = K, eta = nuis$eta, vcov = nuis$vcov, map = nuis$map,
-                rows = nuis$rows, A = nuis$A, prevalence = nuis$prevalence,
-                validation = vb, z_hat = if (needs_main) z_hat else NULL,
+  par <- nuis$map(nuis$eta)
+  dimnames(par$Pi) <- list(z_hat = levels, z = levels)
+  dimnames(par$W)  <- list(z_hat = levels, z = levels)
+  names(par$pi)    <- levels
+  est <- c(par,
+           list(K = K, levels = levels, eta = nuis$eta, vcov = nuis$vcov,
+                map = nuis$map, rows = nuis$rows, A = nuis$A,
+                prevalence = nuis$prevalence, validation = vb,
+                z_hat = if (needs_main) z_hat else NULL,
                 main_weights = main_weights, control = control,
                 main_dependent = needs_main))
   class(est) <- "mc_estimate"
@@ -192,7 +208,7 @@ estimate_mc <- function(validation, z_hat = NULL, K = NULL,
   Hm <- if (n_m) outer(z_hat, 0:s, "==") * 1 else NULL
   N_tot <- vb$N
   if (is.null(N_tot) && !is.null(vb$N_h))
-    N_tot <- sum(tapply(vb$N_h, vb$strata, `[`, 1L))
+    N_tot <- sum(tapply(vb$N_h, vb$strata, `[`, 1L), na.rm = TRUE)
 
   Pi_hat <- crossprod(Hv * dw, Zv) / rep(colSums(dw * Zv), each = K)
   em_info <- NULL
@@ -353,17 +369,15 @@ estimate_mc <- function(validation, z_hat = NULL, K = NULL,
 #' @export
 print.mc_estimate <- function(x, digits = 4L, ...) {
   vb <- x$validation
-  cat(sprintf("Estimated misclassification (K = %d) from a %s validation sample (n = %d)\n",
+  cat(sprintf("Estimated misclassification (K = %d) from an %s validation sample (n = %d)\n",
               x$K, vb$type, vb$n))
   cat(sprintf("Prevalence: %s; estimator: %s%s\n", x$prevalence$method,
               if (vb$estimator == "ht") "Horvitz-Thompson" else "Hajek",
               if (vb$user_weights) ", design weights" else ""))
   cat("\nPi = P(z_hat = row | z = column):\n")
-  Pi <- x$Pi
-  dimnames(Pi) <- list(z_hat = 0:(x$K - 1L), z = 0:(x$K - 1L))
-  print(round(Pi, digits))
+  print(round(x$Pi, digits))
   cat("\nLatent prevalence pi:\n")
-  print(round(stats::setNames(x$pi, 0:(x$K - 1L)), digits))
+  print(round(x$pi, digits))
   if (length(x$diagnostics$problems))
     cat("\nDiagnostics:", paste(x$diagnostics$problems, collapse = "; "), "\n")
   invisible(x)
@@ -381,7 +395,8 @@ summary.mc_estimate <- function(object, ...) {
 #' @export
 print.summary.mc_estimate <- function(x, digits = 4L, ...) {
   print(x$estimate, digits = digits)
-  cat("\nFree parameters (baseline row/category 0 implied):\n")
+  cat(sprintf("\nFree parameters (indices are 0-based codes of %s; row/category 0 implied):\n",
+              paste(x$estimate$levels, collapse = ", ")))
   print(round(x$coefficients, digits))
   cat("\n")
   print(x$diagnostics)

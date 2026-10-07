@@ -46,7 +46,7 @@ test_that("unweighted estimates are proportions with binomial variances", {
   tab <- table(factor(v$z_hat, 0:1), factor(v$z, 0:1))
   expect_equal(unname(est$Pi), unname(unclass(prop.table(tab, 2))))
   pi1 <- mean(v$z)
-  expect_equal(est$pi, c(1 - pi1, pi1))
+  expect_equal(unname(est$pi), c(1 - pi1, pi1))
   n_l <- colSums(tab)
   se <- sqrt(diag(vcov(est)))
   expect_equal(unname(se[1:2]),
@@ -76,8 +76,8 @@ test_that("design-weighted Hajek and HT estimators", {
                     z_hat = main$z_hat)
   # column ratios are the same; prevalence differs
   expect_equal(vh$Pi, vt$Pi)
-  expect_equal(vh$pi[2], sum(d * z_v) / sum(d))
-  expect_equal(vt$pi[2], sum(d * z_v) / n)
+  expect_equal(unname(vh$pi[2]), sum(d * z_v) / sum(d))
+  expect_equal(unname(vt$pi[2]), sum(d * z_v) / n)
   # the unweighted column ratios are biased by the oversampling of z_hat = 1
   unw <- estimate_mc(validation_sample(z_v, index = idx),
                      z_hat = main$z_hat)
@@ -117,7 +117,7 @@ test_that("prevalence from the main study: em and inverse", {
                      control = control_mc(prevalence = "inverse"))
   expect_equal(em$pi, inv$pi, tolerance = 1e-8)
   p_main <- mean(main$z_hat)
-  expect_equal(drop(em$Pi %*% em$pi)[2], p_main, tolerance = 1e-8)
+  expect_equal(unname(drop(em$Pi %*% em$pi)[2]), p_main, tolerance = 1e-8)
   # the two parameterisations give the same delta-method variance for pi
   g <- mismeasured:::.mc_num_jacobian(function(e) inv$map(e)$pi[2],
                                       unname(inv$eta))

@@ -135,3 +135,24 @@ test_that("design-weighted SUB is unbiased and calibrated under Y-dependent audi
   ratio <- colMeans(out[, 4:6]) / apply(out[, 1:3], 2, sd)
   expect_true(all(ratio > 0.8 & ratio < 1.25))
 })
+
+test_that("external z_hat-stratified audits give calibrated SEs", {
+  skip_on_cran()
+  reps <- 150L
+  out <- matrix(NA_real_, reps, 2L)
+  for (r in seq_len(reps)) {
+    d <- .sd_data(n = 3000L, seed = 3000L + r)
+    frame <- .sd_data(n = 10000L, seed = 5000L + r)
+    idx <- unlist(lapply(0:1, function(j)
+      sample(which(frame$z_hat == j), 150L)))
+    v <- validation_sample(frame$z[idx], frame$z_hat[idx], strata = "z_hat",
+                           N_strata = c(`0` = sum(frame$z_hat == 0),
+                                        `1` = sum(frame$z_hat == 1)))
+    fit <- mcglm(d$y, z_hat = d$z_hat, x = d$x, method = "sub",
+                 validation = v, mc_control = control_mc(on_ill = "none"))
+    out[r, ] <- c(coef(fit, method = "sub")[1], fit$se$sub[1])
+  }
+  expect_lt(abs(mean(out[, 1]) - 0.8), 0.03)
+  ratio <- mean(out[, 2]) / sd(out[, 1])
+  expect_true(ratio > 0.8 && ratio < 1.25)
+})

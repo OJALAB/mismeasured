@@ -8,6 +8,7 @@ estimate_mc(
   validation,
   z_hat = NULL,
   K = NULL,
+  levels = NULL,
   main_weights = NULL,
   control = control_mc()
 )
@@ -16,10 +17,18 @@ estimate_mc(
 \item{validation}{A \code{\link{validation_sample}} or the list form
 \code{list(z, z_hat)} / \code{list(z, index)}.}
 
-\item{z_hat}{Main-study proxy codes. Required for internal validation
-and for \code{prevalence = "em"} or \code{"inverse"}.}
+\item{z_hat}{Main-study proxies (factor, character or integer codes
+\code{0, ..., K-1}). Required for internal validation and for
+\code{prevalence = "em"} or \code{"inverse"}; a factor also fixes the
+category labels and their order.}
 
-\item{K}{Number of categories (default: from the codes).}
+\item{K}{Number of categories (default: from the labels).}
+
+\item{levels}{Optional category labels in model order. Defaults to
+\code{levels(z_hat)} for a factor (sorted values for character),
+\code{"0", ..., "K-1"} for integer codes, and otherwise the audit's
+own labels. Use it so that the estimate matches the levels of the
+\code{mc()} variable when \code{z_hat} is not given.}
 
 \item{main_weights}{Optional main-study frequency weights.}
 
@@ -27,9 +36,10 @@ and for \code{prevalence = "em"} or \code{"inverse"}.}
 }
 \value{
 An object of class \code{"mc_estimate"} with components
-  \code{Pi}, \code{pi}, \code{W}, \code{K}, \code{eta} (free
-  parameters), \code{vcov} (their covariance), \code{diagnostics}, the
-  bound validation sample and the control settings.
+  \code{Pi}, \code{pi}, \code{W} (labelled by category), \code{K},
+  \code{levels}, \code{eta} (free parameters), \code{vcov} (their
+  covariance), \code{diagnostics}, the bound validation sample and the
+  control settings.
 }
 \description{
 Estimates the misclassification matrix

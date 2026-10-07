@@ -115,12 +115,13 @@ test_that("nuisance estimates are the validation-sample proportions", {
     fit <- .subv_fit(d)
     tab <- table(factor(d$proxy_v, 0:2), factor(d$v$z, 0:2))
     expect_equal(unname(fit$nuisance$sub$Pi), unname(unclass(prop.table(tab, 2))))
-    expect_equal(fit$nuisance$sub$pi_z, as.numeric(prop.table(table(d$v$z))))
+    expect_equal(unname(fit$nuisance$sub$pi_z),
+                 as.numeric(prop.table(table(d$v$z))))
     expect_identical(fit$validation_design, type)
   }
   d <- .subv_data(seed = 211L)
   fit <- .subv_fit(d, prevalence = "em")
-  expect_equal(fit$nuisance$sub$pi_z,
+  expect_equal(unname(fit$nuisance$sub$pi_z),
                as.numeric(solve(fit$nuisance$sub$Pi,
                                 prop.table(table(d$z_hat)))))
 })

@@ -160,7 +160,10 @@ test_that("validation metadata rejects inconsistent probabilities and unsupporte
   expect_error(fit(list(z = d$v$z, index = rep(1, length(d$v$z)))), "distinct")
   expect_error(fit(list(z = d$v$z, index = d$v$index + 1000L)), "row numbers")
   expect_error(fit(list(z = d$v$z, index = d$v$index, z_hat = 1 - d$proxy_v)), "does not match")
-  expect_error(fit(list(z = factor(d$v$z), index = d$v$index)), "codes")
+  # factor labels "0"/"1" match the integer-coded model by label
+  expect_equal(vcov(fit(list(z = factor(d$v$z), index = d$v$index)),
+                    method = "cs"),
+               vcov(fit(), method = "cs"))
   expect_error(fit(list(z = c(NA, d$v$z[-1]), index = d$v$index)), "codes")
   expect_error(fit(list(z = rep(0, length(d$v$z)), index = d$v$index)), "Every true category")
   expect_error(fit(list(z = d$v$z)), "z_hat")

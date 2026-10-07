@@ -49,12 +49,15 @@ diagnose_mc <- function(object,
     problems <- c(problems, sprintf(
       "true categor%s %s with fewer than %d validation units",
       if (sum(n_class < min_class_n) > 1L) "ies" else "y",
-      paste(which(n_class < min_class_n) - 1L, collapse = ", "),
+      paste0("'", (if (is.null(object$levels)) seq_len(K) - 1L else
+        object$levels)[n_class < min_class_n], "'", collapse = ", "),
       as.integer(min_class_n)))
   if (boundary)
     problems <- c(problems, "estimated prevalence on the boundary (variance unreliable)")
 
-  structure(list(n_class = stats::setNames(n_class, 0:(K - 1L)),
+  lev <- if (is.null(object$levels)) as.character(seq_len(K) - 1L) else
+    object$levels
+  structure(list(n_class = stats::setNames(n_class, lev),
                  zero_cells = sum(Pi == 0), sigma_min = smin, kappa = kap,
                  akn = akn, boundary = boundary, problems = problems),
             class = "mc_diagnostics")

@@ -146,9 +146,11 @@ result, or the list forms \code{list(z = true_codes, z_hat =
 proxy_codes)} (external) and \code{list(z = true_codes, index =
 regression_row_numbers)} (internal; proxies taken from those rows).
 Equivalently, pass an \code{estimate_mc()} result inside the formula
-as \code{mc(z, estimate)}. Codes must be integers in
-\code{0, ..., K-1}, in the model's category order, and every true
-category must occur. Its effect depends on the method:
+as \code{mc(z, estimate)}. Categories are matched to the levels of the
+\code{mc()} variable \emph{by label} (factor, character, or numbers
+compared as labels; integer codes \code{0, ..., K-1} for an
+integer-coded proxy), and every true category must occur. Its effect
+depends on the method:
 \describe{
   \item{\code{"sub"}}{\eqn{\Pi} and \eqn{\pi_z} are \emph{estimated}
     (see \code{\link{estimate_mc}} and \code{mc_control}); supplying
