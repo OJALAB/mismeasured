@@ -372,6 +372,101 @@ target, which matches how the classifier errs here, is slightly better than
 the pooled one.
 
 
+## When shrinkage is not enough: merging categories
+
+Shrinkage repairs noise -- few units per class, empty cells. It cannot
+repair a classifier that does not separate two categories: if
+$\Pi_{\cdot a} \approx \Pi_{\cdot b}$, the matrix is close to singular
+whatever the audit size, and the effects of $a$ and $b$ are not
+identified from the proxy. Merging $a$ and $b$ into one category $c$, in
+the proxy and in the true category, collapses the matrix exactly:
+$$
+\Pi'_{c\ell} = \Pi_{a\ell} + \Pi_{b\ell}, \qquad
+\Pi'_{\cdot c} = \frac{\pi_a \Pi'_{\cdot a} + \pi_b \Pi'_{\cdot b}}
+{\pi_a + \pi_b}, \qquad \pi'_c = \pi_a + \pi_b ,
+$$
+so that their mutual confusion becomes correct classification.
+`suggest_merge()` merges greedily: at each step it takes the pair whose
+merge gives the largest smallest singular value (`criterion =
+"sigma_min"`, recommended; `"kappa"` minimises the condition number
+instead), until the `diagnose_mc()` thresholds pass. With `groups`, only
+categories of the same group are merged.
+
+It only suggests. A merge replaces $\gamma_a$ and $\gamma_b$ by one
+effect -- a prevalence-weighted mixture, interpretable only if the two
+categories are similar -- assumes the merged categories are misclassified
+alike, and choosing it from the same audit is a model choice that the
+standard errors of the refit do not reflect.
+
+Four categories, two of which the classifier hardly separates:
+
+```{r merge-data}
+lev4 <- c("a", "b", "c", "d")
+Pi4 <- matrix(c(0.90, 0.04, 0.03, 0.03,
+                0.04, 0.47, 0.45, 0.04,
+                0.04, 0.45, 0.47, 0.04,
+                0.03, 0.03, 0.04, 0.90), 4, 4)
+n4 <- 3000
+z4 <- sample.int(4, n4, TRUE) - 1L
+d4 <- data.frame(
+  x1 = rnorm(n4),
+  occ = factor(lev4[vapply(z4, function(k) sample.int(4, 1, prob = Pi4[, k + 1]),
+                           0L)], levels = lev4))
+d4$y <- rpois(n4, exp(c(0, 0.5, 0.3, -0.4)[z4 + 1] - 0.3 + 0.5 * d4$x1))
+idx4 <- sample(n4, 600)
+val4 <- validation_sample(lev4[z4[idx4] + 1], index = idx4)
+est4 <- estimate_mc(val4, z_hat = d4$occ, control = control_mc(on_ill = "none"))
+est4_eb <- estimate_mc(val4, z_hat = d4$occ,
+                       control = control_mc(estimator = "eb", on_ill = "none"))
+c(mle = diagnose_mc(est4)$sigma_min, eb = diagnose_mc(est4_eb)$sigma_min)
+```
+
+```{r merge-numbers, include = FALSE}
+s4 <- c(mle = diagnose_mc(est4)$sigma_min, eb = diagnose_mc(est4_eb)$sigma_min)
+```
+
+The estimated smallest singular value is
+`r formatC(s4["mle"], format = "f", digits = 3)` with the column proportions
+and `r formatC(s4["eb"], format = "f", digits = 3)` with shrinkage, while
+that of the true matrix is
+`r formatC(min(svd(Pi4)$d), format = "f", digits = 3)`: sampling noise
+makes the two nearly identical columns look separated, and shrinkage does
+not help because the problem is the classifier, not the audit size. This is
+why `suggest_merge()` also tests whether the proxy distributions of a pair
+of true classes differ (a likelihood-ratio test of homogeneity of their
+audit counts) and merges a pair that does not differ at level `alpha`
+(default 0.05) even when the diagnostics pass.
+
+```{r merge}
+sm <- suggest_merge(est4)
+sm
+d4$occ_merged <- merge_levels(d4$occ, sm)
+fit4 <- suppressWarnings(
+  mcglm(y ~ mc(occ) + x1, data = d4, method = "cs_akn", validation = val4,
+        mc_control = control_mc(on_ill = "none")))
+fit4_merged <- mcglm(y ~ mc(occ_merged) + x1, data = d4, method = "cs_akn",
+                     validation = merge_levels(val4, sm))
+round(cbind(estimate = coef(fit4, method = "cs_akn"),
+            se = fit4$se$cs_akn), 3)
+round(cbind(estimate = coef(fit4_merged, method = "cs_akn"),
+            se = fit4_merged$se$cs_akn), 3)
+```
+
+```{r merge-result, include = FALSE}
+se_b <- fit4$se$cs_akn[["gamma_b"]]
+se_bc <- fit4_merged$se$cs_akn[["gamma_b+c"]]
+est_bc <- coef(fit4_merged, method = "cs_akn")[["gamma_b+c"]]
+```
+
+The homogeneity test does not separate `b` and `c` (p =
+`r formatC(sm$steps$p_homogeneity[2], format = "f", digits = 3)`).
+Without the merge the effect of `b` has a standard error of
+`r formatC(se_b, format = "f", digits = 2)`; after it the single effect of
+`b+c` is estimated as `r formatC(est_bc, format = "f", digits = 2)` with a
+standard error of `r formatC(se_bc, format = "f", digits = 3)` -- an effect
+of the merged category, a mixture of the true effects of `b` (0.5) and `c`
+(0.3).
+
 ## Which options combine
 
 All designs of `validation_sample()` work with all estimators of $\Pi$ and
@@ -390,6 +485,7 @@ all methods, with these exceptions (each gives an informative error):
 | `variance = "bootstrap"` | yes | yes | needs the `validation_sample()` itself (not an `estimate_mc()` object) and no supplied probabilities |
 | `variance = "posterior"` | no | yes | constant prevalence only; `"il"`, `"bca"`, `"bcm"` keep the delta method |
 | `on_ill = "regularize"` | yes | yes | |
+| `suggest_merge()`, `merge_levels()` | yes | yes | `merge_levels()` recodes the data's proxy and the audit (and z_hat stratum sizes) |
 
 These combinations are exercised by the package tests.
 

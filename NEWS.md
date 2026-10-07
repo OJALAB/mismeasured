@@ -49,6 +49,20 @@
   zero at the shrunk estimate, in the stacked sandwich; `"il"` adds the
   matching Dirichlet log-prior. `control_mc(on_ill = "regularize")`
   switches to `"eb"` when `diagnose_mc()` flags the MLE.
+* **`suggest_merge()` and `merge_levels()`.** When the classifier cannot
+  separate two categories, shrinkage cannot help. `suggest_merge()` takes an
+  `estimate_mc()` result and proposes merges greedily. Each merge collapses
+  `Pi` exactly: proxy rows are summed and true columns are averaged with the
+  prevalences. The pair chosen is the one whose merge gives the largest
+  smallest singular value (`criterion = "sigma_min"`, recommended) or the
+  smallest condition number (`"kappa"`), restricted to `groups` when given.
+  Merging continues while the `diagnose_mc()` thresholds fail or the pair's
+  proxy distributions are not significantly different (likelihood-ratio
+  homogeneity test, `alpha`). The second rule matters because sampling
+  noise makes nearly identical columns of the estimated `Pi` look
+  separated. It only suggests. `merge_levels()` applies a mapping to the
+  data's proxy and to a `validation_sample()`, including z_hat stratum
+  sizes, keeping the baseline category first.
 * **Bootstrap and posterior variances.** `control_mc(variance =
   "bootstrap")` resamples the regression rows (keeping internal-audit
   membership) and external audits within strata and refits `B` times;

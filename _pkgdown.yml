@@ -36,6 +36,8 @@ reference:
       - estimate_mc
       - control_mc
       - diagnose_mc
+      - suggest_merge
+      - merge_levels
   - title: "Methods for mcglm fits"
     desc: "S3 methods for objects returned by mcglm() and mclm()."
     contents:
