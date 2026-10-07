@@ -360,6 +360,28 @@ An estimate that used the proxies of `df` (internal audits, or
 refuses to apply it to other data. An external estimate with
 `prevalence = "validation"` can be reused across data sets.
 
+## The estimate in `simex()`
+
+The same estimate can be used by MC-SIMEX. `simex()` takes the estimated
+matrix and, with `mc_variance = "draws"` (default), propagates its
+uncertainty by redrawing it from its sampling distribution and combining
+the refits by Rubin's rule:
+
+```{r simex}
+est1 <- estimate_mc(val1)
+fit_simex <- simex(y ~ mc(z, est1) + x1, data = transform(df, z = factor(z)),
+                   family = poisson(), B = 30, mc_draws = 10)
+round(rbind(estimate = coef(fit_simex),
+            se = sqrt(diag(vcov(fit_simex))),
+            se_conditional = sqrt(diag(fit_simex$vcov.conditional))), 3)
+```
+
+The standard errors that account for the audit (`se`) exceed those that
+treat the matrix as known. The point estimate of $\gamma$,
+`r formatC(coef(fit_simex)[[1]], format = "f", digits = 3)`, reflects
+MC-SIMEX's quadratic extrapolation, which is only approximate for this
+Poisson model; `mcglm()` above is consistent.
+
 ## Propagating or ignoring the estimation uncertainty
 
 By default (`variance = "delta"`), the regression and misclassification

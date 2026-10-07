@@ -58,7 +58,11 @@ me <- function(variable, sd, type = "classical", mean = 0) {
 #' @param variable bare name of the factor variable in the data.
 #' @param matrix a K x K misclassification matrix where
 #'   \code{matrix[j, l] = P(observed = j | true = l)}. Columns must sum to 1.
-#'   Can be a bare name of an object in the calling environment.
+#'   Can be a bare name of an object in the calling environment. It can also
+#'   be an \code{\link{estimate_mc}} result: \code{\link{mcglm}} then uses
+#'   the estimated probabilities with their uncertainty, and
+#'   \code{\link{simex}} uses the estimated matrix and propagates its
+#'   uncertainty (\code{mc_variance}).
 #'
 #' @section Category order and \code{matrix}:
 #' The rows and columns of \code{matrix} follow the \emph{factor level
@@ -149,7 +153,9 @@ parse_simex_formula <- function(formula, data, env) {
     if (K_resp != n_levels_resp)
       stop("mc() response matrix has ", K_resp, " rows but variable '",
            var_name, "' has ", n_levels_resp, " levels.", call. = FALSE)
-    response_mc <- list(variable = var_name, mc_matrix = mat_val)
+    response_mc <- list(variable = var_name, mc_matrix = mat_val,
+                        estimate = attr(mat_val, "mc_estimate"))
+    attr(response_mc$mc_matrix, "mc_estimate") <- NULL
     lhs <- lhs[[2]]  # strip mc(), keep bare variable name
   }
 
@@ -277,8 +283,11 @@ parse_simex_formula <- function(formula, data, env) {
     var_name <- deparse(node[[2]])
     mat_val <- .resolve_matrix(node[[3]], data, env)
 
+    est <- attr(mat_val, "mc_estimate")
+    attr(mat_val, "mc_estimate") <- NULL
     .env_descriptors$items <- c(.env_descriptors$items, list(
-      list(type = "mc", variable = var_name, mc_matrix = mat_val)
+      list(type = "mc", variable = var_name, mc_matrix = mat_val,
+           estimate = est)
     ))
 
     return(node[[2]])  # replace mc(z, Pi) with z
@@ -360,9 +369,15 @@ parse_simex_formula <- function(formula, data, env) {
     }
   )
 
-  if (inherits(mat_val, "mc_estimate"))
-    stop("simex() does not accept estimate_mc() objects in mc() yet; ",
-         "use mc(z, est$Pi) to treat the estimate as known.", call. = FALSE)
+  # An estimate_mc() object supplies its estimated matrix; the object
+  # travels as an attribute so that simex() can propagate its uncertainty.
+  if (inherits(mat_val, "mc_estimate")) {
+    est <- mat_val
+    mat_val <- est$Pi
+    dimnames(mat_val) <- list(est$levels, est$levels)
+    attr(mat_val, "mc_estimate") <- est
+    return(mat_val)
+  }
   if (!is.matrix(mat_val))
     mat_val <- as.matrix(mat_val)
 

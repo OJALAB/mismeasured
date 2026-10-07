@@ -27,6 +27,18 @@
 #' @param jackknife logical: compute variance estimates? Default \code{TRUE}.
 #' @param weights optional prior weights.
 #' @param seed random seed (default: 42).
+#' @param mc_variance For \code{mc(z, estimate)} terms whose matrix is an
+#'   \code{\link{estimate_mc}} result: \code{"draws"} (default) propagates
+#'   the estimation uncertainty of \eqn{\Pi} by drawing the
+#'   misclassification parameters from their estimated sampling
+#'   distribution, \eqn{N(\hat\eta, \hat V_\eta)} (draws giving invalid
+#'   matrices are rejected), rerunning SIMEX for each draw with the same
+#'   simulation seed, and combining by Rubin's rule,
+#'   \eqn{\bar V + (1 + 1/M)\widehat{\mathrm{Var}}(\hat\theta^{(m)})};
+#'   \code{"conditional"} treats the estimate as known. Requires variance
+#'   estimates (\code{jackknife = TRUE} or the improved method).
+#' @param mc_draws Number of draws \eqn{M} for \code{mc_variance =
+#'   "draws"}.
 #'
 #' @return An object of class \code{"simex"}.
 #'
@@ -47,11 +59,18 @@
 #'     it is a first-order approximation that can be visibly biased when the
 #'     misclassified variable's effect is large \eqn{--} for logistic or
 #'     Poisson models with strong effects, consider \code{\link{mcglm}} with
-#'     \code{method = "cs"} or \code{"cs_akn"} as a consistent alternative. Its variance treats the supplied
-#'     misclassification matrix as fixed/known; if \code{Pi} was estimated from
-#'     validation or audit data, reported standard errors are conditional on
-#'     that plug-in matrix. With \code{method = "standard"}, the original
-#'     Kuechenhoff et al. (2006) extrapolation-based approach is used.
+#'     \code{method = "cs"} or \code{"cs_akn"} as a consistent alternative.
+#'     With \code{method = "standard"}, the original Kuechenhoff et al.
+#'     (2006) extrapolation-based approach is used. A matrix given as a number
+#'     is treated as known. When the matrix was estimated from an audit, pass
+#'     the \code{\link{estimate_mc}} result, \code{mc(z, estimate)}: its
+#'     categories must be the levels of \code{z}; an estimate that used the
+#'     main study's proxies must come from the same rows; a matrix without
+#'     valid fractional powers (\code{\link{check.mc.matrix}}) is replaced
+#'     by the nearest valid one (\code{\link{build.mc.matrix}}) with a
+#'     warning; the improved method uses the estimate's prevalence; and
+#'     \code{mc_variance = "draws"} adds the estimation uncertainty of the
+#'     matrix to the variance.
 #' }
 #'
 #' @references
@@ -97,10 +116,15 @@ simex <- function(formula, family = gaussian(), data,
                   extrapolation = c("quadratic", "linear", "loglinear"),
                   jackknife = TRUE,
                   weights = NULL,
-                  seed = 42L) {
+                  seed = 42L,
+                  mc_variance = c("draws", "conditional"),
+                  mc_draws = 50L) {
 
   cl <- match.call()
   extrapolation <- match.arg(extrapolation)
+  mc_variance <- match.arg(mc_variance)
+  if (!is.numeric(mc_draws) || length(mc_draws) != 1L || mc_draws < 2)
+    stop("'mc_draws' must be at least 2.", call. = FALSE)
 
   if (!is.null(B) &&
       (!is.numeric(B) || length(B) != 1L || !is.finite(B) ||
@@ -183,6 +207,11 @@ simex <- function(formula, family = gaussian(), data,
     }
   }
 
+  # --- estimate_mc() objects in mc() ---
+  prepared <- .simex_prepare_estimates(parsed, data)
+  parsed <- prepared$parsed
+  data <- prepared$data
+
   # --- dispatch ---
   if (parsed$error_type == "me") {
     if (is.character(lambda))
@@ -227,6 +256,15 @@ simex <- function(formula, family = gaussian(), data,
     }
     result <- .simex_discrete(parsed, family, data, method, lambda, B,
                               extrapolation, jackknife, weights, seed, cl)
+    estimates <- .simex_estimates(parsed)
+    if (length(estimates)) {
+      result$mc.estimate <- estimates
+      result$mc.variance <- mc_variance
+      if (mc_variance == "draws" && !is.null(result$vcov))
+        result <- .simex_mc_draws(result, parsed, family, data, method,
+                                  lambda, B, extrapolation, jackknife,
+                                  weights, seed, cl, as.integer(mc_draws))
+    }
   }
 
   # --- attach common fields ---
@@ -537,7 +575,8 @@ simex <- function(formula, family = gaussian(), data,
 
   # --- IMPROVED MC-SIMEX (single mc only) ---
   if (method == "improved") {
-    pi_vec <- .estimate_pi_vec(z_hat, Pi, wt)
+    pi_vec <- if (!is.null(mc_terms[[1]]$pi_vec)) mc_terms[[1]]$pi_vec else
+      .estimate_pi_vec(z_hat, Pi, wt)
     pi_x <- if (K == 2L) pi_vec[2] else NULL
 
     if (optimal_lambda) {
@@ -1035,4 +1074,146 @@ confint.simex <- function(object, parm, level = 0.95, ...) {
               cf[parm] + fac[2] * ses[parm])
   colnames(ci) <- paste0(format(100 * c(a, 1 - a), trim = TRUE), " %")
   ci
+}
+
+
+# =========================================================================
+# Internal: estimated misclassification matrices in mc()
+# =========================================================================
+
+#' Estimates attached to mc() terms
+#' @keywords internal
+.simex_estimates <- function(parsed) {
+  terms <- c(parsed$mc_terms, if (!is.null(parsed$response_mc))
+    list(parsed$response_mc))
+  out <- list()
+  for (tm in terms) if (!is.null(tm$estimate)) out[[tm$variable]] <- tm$estimate
+  out
+}
+
+#' Make a misclassification matrix valid for fractional powers
+#' @keywords internal
+.simex_valid_power <- function(Pi, label, warn = TRUE) {
+  if (isTRUE(tryCatch(check.mc.matrix(list(Pi)), error = function(e) FALSE)))
+    return(Pi)
+  if (warn)
+    warning("mc(", label, "): the estimated misclassification matrix has ",
+            "no valid fractional powers (check.mc.matrix()); using the ",
+            "nearest valid matrix from build.mc.matrix().", call. = FALSE)
+  fixed <- tryCatch(build.mc.matrix(Pi), error = function(e)
+    tryCatch(build.mc.matrix(Pi, method = "jlt"), error = function(e2)
+      stop("mc(", label, "): no valid misclassification matrix close to the ",
+           "estimate could be built (build.mc.matrix()).", call. = FALSE)))
+  dimnames(fixed) <- dimnames(Pi)
+  fixed
+}
+
+#' Check estimates against the data and prepare their matrices
+#' @keywords internal
+.simex_prepare_estimates <- function(parsed, data) {
+  prep <- function(tm) {
+    est <- tm$estimate
+    if (is.null(est)) return(tm)
+    x <- data[[tm$variable]]
+    codes <- match(as.character(x), est$levels) - 1L
+    if (anyNA(codes))
+      stop("mc(", tm$variable, "): values ",
+           paste0("'", unique(as.character(x)[is.na(codes)]), "'",
+                  collapse = ", "),
+           " are not categories of the estimate (",
+           paste(est$levels, collapse = ", "), ").", call. = FALSE)
+    if (isTRUE(est$main_dependent) &&
+        !identical(as.integer(codes), as.integer(est$z_hat)))
+      stop("mc(", tm$variable, "): the estimate_mc() object was computed ",
+           "with other main-study proxies (internal validation or ",
+           "prevalence = 'em'); rows must match the data.", call. = FALSE)
+    tm$mc_matrix <- .simex_valid_power(tm$mc_matrix, tm$variable)
+    tm$pi_vec <- unname(est$pi)
+    tm
+  }
+  parsed$mc_terms <- lapply(parsed$mc_terms, prep)
+  if (!is.null(parsed$response_mc)) parsed$response_mc <- prep(parsed$response_mc)
+  # Labels are checked; code the mc() variables in the estimate's order.
+  for (tm in c(parsed$mc_terms, list(parsed$response_mc))) {
+    if (is.null(tm$estimate)) next
+    x <- data[[tm$variable]]
+    if (!is.factor(x) || !identical(levels(x), tm$estimate$levels))
+      data[[tm$variable]] <- factor(as.character(x),
+                                    levels = tm$estimate$levels)
+  }
+  list(parsed = parsed, data = data)
+}
+
+#' One draw of an estimated misclassification matrix
+#' @keywords internal
+.simex_draw_estimate <- function(est, label) {
+  V <- est$vcov
+  if (any(!is.finite(V)))
+    stop("mc(", label, "): the estimate has no finite covariance; use ",
+         "mc_variance = 'conditional'.", call. = FALSE)
+  for (try in seq_len(200L)) {
+    e <- MASS::mvrnorm(1L, unname(est$eta), V)
+    par <- est$map(e)
+    if (all(par$Pi >= 0 & par$Pi <= 1) &&
+        (is.null(par$pi) || all(par$pi > 0 & par$pi < 1))) {
+      Pi <- par$Pi
+      dimnames(Pi) <- list(est$levels, est$levels)
+      return(list(Pi = .simex_valid_power(Pi, label, warn = FALSE),
+                  pi = if (is.null(par$pi)) unname(est$pi) else par$pi))
+    }
+  }
+  stop("mc(", label, "): could not draw a valid misclassification matrix; ",
+       "use mc_variance = 'conditional'.", call. = FALSE)
+}
+
+#' Propagate estimated matrices by draws and Rubin's rule
+#' @keywords internal
+.simex_mc_draws <- function(result, parsed, family, data, method, lambda, B,
+                            extrapolation, jackknife, weights, seed, cl, M) {
+  draw_terms <- function(p) {
+    p$mc_terms <- lapply(p$mc_terms, function(tm) {
+      if (is.null(tm$estimate)) return(tm)
+      d <- .simex_draw_estimate(tm$estimate, tm$variable)
+      tm$mc_matrix <- d$Pi
+      tm$pi_vec <- d$pi
+      tm
+    })
+    if (!is.null(p$response_mc$estimate)) {
+      d <- .simex_draw_estimate(p$response_mc$estimate, p$response_mc$variable)
+      p$response_mc$mc_matrix <- d$Pi
+    }
+    p
+  }
+  # Draw all matrices first: each SIMEX fit resets the random-number
+  # stream with its own seed (common random numbers across draws).
+  drawn <- .mc_with_seed(seed + 1L, lapply(seq_len(M), function(m)
+    draw_terms(parsed)))
+  draws <- lapply(drawn, function(pm) {
+    fit <- tryCatch(suppressWarnings(
+      .simex_discrete(pm, family, data, method, lambda, B, extrapolation,
+                      jackknife, weights, seed, cl)),
+      error = function(e) NULL)
+    if (is.null(fit) || is.null(fit$vcov)) NULL else
+      list(coef = fit$coefficients, vcov = fit$vcov)
+  })
+  ok <- !vapply(draws, is.null, logical(1))
+  if (sum(ok) < 2L) {
+    warning("Fewer than two draws of the misclassification matrix could be ",
+            "fitted; the covariance treats the estimate as known.",
+            call. = FALSE)
+    result$mc.variance <- "conditional"
+    return(result)
+  }
+  draws <- draws[ok]
+  coefs <- do.call(rbind, lapply(draws, `[[`, "coef"))
+  within <- Reduce(`+`, lapply(draws, `[[`, "vcov")) / length(draws)
+  V <- within + (1 + 1 / length(draws)) * stats::cov(coefs)
+  dimnames(V) <- dimnames(result$vcov)
+  result$vcov.conditional <- result$vcov
+  result$vcov <- V
+  result$mc.draws <- list(M = M, failed = sum(!ok), coefficients = coefs)
+  result$vcov.assumption <- paste0(
+    "estimated Pi: Rubin's rule over ", length(draws),
+    " draws from the estimate's sampling distribution")
+  result
 }

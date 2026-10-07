@@ -14,7 +14,9 @@ simex(
   extrapolation = c("quadratic", "linear", "loglinear"),
   jackknife = TRUE,
   weights = NULL,
-  seed = 42L
+  seed = 42L,
+  mc_variance = c("draws", "conditional"),
+  mc_draws = 50L
 )
 }
 \arguments{
@@ -44,6 +46,20 @@ Ignored for \code{me()} terms. See Details.}
 \item{weights}{optional prior weights.}
 
 \item{seed}{random seed (default: 42).}
+
+\item{mc_variance}{For \code{mc(z, estimate)} terms whose matrix is an
+\code{\link{estimate_mc}} result: \code{"draws"} (default) propagates
+the estimation uncertainty of \eqn{\Pi} by drawing the
+misclassification parameters from their estimated sampling
+distribution, \eqn{N(\hat\eta, \hat V_\eta)} (draws giving invalid
+matrices are rejected), rerunning SIMEX for each draw with the same
+simulation seed, and combining by Rubin's rule,
+\eqn{\bar V + (1 + 1/M)\widehat{\mathrm{Var}}(\hat\theta^{(m)})};
+\code{"conditional"} treats the estimate as known. Requires variance
+estimates (\code{jackknife = TRUE} or the improved method).}
+
+\item{mc_draws}{Number of draws \eqn{M} for \code{mc_variance =
+"draws"}.}
 }
 \value{
 An object of class \code{"simex"}.
@@ -72,11 +88,18 @@ The function auto-detects the error type from the formula:
     it is a first-order approximation that can be visibly biased when the
     misclassified variable's effect is large \eqn{--} for logistic or
     Poisson models with strong effects, consider \code{\link{mcglm}} with
-    \code{method = "cs"} or \code{"cs_akn"} as a consistent alternative. Its variance treats the supplied
-    misclassification matrix as fixed/known; if \code{Pi} was estimated from
-    validation or audit data, reported standard errors are conditional on
-    that plug-in matrix. With \code{method = "standard"}, the original
-    Kuechenhoff et al. (2006) extrapolation-based approach is used.
+    \code{method = "cs"} or \code{"cs_akn"} as a consistent alternative.
+    With \code{method = "standard"}, the original Kuechenhoff et al.
+    (2006) extrapolation-based approach is used. A matrix given as a number
+    is treated as known. When the matrix was estimated from an audit, pass
+    the \code{\link{estimate_mc}} result, \code{mc(z, estimate)}: its
+    categories must be the levels of \code{z}; an estimate that used the
+    main study's proxies must come from the same rows; a matrix without
+    valid fractional powers (\code{\link{check.mc.matrix}}) is replaced
+    by the nearest valid one (\code{\link{build.mc.matrix}}) with a
+    warning; the improved method uses the estimate's prevalence; and
+    \code{mc_variance = "draws"} adds the estimation uncertainty of the
+    matrix to the variance.
 }
 }
 \examples{

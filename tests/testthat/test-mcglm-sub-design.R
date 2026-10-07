@@ -49,8 +49,10 @@ test_that("estimate objects are checked against the fitted data", {
   # an external estimate with validation prevalence is portable
   ext <- estimate_mc(validation_sample(d$z[1:300], d$z_hat[1:300]))
   expect_silent(mcglm(y ~ mc(z, ext) + x1, data = other, method = "sub"))
-  expect_error(simex(y ~ mc(z, ext) + x1, data = d$df, family = poisson()),
-               "does not accept estimate_mc")
+  # simex() accepts the estimate as well
+  expect_s3_class(simex(y ~ mc(z, ext) + x1, data = transform(d$df, z = factor(z)),
+                        family = poisson(), method = "standard", B = 10,
+                        mc_variance = "conditional"), "simex")
 })
 
 test_that("Hajek and HT differ only through the prevalence", {

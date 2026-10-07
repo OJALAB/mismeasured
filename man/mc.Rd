@@ -11,7 +11,11 @@ mc(variable, matrix)
 
 \item{matrix}{a K x K misclassification matrix where
 \code{matrix[j, l] = P(observed = j | true = l)}. Columns must sum to 1.
-Can be a bare name of an object in the calling environment.}
+Can be a bare name of an object in the calling environment. It can also
+be an \code{\link{estimate_mc}} result: \code{\link{mcglm}} then uses
+the estimated probabilities with their uncertainty, and
+\code{\link{simex}} uses the estimated matrix and propagates its
+uncertainty (\code{mc_variance}).}
 }
 \value{
 An object of class \code{"mc_term"} (used internally by

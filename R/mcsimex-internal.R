@@ -139,18 +139,19 @@
     p_obs[k] <- sum(wt[z_hat == (k - 1L)]) / N
   }
 
-  pi_vec <- tryCatch(
-    solve(Pi, p_obs),
-    error = function(e) {
-      stop("Misclassification matrix is singular; latent prevalences ",
-           "are not identifiable.", call. = FALSE)
-    }
-  )
-  if (any(!is.finite(pi_vec)))
-    stop("Could not estimate finite latent category probabilities.",
-         call. = FALSE)
-
-  pi_vec <- pmax(pi_vec, eps)
+  tryCatch(solve(Pi),
+           error = function(e) {
+             stop("Misclassification matrix is singular; latent prevalences ",
+                  "are not identifiable.", call. = FALSE)
+           })
+  # Maximum likelihood (EM): Pi^{-1} p_obs when that is a valid probability
+  # vector, the boundary estimate otherwise.
+  em <- .mc_prevalence_em(p_obs, Pi)
+  if (em$boundary)
+    warning("The latent prevalence implied by the proxy frequencies and Pi ",
+            "lies on the boundary (", paste(round(em$pi, 4), collapse = ", "),
+            "); a floor of ", eps, " is used.", call. = FALSE)
+  pi_vec <- pmax(em$pi, eps)
   pi_vec / sum(pi_vec)
 }
 

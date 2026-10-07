@@ -219,7 +219,9 @@ test_that("binary improved MC-SIMEX helper edge cases are explicit", {
     "singular"
   )
 
-  pi_vec <- mismeasured:::.estimate_pi_vec(rep(0L, 4), diag(2))
+  # all proxies in one class: boundary prevalence, floored with a warning
+  expect_warning(pi_vec <- mismeasured:::.estimate_pi_vec(rep(0L, 4), diag(2)),
+                 "boundary")
   expect_equal(sum(pi_vec), 1)
   expect_true(all(pi_vec > 0))
 

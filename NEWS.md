@@ -63,6 +63,22 @@
   separated. It only suggests. `merge_levels()` applies a mapping to the
   data's proxy and to a `validation_sample()`, including z_hat stratum
   sizes, keeping the baseline category first.
+* **`simex()` accepts `estimate_mc()` results in `mc()`.** `mc(z,
+  estimate)` and `mc(y, estimate)` (response misclassification) use the
+  estimated matrix; categories are matched to the levels of the variable
+  and an estimate built from the main study's proxies must match the rows.
+  Matrices without valid fractional powers are replaced by
+  `build.mc.matrix()` with a warning. The improved method takes the
+  prevalence from the estimate. The new `mc_variance = "draws"` (default)
+  propagates the estimation uncertainty: the misclassification parameters
+  are drawn `mc_draws` times from their estimated sampling distribution,
+  SIMEX is rerun with common random numbers, and the results are combined
+  by Rubin's rule (`fit$vcov.conditional` keeps the conditional
+  covariance). In simulations the propagated standard errors are
+  calibrated (SE/SD 0.96) while the conditional ones understate (0.79).
+* The improved MC-SIMEX prevalence from proxy frequencies is now the EM
+  (maximum-likelihood) estimate, with a warning at the boundary instead of
+  a silent floor.
 * **Bootstrap and posterior variances.** `control_mc(variance =
   "bootstrap")` resamples the regression rows (keeping internal-audit
   membership) and external audits within strata and refits `B` times;
