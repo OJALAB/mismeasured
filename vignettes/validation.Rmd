@@ -51,8 +51,7 @@ different ways:
 | `"ec"` | as `"sub"`, with the expectation-corrected score (uses the full response distribution) |
 | `"il"` | probabilities estimated *jointly* with the regression from the audit and the regression data (induced likelihood); for internal audits no design weights are needed |
 | `"cs_akn"` | only $\Pi$ estimated from the audit; the prevalence is not used, so it remains valid when $Z$ depends on the covariates |
-| `"cs"` | probabilities estimated from the audit; standard errors include their uncertainty; only unweighted, unstratified audits with the prevalence taken from the audit |
-| `"bca"`, `"bcm"` | estimated probabilities used as plug-ins; standard errors treat them as known |
+| `"cs"`, `"bca"`, `"bcm"`, `"onestep"` | estimated probabilities used as plug-ins (point estimates do not use the audit's true categories); standard errors include their uncertainty, for every design below |
 
 The examples below use `"sub"`; the last sections compare it with the
 other estimators.

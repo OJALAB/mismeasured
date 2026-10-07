@@ -104,7 +104,7 @@ test_that("conditional variance ignores the nuisance uncertainty", {
                unname(vcov(fk, method = "sub")), tolerance = 1e-8)
 })
 
-test_that("stratified external audit and cs restrictions", {
+test_that("stratified external audit for sub and cs", {
   d <- .sd_data(seed = 305L)
   ext <- .sd_data(n = 3000L, seed = 306L)
   idx <- unlist(lapply(0:1, function(j) sample(which(ext$z_hat == j), 80L)))
@@ -113,8 +113,9 @@ test_that("stratified external audit and cs restrictions", {
                                       `1` = sum(ext$z_hat == 1)))
   fit <- mcglm(d$y, z_hat = d$z_hat, x = d$x, method = "sub", validation = v)
   expect_true(all(is.finite(fit$se$sub)))
-  expect_error(mcglm(d$y, z_hat = d$z_hat, x = d$x, method = c("cs", "sub"),
-                     validation = v), "unweighted, unstratified")
+  both <- mcglm(d$y, z_hat = d$z_hat, x = d$x, method = c("cs", "sub"),
+                validation = v)
+  expect_true(all(is.finite(both$se$cs)))
 })
 
 test_that("design-weighted SUB is unbiased and calibrated under Y-dependent audits", {

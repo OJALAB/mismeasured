@@ -37,6 +37,26 @@
   steps; sandwich variance). For internal audits `"il"` needs no design
   weights when selection depends on the observed outcome, proxy and
   covariates.
+* **Estimated probabilities propagated for every plug-in method.** With a
+  validation sample, `"cs"`, `"bca"`, `"bcm"` and `"onestep"`
+  (`fix_omega = TRUE`) keep their point estimates but their covariance now
+  includes the uncertainty of the estimated probabilities, through the
+  stacked estimating functions of `estimate_mc()` (column-conditional `Pi`
+  and the prevalence). `"bca"` and `"bcm"` are written as estimating
+  equations stacked with the naive score, so the sampling variability of
+  every average they use is included; previously their variance treated the
+  probabilities as known and understated the standard errors (by up to 40%
+  in simulations). `control_mc(variance = "conditional")` restores the
+  conditional covariances.
+* **`"cs"` validation covariance re-implemented.** The joint-cell formula
+  (`(n/n_V) D Sigma_eta D'` plus the internal overlap terms) is replaced by
+  the stacked sandwich. For an unweighted audit with the prevalence taken
+  from it, the two are exact reparametrisations and give the same standard
+  errors; in addition `"cs"` now accepts design weights, strata,
+  Horvitz-Thompson prevalence, `prevalence = "em"` and frequency weights.
+  Probabilities supplied together with a validation sample must equal the
+  audit's estimates (checked against the estimate object instead of the
+  joint cells).
 * **Covariate-dependent prevalence.** `control_mc(prevalence_model = ~ x1 +
   region)` replaces the constant prevalence of `"sub"`, `"ec"` and `"il"` by a
   multinomial logit `P(Z | x)` (Yi et al., 2019, Section 4.3), fitted with

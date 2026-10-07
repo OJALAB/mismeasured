@@ -206,17 +206,17 @@ depends on the method:
     so neither its source nor a dependence of \eqn{Z} on \eqn{x}
     matters; the design of the audit does (a \eqn{\hat Z}-stratified
     audit must be declared, otherwise \eqn{\hat\Pi} is biased).}
-  \item{\code{"cs"}}{only the covariance changes: it adds validation
-    uncertainty and, for internal validation, the overlap covariance.
-    Supports unweighted, unstratified samples with the prevalence
-    taken from the validation sample. The probabilities must be the
-    empirical proportions of the validation sample; when none are
-    supplied they are computed from it. Requires unweighted
-    observations (or all weights equal to one).}
-  \item{\code{"bca"}, \code{"bcm"}}{use the estimated probabilities
-    as plug-ins; their variance treats them as known.}
+  \item{\code{"cs"}, \code{"bca"}, \code{"bcm"}, \code{"onestep"}}{use
+    the estimated probabilities as plug-ins (their point estimates do
+    not use the audit's true categories; \code{"onestep"} needs
+    \code{fix_omega = TRUE}). Their covariance adds the uncertainty of
+    the estimated probabilities through the stacked estimating
+    functions, for any audit design: \code{"cs"} and \code{"onestep"}
+    as Z-estimators, \code{"bca"} and \code{"bcm"} through their
+    estimating equations stacked with the naive score. Probabilities
+    supplied together with the audit must equal its estimates.}
 }
-\code{"onestep"} does not accept a validation sample. With \code{NULL}, all methods condition on the supplied
+With \code{NULL}, all methods condition on the supplied
 probabilities, including when \code{pi_z} is inferred from proxy
 frequencies.}
 

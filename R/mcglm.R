@@ -287,17 +287,17 @@
 #'       so neither its source nor a dependence of \eqn{Z} on \eqn{x}
 #'       matters; the design of the audit does (a \eqn{\hat Z}-stratified
 #'       audit must be declared, otherwise \eqn{\hat\Pi} is biased).}
-#'     \item{\code{"cs"}}{only the covariance changes: it adds validation
-#'       uncertainty and, for internal validation, the overlap covariance.
-#'       Supports unweighted, unstratified samples with the prevalence
-#'       taken from the validation sample. The probabilities must be the
-#'       empirical proportions of the validation sample; when none are
-#'       supplied they are computed from it. Requires unweighted
-#'       observations (or all weights equal to one).}
-#'     \item{\code{"bca"}, \code{"bcm"}}{use the estimated probabilities
-#'       as plug-ins; their variance treats them as known.}
+#'     \item{\code{"cs"}, \code{"bca"}, \code{"bcm"}, \code{"onestep"}}{use
+#'       the estimated probabilities as plug-ins (their point estimates do
+#'       not use the audit's true categories; \code{"onestep"} needs
+#'       \code{fix_omega = TRUE}). Their covariance adds the uncertainty of
+#'       the estimated probabilities through the stacked estimating
+#'       functions, for any audit design: \code{"cs"} and \code{"onestep"}
+#'       as Z-estimators, \code{"bca"} and \code{"bcm"} through their
+#'       estimating equations stacked with the naive score. Probabilities
+#'       supplied together with the audit must equal its estimates.}
 #'   }
-#'   \code{"onestep"} does not accept a validation sample. With \code{NULL}, all methods condition on the supplied
+#'   With \code{NULL}, all methods condition on the supplied
 #'   probabilities, including when \code{pi_z} is inferred from proxy
 #'   frequencies.
 #' @param mc_control A \code{\link{control_mc}} object: how the
@@ -562,6 +562,9 @@ mcglm <- function(formula, data = NULL, family = "poisson",
         validation$w_main <- .mc_prev_design(pm$formula, data, pm$terms,
                                              pm$xlevels)$x
     }
+    if (any(supplied))
+      .mc_check_supplied(validation, validation$K, Pi = Pi, pi_z = pi_z,
+                         p01 = p01, p10 = p10, c1 = c1, c2 = c2)
     if (!any(supplied)) {
       Pi   <- unname(validation$Pi)
       pi_z <- unname(if (validation$K == 2L) validation$pi[2L] else
@@ -949,26 +952,23 @@ mcglm <- function(formula, data = NULL, family = "poisson",
         warning(msg, call. = FALSE)
       }
     }
-    if (!any(method %in% c("cs", .mcglm_validated_methods)))
-      stop("validation requires method = 'cs', 'sub', 'ec', 'il' or 'cs_akn'.",
+    if (!any(method %in% c("bca", "bcm", "cs", "onestep",
+                           .mcglm_validated_methods)))
+      stop("validation requires a corrected method (method = 'sub', 'ec', ",
+           "'il', 'cs_akn', 'cs', 'bca', 'bcm' or 'onestep').", call. = FALSE)
+    if (is_multinomial)
+      stop("validation is not supported for family = 'multinomial'.",
            call. = FALSE)
-    unsupported <- intersect(method, "onestep")
-    if (length(unsupported))
-      stop("validation is not supported for method(s) ",
-           paste(unsupported, collapse = ", "), ".", call. = FALSE)
-    validation <- NULL
-    if ("cs" %in% method) {
-      if (vd$user_weights || !is.null(vd$strata) || vd$estimator != "hajek" ||
-          est$prevalence$method != "validation")
-        stop("method = 'cs' with a validation sample supports only an ",
-             "unweighted, unstratified sample with prevalence = 'validation'; ",
-             "use method = 'sub' for design weights, strata or other ",
-             "prevalence sources.", call. = FALSE)
-      v_list <- if (vd$type == "internal") list(z = vd$z, index = vd$index)
-                else list(z = vd$z, z_hat = vd$proxy)
-      validation <- .mcglm_prepare_cs_validation(v_list, z_hat, K, wt,
-                                                 c1, c2, Pi, pi_z)
-    }
+    if ("onestep" %in% method && !fix_omega)
+      stop("validation is not supported for method(s) onestep with ",
+           "fix_omega = FALSE, which estimates the mixture weights from the ",
+           "main study only; use fix_omega = TRUE or method = 'il'.",
+           call. = FALSE)
+    if ("onestep" %in% method && !homoskedastic &&
+        identical(.normalize_family(family)$family, "gaussian"))
+      stop("validation with method = 'onestep' needs homoskedastic = TRUE ",
+           "for the gaussian family.", call. = FALSE)
+    validation <- list(type = vd$type, n = vd$n, index = vd$index)
   }
 
   # --- SUB / EC / IL need the full (Pi, pi_z) through P(Z | Z_hat) ---
@@ -1114,6 +1114,24 @@ mcglm <- function(formula, data = NULL, family = "poisson",
     convergence$cs_akn <- akn_fit[c("converged", "termcd", "iterations")]
     nuisance$cs_akn    <- akn_fit$nuisance
   }
+  # Plug-in methods: point estimates use the estimated probabilities;
+  # with variance = "delta" their covariance adds the estimation
+  # uncertainty through the stacked estimating functions.
+  if (!is.null(vd) && !is_multinomial && mc_control$variance == "delta") {
+    if ("cs" %in% method)
+      extra_vcov$cs <- .mcglm_cs_validated_vcov(
+        unname(results$cs), y, xi_hat, z_hat, x, K, family, est, wt = wt,
+        control = mc_control)
+    for (m in intersect(c("bca", "bcm"), method))
+      extra_vcov[[m]] <- .mcglm_bc_validated_vcov(
+        m, unname(results$naive), unname(results[[m]]), y, xi_hat, z_hat,
+        x, K, family, est, wt = wt, iterate = iterate)
+    if ("onestep" %in% method)
+      onestep_vcov <- .mcglm_onestep_validated_vcov(
+        unname(results$onestep), y, xi_hat, z_hat, x, K, family, est,
+        wt = wt, control = mc_control)
+  }
+
   # EC and IL coincide when the probabilities are known; with a validation
   # sample EC is two-stage and IL estimates (psi, Pi, pi) jointly.
   ec_il <- intersect(c("ec", "il"), method)
@@ -1190,7 +1208,9 @@ mcglm <- function(formula, data = NULL, family = "poisson",
     for (nm in names(results)) {
       psi_nm <- unname(results[[nm]])
       V <- tryCatch(
-        if (nm == "naive") {
+        if (nm %in% names(extra_vcov)) {
+          extra_vcov[[nm]]
+        } else if (nm == "naive") {
           if (is_binary)
             .mcglm_vcov_naive(psi_nm, y, xi_hat, family, wt = wt)
           else
@@ -1221,13 +1241,11 @@ mcglm <- function(formula, data = NULL, family = "poisson",
           if (is_binary)
             .mcglm_vcov_cs_bin(psi_nm, y, xi_hat, x, family, p01, p10, pi_z,
                                c1 = c1, c2 = c2,
-                               wt = wt, validation = validation)
+                               wt = wt)
           else
             .mcglm_vcov_cs_multi(psi_nm, y, xi_hat, z_hat, x, K, family,
                                  Pi, pi_z, wt = wt,
-                                 jacobian = jacobian, validation = validation)
-        } else if (nm %in% names(extra_vcov)) {
-          extra_vcov[[nm]]
+                                 jacobian = jacobian)
         } else if (nm == "cs_akn") {
           .mcglm_vcov_cs_akn(psi_nm, y, x_akn, x, K, family, wt = wt)
         } else if (nm == "sub") {

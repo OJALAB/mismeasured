@@ -188,8 +188,8 @@ test_that("cs and bca/bcm take the validation-sample probabilities", {
 
 test_that("validation is rejected for methods that cannot use it", {
   d <- .subv_data(n = 300L, nv = 100L, seed = 260L)
-  expect_error(mcglm(d$y, z_hat = d$z_hat, x = d$x, method = "bcm",
-                     validation = d$v), "requires method")
+  expect_error(mcglm(d$y, z_hat = d$z_hat, x = d$x, method = "naive",
+                     validation = d$v), "requires a corrected method")
   expect_error(mcglm(d$y, z_hat = d$z_hat, x = d$x,
                      method = c("sub", "onestep"), validation = d$v),
                "not supported for method\\(s\\) onestep")

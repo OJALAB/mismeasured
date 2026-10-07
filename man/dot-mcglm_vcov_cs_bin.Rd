@@ -15,8 +15,7 @@
   pi_z,
   c1 = NULL,
   c2 = NULL,
-  wt = NULL,
-  validation = NULL
+  wt = NULL
 )
 }
 \description{

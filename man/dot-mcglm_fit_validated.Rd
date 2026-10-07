@@ -17,7 +17,9 @@
   wt = NULL,
   control = control_mc(),
   label = "method",
-  true_fun = NULL
+  true_fun = NULL,
+  psi_fixed = NULL,
+  beta_equation = NULL
 )
 }
 \arguments{
@@ -41,6 +43,15 @@ corrected estimating-function rows for every main-study row, where
 validation units at their true category) and \code{J(psi, w)} (their
 sum-scale Jacobian). Defaults to the canonical GLM score
 \eqn{\xi_i\{Y_i - \mu(\psi^\top\xi_i)\}}.}
+
+\item{psi_fixed}{Optional point estimate; when given the equation is not
+solved and only the stacked sandwich is computed at it (used for
+estimators whose point estimate comes from elsewhere).}
+
+\item{beta_equation}{Optional override of \code{control$beta_equation};
+\code{"none"} keeps the corrected score on every row (no true-category
+rows), for methods whose estimate does not use the audit's true
+categories.}
 }
 \value{
 List with \code{coefficients}, convergence fields, \code{vcov}

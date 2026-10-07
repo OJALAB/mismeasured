@@ -98,7 +98,7 @@
 #' @keywords internal
 .mcglm_vcov_cs_bin <- function(psi, y, xi_hat, x, family, p01, p10, pi_z,
                                c1 = NULL, c2 = NULL,
-                               wt = NULL, validation = NULL) {
+                               wt = NULL) {
   fam    <- .normalize_family(family)
   n      <- length(y)
   N      <- if (is.null(wt)) n else sum(wt)
@@ -120,9 +120,6 @@
     S <- crossprod(phi_mat * wt, phi_mat) / N
   }
 
-  if (!is.null(validation))
-    S <- .mcglm_cs_validation_meat(S, phi_mat, psi, x, 2L,
-                                    fam$linkinv, validation)
 
   I_hat <- .mcglm_compute_Ihat(psi, xi_hat, fam$mu.eta, wt = wt)
   M_hat <- .mcglm_compute_Mhat_bin(psi, x, fam$linkinv, fam$mu.eta, c1_loc, c2_loc,
@@ -249,8 +246,7 @@
 #' @keywords internal
 .mcglm_vcov_cs_multi <- function(psi, y, xi_hat, z_hat, x, K, family, Pi, pi_z,
                                  wt = NULL,
-                                 jacobian = c("analytical", "numerical"),
-                                 validation = NULL) {
+                                 jacobian = c("analytical", "numerical")) {
   jacobian <- match.arg(jacobian)
   fam <- .normalize_family(family)
   n   <- length(y)
@@ -273,10 +269,6 @@
     S <- crossprod(phi_mat * wt, phi_mat) / N
   }
 
-  if (!is.null(validation))
-    S <- .mcglm_cs_validation_meat(S, phi_mat, psi, x, K,
-                                    fam$linkinv, validation)
-
   I_hat <- .mcglm_compute_Ihat_multi(psi, xi_hat, z_hat, K, fam$mu.eta,
                                       wt = wt)
   M_hat <- .mcglm_compute_Mhat_multi(psi, x, K, fam$linkinv, Pi, pi_z, wt = wt,
@@ -286,68 +278,4 @@
   J_inv <- solve(J)
 
   J_inv %*% S %*% t(J_inv) / N
-}
-
-# Validate the sampling information before the variance tryCatch in mcglm.
-# Joint cells B[j,l] = P(proxy=j, true=l) are sufficient for both K=2 and
-# K>2. For K=2, B[2,1]=c1 and B[1,2]=c1-c2; this is exactly the binary
-# (pi,p01,p10) influence-function formula by the chain rule.
-.mcglm_prepare_cs_validation <- function(validation, z_hat, K, wt,
-                                          c1, c2, Pi, pi_z) {
-  if (!is.null(wt) && any(wt != 1))
-    stop("validation currently requires unweighted observations or unit weights.",
-         call. = FALSE)
-  vd <- .mcglm_parse_validation(validation, z_hat, K)
-  z <- vd$z
-  nv <- vd$n
-  index <- vd$index
-  proxy <- vd$proxy
-  cells <- proxy + 1L + K * z  # column-major vec(B), as in the paper
-  b <- tabulate(cells, nbins = K * K) / nv
-  B <- matrix(b, K, K)
-  if (any(colSums(B) == 0))
-    stop("Every true category must occur in validation.", call. = FALSE)
-  expected <- if (K == 2L) c(B[2, 1], B[2, 1] - B[1, 2]) else b
-  supplied <- if (K == 2L) c(c1, c2) else as.numeric(sweep(Pi, 2, pi_z, "*"))
-  if (length(supplied) != length(expected) || any(!is.finite(supplied)) ||
-      max(abs(supplied - expected)) > 1e-8)
-    stop("CS probabilities must be empirical estimates from the supplied validation sample; ",
-         "supply pi_z explicitly (or c1/c2 for K=2).", call. = FALSE)
-  list(b = b, cells = cells, index = index, n = nv,
-       type = if (is.null(index)) "external" else "internal")
-}
-
-# Equations Sigmahat-cs-external/internal and D-multicategory-explicit in
-# GLM bias correction.tex. All quantities here are on the sqrt(n) scale;
-# the existing sandwich callers divide the resulting covariance by n.
-.mcglm_cs_validation_meat <- function(S, phi_mat, psi, x, K, mu_fun,
-                                       validation) {
-  n <- nrow(x)
-  nv <- validation$n
-  s <- K - 1L
-  gamma <- c(0, psi[seq_len(s)])
-  eta <- as.numeric(x %*% psi[-seq_len(s)])
-  mu <- vapply(gamma, function(g) mu_fun(eta + g), numeric(n))
-  D <- matrix(0, length(psi), K * K)
-  for (ell in seq_len(K)) {
-    for (j in seq_len(K)) {
-      column <- j + K * (ell - 1L)
-      delta <- mu[, j] - mu[, ell]
-      if (j > 1L) D[j - 1L, column] <- mean(delta)
-      D[-seq_len(s), column] <- colMeans(x * delta)
-    }
-  }
-
-  # Row i equals D s_i. Computing in coefficient space avoids allocating
-  # an n_V by K^2 matrix and never inverts the singular cell covariance.
-  influence <- sweep(t(D[, validation$cells, drop = FALSE]), 2,
-                     as.numeric(D %*% validation$b))
-  S <- S + (n / nv) * crossprod(influence) / nv
-  if (!is.null(validation$index)) {
-    phi_v <- phi_mat[validation$index, , drop = FALSE]
-    phi_v <- sweep(phi_v, 2, colMeans(phi_v))
-    cross <- crossprod(phi_v, influence) / nv
-    S <- S + cross + t(cross)
-  }
-  S
 }

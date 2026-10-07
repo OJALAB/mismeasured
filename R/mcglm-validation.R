@@ -113,6 +113,13 @@
 #' @param control A \code{\link{control_mc}} object (\code{beta_equation},
 #'   \code{variance}).
 #' @param label Method label for messages.
+#' @param psi_fixed Optional point estimate; when given the equation is not
+#'   solved and only the stacked sandwich is computed at it (used for
+#'   estimators whose point estimate comes from elsewhere).
+#' @param beta_equation Optional override of \code{control$beta_equation};
+#'   \code{"none"} keeps the corrected score on every row (no true-category
+#'   rows), for methods whose estimate does not use the audit's true
+#'   categories.
 #' @param true_fun Optional list of \code{U(psi)} (rows for the internal
 #'   validation units at their true category) and \code{J(psi, w)} (their
 #'   sum-scale Jacobian). Defaults to the canonical GLM score
@@ -123,7 +130,8 @@
 .mcglm_fit_validated <- function(psi_init, est, y, x, z_hat, K, fam,
                                  U_fun, J_fun, wt = NULL,
                                  control = control_mc(), label = "method",
-                                 true_fun = NULL) {
+                                 true_fun = NULL, psi_fixed = NULL,
+                                 beta_equation = NULL) {
   .mcglm_check_estimate(est, z_hat, K, wt)
   vb  <- est$validation
   n   <- length(y)
@@ -132,8 +140,9 @@
   wt_m <- if (is.null(wt)) rep(1, n) else wt
   internal <- vb$type == "internal"
 
-  beq <- control$beta_equation
+  beq <- if (is.null(beta_equation)) control$beta_equation else beta_equation
   if (beq == "auto") beq <- if (vb$user_weights) "weighted" else "yi"
+  if (beq == "none") internal <- FALSE   # no true-category rows
   if (internal) {
     idx <- vb$index
     y_v <- y[idx]
@@ -170,14 +179,19 @@
 
   par0 <- .mc_with_rows(est$map(est$eta), z_hat, est$w_main)
   N <- sum(wt_m)
-  sol <- nleqslv::nleqslv(
-    psi_init,
-    function(psi) colSums(wt_m * psi_rows(psi, par0)) / N,
-    jac = function(psi) psi_jac(psi, par0) / N,
-    control = list(maxit = 500, ftol = 1e-12))
-  if (sol$termcd > 2)
-    warning(label, " solver did not converge (termcd = ", sol$termcd, ")")
-  psi <- sol$x
+  if (is.null(psi_fixed)) {
+    sol <- nleqslv::nleqslv(
+      psi_init,
+      function(psi) colSums(wt_m * psi_rows(psi, par0)) / N,
+      jac = function(psi) psi_jac(psi, par0) / N,
+      control = list(maxit = 500, ftol = 1e-12))
+    if (sol$termcd > 2)
+      warning(label, " solver did not converge (termcd = ", sol$termcd, ")")
+    psi <- sol$x
+  } else {
+    sol <- list(termcd = NA_integer_, iter = NA_integer_)
+    psi <- psi_fixed
+  }
 
   # Stacked sandwich over (psi, eta).
   A_pp <- psi_jac(psi, par0)
@@ -198,12 +212,13 @@
       B[seq_len(p), seq_len(p), drop = FALSE] else B,
     label)[seq_len(p), seq_len(p), drop = FALSE]
 
-  list(coefficients = psi, converged = sol$termcd <= 2,
+  list(coefficients = psi, converged = is.na(sol$termcd) || sol$termcd <= 2,
        termcd = sol$termcd, iterations = sol$iter, vcov = V_psi,
-       beta_equation = if (internal) beq else NA_character_,
+       beta_equation = if (vb$type == "internal") beq else NA_character_,
        nuisance = list(eta = est$eta, vcov = est$vcov, Pi = est$Pi,
                        pi_z = est$pi, W = est$W,
                        prevalence = est$prevalence$method,
                        variance = control$variance,
-                       beta_equation = if (internal) beq else NA_character_))
+                       beta_equation = if (vb$type == "internal") beq else
+                         NA_character_))
 }

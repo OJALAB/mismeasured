@@ -91,8 +91,17 @@ test_that("validation sandwich matches independent derivatives for all GLM famil
       expect_equal(unname(vcov(fit, method = "cs")), ref$V, tolerance = 1e-7)
       expect_equal(unname(vcov(old, method = "cs")), ref$old, tolerance = 1e-7)
       expect_identical(fit$coefficients, old$coefficients)
-      for (method in c("naive", "bca", "bcm"))
-        expect_identical(vcov(fit, method = method), vcov(old, method = method))
+      expect_identical(vcov(fit, method = "naive"), vcov(old, method = "naive"))
+      # bca/bcm now propagate the validation uncertainty; conditional on the
+      # estimated probabilities every method reproduces the known-Pi fit
+      cond <- do.call(mcglm, c(d$args, list(
+        validation = d$v, mc_control = control_mc(variance = "conditional"))))
+      for (method in c("naive", "bca", "bcm", "cs"))
+        expect_equal(vcov(cond, method = method), vcov(old, method = method),
+                     tolerance = 1e-12)
+      for (method in c("bca", "bcm"))
+        expect_false(isTRUE(all.equal(vcov(fit, method = method),
+                                      vcov(old, method = method))))
     }
   }
 })
@@ -170,14 +179,14 @@ test_that("validation metadata rejects inconsistent probabilities and unsupporte
   wrong <- d$args
   wrong$pi_z <- .8
   expect_error(fit(args = wrong), "empirical estimates")
-  wrong <- d$args
-  wrong$weights <- rep(2, length(wrong$formula))
-  expect_error(fit(args = wrong), "unweighted")
-  wrong$weights[] <- 1
-  expect_equal(vcov(fit(args = wrong), method = "cs"), vcov(fit(), method = "cs"))
-  wrong <- d$args
-  wrong$method <- "bcm"
-  expect_error(fit(args = wrong), "requires method")
+  weighted <- d$args
+  weighted$weights <- rep(1, length(weighted$formula))
+  expect_equal(vcov(fit(args = weighted), method = "cs"), vcov(fit(), method = "cs"))
+  weighted$weights[] <- 2   # frequency weights are now supported
+  expect_true(all(is.finite(vcov(fit(args = weighted), method = "cs"))))
+  only_naive <- d$args
+  only_naive$method <- "naive"
+  expect_error(fit(args = only_naive), "requires a corrected method")
 })
 
 test_that("formula, binary c1/c2, and multicategory numerical Jacobian interfaces work", {
@@ -206,8 +215,9 @@ test_that("external validation uses 1/n_validation scaling even when n_validatio
   doubled <- lapply(d$v, rep, times = 2L)
   fit2 <- do.call(mcglm, c(d$args, list(validation = doubled)))
   base <- vcov(old, method = "cs")
+  # 1e-8: the stacked sandwich uses central-difference Jacobians
   expect_equal(vcov(fit2, method = "cs") - base,
-               (vcov(fit, method = "cs") - base) / 2, tolerance = 1e-12)
+               (vcov(fit, method = "cs") - base) / 2, tolerance = 1e-8)
 })
 
 test_that("zero empirical misclassification adds no validation uncertainty", {
@@ -219,6 +229,6 @@ test_that("zero empirical misclassification adds no validation uncertainty", {
     d$args$pi_z <- if (K == 2L) prevalence[2] else prevalence
     old <- do.call(mcglm, d$args)
     fit <- do.call(mcglm, c(d$args, list(validation = d$v)))
-    expect_equal(vcov(fit, method = "cs"), vcov(old, method = "cs"), tolerance = 1e-12)
+    expect_equal(vcov(fit, method = "cs"), vcov(old, method = "cs"), tolerance = 1e-8)
   }
 })
