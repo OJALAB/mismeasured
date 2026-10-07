@@ -1,0 +1,408 @@
+---
+title: "Sparse validation samples: shrinkage, diagnostics and variance"
+author: "Maciej Beresewicz"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Sparse validation samples: shrinkage, diagnostics and variance}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(mismeasured)
+set.seed(2027)
+```
+
+With many categories -- occupations, industries, products -- an audit of a
+few hundred units leaves some true classes with a handful of observations
+and many cells of the misclassification table empty. This vignette gives
+the mathematics behind the estimators of `estimate_mc()` and the variance
+options of `mcglm()` for that situation, and shows them on an example. For
+how to describe the audit itself see `vignette("validation", "mismeasured")`.
+
+## Notation
+
+The latent category $Z \in \{0, \dots, K-1\}$ is observed through a proxy
+$\hat Z$. The misclassification matrix, the prevalence and the predictive
+matrix are
+$$
+\Pi_{j\ell} = \Pr(\hat Z = j \mid Z = \ell), \qquad
+\pi_\ell = \Pr(Z = \ell), \qquad
+W_{j\ell} = \Pr(Z = \ell \mid \hat Z = j) =
+\frac{\Pi_{j\ell}\pi_\ell}{\sum_m \Pi_{jm}\pi_m}.
+$$
+An audit $V$ of $n_V$ units records $(Z_i, \hat Z_i)$ with design weights
+$d_i$ (inverse inclusion probabilities; constant for a simple random
+sample). With the weights normalised to the audit size,
+$\tilde d_i = d_i\, n_V / \sum_V d_k$, the weighted counts are
+$$
+C_{j\ell} = \sum_{i \in V} \tilde d_i\, 1(\hat Z_i = j, Z_i = \ell), \qquad
+n_\ell = \sum_j C_{j\ell}.
+$$
+
+## The column-proportion estimator and why it fails when sparse
+
+The default (`estimator = "mle"`) is
+$$
+\hat\Pi_{j\ell} = C_{j\ell} / n_\ell,
+\qquad \operatorname{Var}(\hat\Pi_{j\ell}) \approx
+\Pi_{j\ell}(1 - \Pi_{j\ell}) / n_\ell ,
+$$
+the maximum-likelihood (Hajek) estimator. With small $n_\ell$:
+
+* cells with true probability $0.01$--$0.05$ are often observed as zero;
+* $\hat\Pi$ can be ill-conditioned, and every corrected estimator depends
+  on it through an inverse or a ratio: `"cs_akn"` inverts
+  $Q = [p_1 - p_0, \dots, p_{K-1} - p_0]$ (the rows $j \ge 1$ of $\Pi$
+  minus its first column); `"sub"`, `"ec"` and `"il"` use $W$, which is
+  undefined for an empty proxy row; and $\hat\pi$ obtained from the main
+  study solves $\hat\Pi\pi = \hat p$.
+
+`diagnose_mc()` reports the smallest singular value $\sigma_{\min}$ and the
+condition number $\kappa(\hat\Pi) = \sigma_{\max}/\sigma_{\min}$, the
+number of audited units per true class, empty cells, and $\kappa(Q)$ for
+$K > 2$ or $|1 - p_{01} - p_{10}|$ for $K = 2$. The thresholds are
+`control_mc(kappa_max, sigma_min, min_class_n)`; `on_ill` decides between
+a warning, an error, silence, or `"regularize"`, which re-estimates with
+the shrinkage estimator below.
+
+## Empirical-Bayes shrinkage
+
+`estimator = "eb"` gives each column of $\Pi$ a Dirichlet prior centred on
+a target $T$ (a column-stochastic matrix) with concentration $c$,
+$\Pi_{\cdot\ell} \sim \operatorname{Dirichlet}(c\, T_{\cdot\ell})$, and
+uses the posterior mean
+$$
+\hat\Pi^{EB}_{j\ell} = \frac{C_{j\ell} + c\, T_{j\ell}}{n_\ell + c}
+= \lambda_\ell\, \hat\Pi_{j\ell} + (1 - \lambda_\ell)\, T_{j\ell},
+\qquad \lambda_\ell = \frac{n_\ell}{n_\ell + c}.
+$$
+Rarely audited classes ($n_\ell$ small) borrow more from the target; no
+cell is zero when $T$ has no zeros.
+
+### Targets
+
+`target = "pooled"` uses one accuracy for all classes:
+$$
+T_{\ell\ell} = a = \frac{\sum_\ell C_{\ell\ell}}{\sum_{j\ell} C_{j\ell}},
+\qquad T_{j\ell} = \frac{1 - a}{K - 1}\ (j \ne \ell).
+$$
+
+`target = "groups"` (with `groups = g`, a group for each category, e.g.
+ISCO major groups) separates confusion within and between groups:
+$$
+T_{\ell\ell} = a, \qquad
+T_{j\ell} = \frac{r_{\text{same}}}{|\{j' \ne \ell: g_{j'} = g_\ell\}|}\
+\text{if } g_j = g_\ell, \qquad
+T_{j\ell} = \frac{r_{\text{other}}}{|\{j': g_{j'} \ne g_\ell\}|}\
+\text{otherwise},
+$$
+with $r_{\text{same}}$ and $r_{\text{other}}$ the pooled shares of
+within- and between-group errors, and each column renormalised.
+
+`target = "loglinear"` fits a Poisson quasi-independence model to the
+table,
+$$
+\log E(C_{j\ell}) = a_j + b_\ell + \delta\, 1(j = \ell)
+\;[+\ \tau\, 1(j \ne \ell, g_j = g_\ell)],
+$$
+and normalises the fitted values by column. `target = "matrix"` takes a
+user matrix (`target_matrix`), e.g. a published confusion matrix of the
+classifier.
+
+A target close to singular would make $\hat\Pi$ unidentifiable when the
+shrinkage is strong (the uniform matrix is rank one), so targets with
+$\kappa(T) >$ `kappa_max` are refused.
+
+### Concentration
+
+With `concentration = "ml"`, $c$ maximises the Dirichlet-multinomial
+marginal likelihood of the counts given $T$,
+$$
+\ell(c) = \sum_{\ell} \Big[ \log\Gamma(c) - \log\Gamma(n_\ell + c)
++ \sum_j \big\{ \log\Gamma(C_{j\ell} + c T_{j\ell}) - \log\Gamma(c T_{j\ell}) \big\}
+\Big],
+$$
+over $c \in [10^{-3}, 10^{6}]$. When the target fits the data exactly the
+maximum is at the upper end (full pooling); when the classes differ a lot
+from the target, $c$ is small and $\hat\Pi^{EB}$ is close to the column
+proportions. A fixed number can be given instead.
+
+`estimator = "dirichlet"` adds `alpha` to every cell, i.e. $T$ uniform and
+$c = K\alpha$; since the uniform matrix is singular it warns, and it is
+meant only for small `alpha`.
+
+### Inference after shrinkage
+
+For fixed $c$ and $T$,
+$$
+\hat\Pi^{EB}_{j\ell} - \hat\Pi_{j\ell} =
+\frac{c\,(T_{j\ell} - \hat\Pi_{j\ell})}{n_\ell + c} = O_p(n_\ell^{-1}),
+$$
+so the first-order (influence-function) behaviour of $\hat\Pi^{EB}$ is that
+of the column proportions. `estimate_mc()` uses the estimating function
+$$
+\sum_{i \in V} \tilde d_i\, 1(Z_i = \ell)\{1(\hat Z_i = j) - \Pi_{j\ell}\}
++ c\,(T_{j\ell} - \Pi_{j\ell}) = 0, \qquad j \ge 1,
+$$
+which is solved exactly by $\hat\Pi^{EB}$. In the stacked sandwich
+$A^{-1} B A^{-\top}$ the penalty $c(T - \Pi)$ enters the derivative $A$
+but not the meat $B$ (it is not random), and $c$ and $T$ are treated as
+fixed. The induced likelihood (`"il"`), which estimates $\Pi$ jointly with
+the regression, maximises the penalised likelihood
+$$
+\sum_i \log \sum_\ell \Pi_{\hat z_i \ell}\,\pi_\ell\, f(y_i \mid \ell, x_i)
+\;+\; \sum_{j\ell} c\, T_{j\ell} \log \Pi_{j\ell},
+$$
+the posterior mode under the same prior; its M-step for $\Pi$ adds
+$c\,T$ to the expected counts.
+
+## Variance options
+
+Let $\theta = (\psi, \eta)$ stack the regression parameters $\psi$ and the
+misclassification parameters $\eta$ (free entries of $\Pi$ and the
+prevalence or prevalence-model coefficients).
+
+* `variance = "delta"` (default): $\widehat{\operatorname{Var}}(\hat\theta)
+  = A^{-1} B A^{-\top}$ with $A = \sum_u \partial g_u / \partial\theta^\top$
+  and $B = \sum_u g_u g_u^\top$ over units $u$ (regression rows, with
+  internal audit rows merged into their unit; external audit units
+  separately and stratum-centred when stratified).
+* `variance = "conditional"`: $\eta$ treated as known; only the $\psi$
+  block of $A$ and $B$.
+* `variance = "bootstrap"`: the regression rows are resampled with
+  replacement -- an internal audit's units travel with their rows, which
+  corresponds to Poisson sampling of the audit within the main study --
+  and an external audit is resampled within its strata; $\eta$ and
+  $\psi$ are re-estimated with the same settings and
+  $\widehat{\operatorname{Var}}(\hat\psi) = \operatorname{Var}_b(\hat\psi^{(b)})$
+  over `B` replicates.
+* `variance = "posterior"` (external audits, constant prevalence): draw
+  $\Pi^{(b)}_{\cdot\ell} \sim \operatorname{Dirichlet}(C_{\cdot\ell} + c\,
+  T_{\cdot\ell})$ (Jeffreys $\tfrac12$ per cell without shrinkage) and
+  $\pi^{(b)}$ from its Dirichlet posterior (or by EM from the main study),
+  refit with $(\Pi^{(b)}, \pi^{(b)})$ treated as known, and combine
+  (Rubin, 1987)
+  $$
+  \widehat{\operatorname{Var}}(\hat\psi) = \bar V + \Big(1 + \frac1B\Big)
+  \operatorname{Var}_b(\hat\psi^{(b)}), \qquad
+  \bar V = \frac1B \sum_b V_b^{\text{cond}} .
+  $$
+  `"il"` (which estimates $\Pi$ itself) and `"bca"`/`"bcm"` (whose
+  conditional covariances understate the fixed-misclassification
+  variance) keep the delta-method covariance.
+
+The bootstrap and the posterior are useful when $n_\ell$ is so small that
+the first-order approximation is doubtful; `seed` makes them reproducible
+without changing the global random-number state.
+
+## Example: six occupations and an audit of 150
+
+Six occupations in two groups (white- and blue-collar); the classifier is
+more accurate for some occupations than for others and confuses
+occupations within a group three times as often as across groups.
+
+```{r data}
+K <- 6
+occ <- c("clerk", "sales", "service", "craft", "operator", "elementary")
+groups <- c(1, 1, 1, 2, 2, 2)
+accuracy <- c(0.90, 0.82, 0.75, 0.85, 0.70, 0.88)
+Pi_true <- matrix(0, K, K, dimnames = list(z_hat = occ, z = occ))
+for (l in seq_len(K)) {
+  w <- ifelse(groups == groups[l], 3, 1)
+  w[l] <- 0
+  Pi_true[, l] <- (1 - accuracy[l]) * w / sum(w)
+  Pi_true[l, l] <- accuracy[l]
+}
+gamma_true <- c(0, 0.5, -0.3, 0.2, 0.4, -0.5)
+
+n <- 4000
+z <- sample.int(K, n, TRUE, c(0.3, 0.2, 0.15, 0.15, 0.1, 0.1)) - 1L
+df <- data.frame(
+  x1 = rnorm(n),
+  occ = factor(occ[vapply(z, function(k)
+    sample.int(K, 1, prob = Pi_true[, k + 1]), 0L)], levels = occ))
+df$y <- rpois(n, exp(gamma_true[z + 1] - 0.3 + 0.5 * df$x1))
+idx <- sample(n, 150)
+val <- validation_sample(occ[z[idx] + 1], index = idx)
+```
+
+The column proportions:
+
+```{r mle}
+est_mle <- estimate_mc(val, z_hat = df$occ,
+                       control = control_mc(on_ill = "none"))
+d_mle <- diagnose_mc(est_mle)
+d_mle
+```
+
+```{r mle-numbers, include = FALSE}
+n_cells <- K * (K - 1)
+```
+
+`r d_mle$zero_cells` of the `r n_cells` off-diagonal cells are empty and
+the rarest occupation has `r min(d_mle$n_class)` audited units. The
+diagnostics report this; whether they flag a problem depends on the
+conditioning of the whole matrix (`sigma_min`, `kappa_max`) and on
+`min_class_n`. The empirical-Bayes estimates with the pooled and the group
+targets:
+
+```{r eb}
+est_eb <- estimate_mc(val, z_hat = df$occ,
+                      control = control_mc(estimator = "eb", on_ill = "none"))
+est_gr <- estimate_mc(val, z_hat = df$occ,
+                      control = control_mc(estimator = "eb", target = "groups",
+                                           groups = groups, on_ill = "none"))
+c(pooled = est_eb$shrinkage$c, groups = est_gr$shrinkage$c)
+round(est_gr$Pi, 3)
+err <- function(e) max(abs(unname(e$Pi) - unname(Pi_true)))
+c(mle = err(est_mle), eb_pooled = err(est_eb), eb_groups = err(est_gr))
+```
+
+The regression with each estimator, using the column proportions and the
+group-target shrinkage:
+
+```{r fits}
+methods <- c("sub", "ec", "il", "cs_akn")
+fit_mle <- suppressWarnings(
+  mcglm(y ~ mc(occ) + x1, data = df, method = methods, validation = val,
+        mc_control = control_mc(on_ill = "none")))
+fit_eb <- mcglm(y ~ mc(occ) + x1, data = df, method = methods,
+                validation = val,
+                mc_control = control_mc(estimator = "eb", target = "groups",
+                                        groups = groups, on_ill = "none"))
+effects <- function(fit) sapply(methods, function(m) coef(fit, method = m)[1:5])
+round(cbind(true = gamma_true[-1], mle = effects(fit_mle),
+            eb = effects(fit_eb)), 2)
+```
+
+A single audit says little about which estimator is more accurate; the
+next section repeats the experiment.
+
+Standard errors of the effect of `sales` under the different variance
+options. The bootstrap is shown for `"sub"` only, with a small `B`, to keep
+this vignette fast; it works the same way for every method but refits
+`"il"` slowly.
+
+```{r variance}
+ctrl <- function(...) control_mc(estimator = "eb", target = "groups",
+                                 groups = groups, on_ill = "none", ...)
+fit_cond <- mcglm(y ~ mc(occ) + x1, data = df, method = c("sub", "il"),
+                  validation = val, mc_control = ctrl(variance = "conditional"))
+fit_boot <- mcglm(y ~ mc(occ) + x1, data = df, method = "sub",
+                  validation = val,
+                  mc_control = ctrl(variance = "bootstrap", B = 50, seed = 1))
+se_sales <- function(fit, m) fit$se[[m]][["gamma_sales"]]
+se <- rbind(delta       = c(sub = se_sales(fit_eb, "sub"), il = se_sales(fit_eb, "il")),
+            conditional = c(se_sales(fit_cond, "sub"), se_sales(fit_cond, "il")),
+            bootstrap   = c(se_sales(fit_boot, "sub"), NA))
+round(se, 3)
+```
+
+```{r variance-numbers, include = FALSE}
+f3 <- function(x) formatC(x, format = "f", digits = 3)
+```
+
+Here the three standard errors of `"sub"` are close (delta
+`r f3(se["delta", "sub"])`, conditional `r f3(se["conditional", "sub"])`,
+bootstrap `r f3(se["bootstrap", "sub"])`): with a concentration of
+`r formatC(est_gr$shrinkage$c, format = "f", digits = 0)` the shrunk
+$\hat\Pi$ draws most of its information from the group structure, so its
+estimation adds little variance. The delta method treats $c$ and $T$ as
+fixed; the bootstrap re-estimates them in every replicate and is the check
+when the audit is this small.
+
+## Repeated samples
+
+The design above was repeated 100 times (new data and a new audit of 150
+each time), fitting every estimator with the column proportions and with
+both shrinkage targets. The code is shown but not run when the vignette is
+built (it takes a few minutes):
+
+```{r simulation, eval = FALSE}
+one_run <- function(r) {
+  set.seed(5000 + r)
+  z <- sample.int(K, n, TRUE, c(0.3, 0.2, 0.15, 0.15, 0.1, 0.1)) - 1L
+  z_hat <- vapply(z, function(k) sample.int(K, 1, prob = Pi_true[, k + 1]),
+                  0L) - 1L
+  x1 <- rnorm(n)
+  y <- rpois(n, exp(gamma_true[z + 1] - 0.3 + 0.5 * x1))
+  idx <- sample(n, 150)
+  val <- validation_sample(z[idx], index = idx)
+  controls <- list(
+    mle = control_mc(on_ill = "none"),
+    eb_pooled = control_mc(estimator = "eb", on_ill = "none"),
+    eb_groups = control_mc(estimator = "eb", target = "groups",
+                           groups = groups, on_ill = "none"))
+  lapply(controls, function(ct) {
+    fit <- suppressWarnings(mcglm(y, z_hat = z_hat, x = cbind(1, x1),
+                                  method = methods, validation = val,
+                                  mc_control = ct))
+    c(Pi_error = max(abs(unname(fit$mc_estimate$Pi) - unname(Pi_true))),
+      sapply(methods, function(m)
+        sum((coef(fit, method = m)[1:5] - gamma_true[-1])^2)))
+  })
+}
+runs <- lapply(1:100, one_run)
+```
+
+Results (SSE: sum of squared errors of the five occupation effects;
+"failures": share of runs with SSE above 1, i.e. an estimate off by more
+than about 0.45 on average):
+
+| | column proportions | EB, pooled target | EB, groups target |
+|---|---|---|---|
+| mean of $\max_{j\ell}\lvert\hat\Pi_{j\ell} - \Pi_{j\ell}\rvert$ | 0.160 | 0.119 | 0.126 |
+| median SSE, `"sub"` | 0.053 | 0.037 | 0.037 |
+| median SSE, `"ec"` | 0.042 | 0.031 | 0.030 |
+| median SSE, `"il"` | 0.034 | 0.028 | 0.026 |
+| median SSE, `"cs_akn"` | 0.075 | 0.035 | 0.033 |
+| failures, `"sub"` | 2% | 1% | 1% |
+| failures, `"ec"` | 1% | 0% | 0% |
+| failures, `"il"` | 0% | 0% | 0% |
+| failures, `"cs_akn"` | 12% | 0% | 0% |
+
+Shrinkage reduces the error of $\hat\Pi$ and of every estimator. The gain is
+largest for `"cs_akn"`, which inverts $Q$: with the column proportions one
+audit in eight gave an unusable estimate, with shrinkage none did. The
+induced likelihood is the most accurate in all three columns, and the group
+target, which matches how the classifier errs here, is slightly better than
+the pooled one.
+
+
+## Which options combine
+
+All designs of `validation_sample()` work with all estimators of $\Pi$ and
+all methods, with these exceptions (each gives an informative error):
+
+| Option | Internal audit | External audit | Notes |
+|---|---|---|---|
+| `weights`, `strata` (`"z_hat"` or labels) | yes | yes (`N_strata` for strata without weights) | internal design weights cannot be combined with main-study frequency weights |
+| `estimator = "ht"` | yes | yes (`N` needed) | affects only the prevalence from the audit; $\Pi$ and a prevalence model are unaffected |
+| `control_mc(estimator = "eb" / "dirichlet")` | yes | yes | all targets |
+| `prevalence = "validation"` | yes | yes | assumes the audit's prevalence is the main study's for external audits |
+| `prevalence = "em"` | yes | yes | needs the main study's proxies (always available in `mcglm()`) |
+| `prevalence = "inverse"` | yes | yes | not with `"il"` or a prevalence model |
+| `prevalence_model = ~ ...` | yes | yes (`validation_sample(data = )` for `prevalence = "validation"`) | only with `"sub"`, `"ec"`, `"il"`, `"cs_akn"` |
+| `variance = "delta"` / `"conditional"` | yes | yes | |
+| `variance = "bootstrap"` | yes | yes | needs the `validation_sample()` itself (not an `estimate_mc()` object) and no supplied probabilities |
+| `variance = "posterior"` | no | yes | constant prevalence only; `"il"`, `"bca"`, `"bcm"` keep the delta method |
+| `on_ill = "regularize"` | yes | yes | |
+
+These combinations are exercised by the package tests.
+
+## References
+
+Rubin, D. B. (1987). *Multiple Imputation for Nonresponse in Surveys*.
+Wiley. doi:10.1002/9780470316696.
+
+Saerens, M., Latinne, P. and Decaestecker, C. (2002). Adjusting the outputs
+of a classifier to new a priori probabilities: a simple procedure.
+*Neural Computation*, 14(1), 21--41. doi:10.1162/089976602753284446.
+
+Yi, G. Y., Yan, Y., Liao, X. and Spiegelman, D. (2019). Parametric
+regression analysis with covariate misclassification in main
+study/validation study designs. *The International Journal of
+Biostatistics*, 15(1), 20170002. doi:10.1515/ijb-2017-0002.

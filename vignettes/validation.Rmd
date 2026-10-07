@@ -1,6 +1,6 @@
 ---
 title: "Specifying validation samples for misclassification correction"
-author: "Maciej Beresewicz, Michal Warmuz"
+author: "Maciej Beresewicz"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
@@ -342,6 +342,11 @@ weak <- validation_sample(z     = rep(0:1, each = 100),
                           z_hat = c(rep(0:1, c(51, 49)), rep(0:1, c(49, 51))))
 diagnose_mc(estimate_mc(weak, control = control_mc(on_ill = "none")))
 ```
+
+With many categories and a small audit, see
+`vignette("sparse", "mismeasured")` for shrinkage estimators of $\Pi$
+(`control_mc(estimator = "eb")`), regularisation and bootstrap or
+posterior variances.
 
 The estimate can then be passed in the formula:
 
