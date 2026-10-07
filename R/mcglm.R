@@ -462,6 +462,7 @@ mcglm <- function(formula, data = NULL, family = "poisson",
                   mc_control = control_mc()) {
 
   cl <- match.call()
+  args0 <- mget(names(formals(sys.function())), envir = environment())
   jacobian <- match.arg(jacobian)
   if (!inherits(mc_control, "mc_control"))
     stop("mc_control must be created by control_mc().", call. = FALSE)
@@ -606,6 +607,9 @@ mcglm <- function(formula, data = NULL, family = "poisson",
   out$formula  <- formula_obj
   out$z_levels <- z_levels
   out$x_levels <- x_levels
+  if (!is.null(out$mc_estimate) &&
+      mc_control$variance %in% c("bootstrap", "posterior"))
+    out <- .mcglm_replicate(out, args0)
   out
 }
 

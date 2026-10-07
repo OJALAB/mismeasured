@@ -10,7 +10,8 @@
   logprior = NULL,
   omega = NULL,
   w = NULL,
-  jac = FALSE
+  jac = FALSE,
+  prior = NULL
 )
 }
 \arguments{
@@ -27,6 +28,11 @@ rows with a known category).}
 \item{w}{Row weights for the Jacobian.}
 
 \item{jac}{Compute the sum-scale Jacobian of \code{colSums(w * U)}.}
+
+\item{prior}{Optional n x K matrix of prior class probabilities, used
+instead of \code{logprior}. Posterior weights are then linear in the
+prior, so derivatives with respect to a zero prior probability stay
+finite (empty cells of an estimated misclassification matrix).}
 }
 \value{
 List with \code{U} (n x q rows), \code{omega}, \code{loglik}

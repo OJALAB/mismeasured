@@ -37,6 +37,29 @@
   steps; sandwich variance). For internal audits `"il"` needs no design
   weights when selection depends on the observed outcome, proxy and
   covariates.
+* **Sparse validation samples.** `control_mc(estimator = "eb")` shrinks
+  each column of the estimated misclassification matrix towards a target,
+  `Pi[, l] = (C[, l] + c T[, l]) / (n_l + c)` (Dirichlet posterior mean),
+  with targets `"pooled"`, `"groups"` (`groups =`, e.g. ISCO major groups),
+  `"loglinear"` (Poisson quasi-independence fit of the table) or
+  `"matrix"` (`target_matrix =`), and the concentration `c` fixed or chosen
+  by the Dirichlet-multinomial marginal likelihood (`concentration = "ml"`).
+  Ill-conditioned targets are refused. `"dirichlet"` adds `alpha` to every
+  cell. Inference uses the estimating function `C + c T - Pi (n + c)`,
+  zero at the shrunk estimate, in the stacked sandwich; `"il"` adds the
+  matching Dirichlet log-prior. `control_mc(on_ill = "regularize")`
+  switches to `"eb"` when `diagnose_mc()` flags the MLE.
+* **Bootstrap and posterior variances.** `control_mc(variance =
+  "bootstrap")` resamples the regression rows (keeping internal-audit
+  membership) and external audits within strata and refits `B` times;
+  `variance = "posterior"` (external audits, constant prevalence) draws
+  `Pi` from its Dirichlet posterior and combines refits by Rubin's rule
+  (`"il"`, `"bca"` and `"bcm"` keep the delta-method covariance).
+  `control_mc(seed = )` makes both reproducible without changing the
+  global random-number state; `fit$replicates` holds the replicates.
+* `"ec"` posterior weights are computed on the probability scale, so an
+  empty cell in the estimated `Pi` no longer produces non-finite standard
+  errors.
 * **Estimated probabilities propagated for every plug-in method.** With a
   validation sample, `"cs"`, `"bca"`, `"bcm"` and `"onestep"`
   (`fix_omega = TRUE`) keep their point estimates but their covariance now

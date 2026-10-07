@@ -67,7 +67,7 @@
   msg <- paste0("cs_akn: ", msg, "; the corrected score inverts Q and its ",
                 "estimates are unstable (see control_mc()).")
   if (control$on_ill == "error") stop(msg, call. = FALSE)
-  if (control$on_ill == "warn") warning(msg, call. = FALSE)
+  if (control$on_ill %in% c("warn", "regularize")) warning(msg, call. = FALSE)
   invisible(FALSE)
 }
 

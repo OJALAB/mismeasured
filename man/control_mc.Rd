@@ -5,22 +5,35 @@
 \title{Control settings for estimated misclassification probabilities}
 \usage{
 control_mc(
-  estimator = "mle",
+  estimator = c("mle", "eb", "dirichlet"),
   prevalence = c("validation", "em", "inverse"),
-  variance = c("delta", "conditional"),
+  variance = c("delta", "conditional", "bootstrap", "posterior"),
   beta_equation = c("auto", "yi", "weighted"),
   kappa_max = 100,
   sigma_min = 0.05,
   min_class_n = 10,
-  on_ill = c("warn", "error", "none"),
+  on_ill = c("warn", "error", "none", "regularize"),
   em_maxit = 1000L,
   em_tol = 1e-10,
-  prevalence_model = NULL
+  prevalence_model = NULL,
+  target = c("pooled", "groups", "loglinear", "matrix"),
+  groups = NULL,
+  target_matrix = NULL,
+  concentration = "ml",
+  alpha = 0.5,
+  B = 200L,
+  seed = NULL
 )
 }
 \arguments{
-\item{estimator}{Estimator of \eqn{\Pi}; currently \code{"mle"}
-(design-weighted column proportions).}
+\item{estimator}{Estimator of \eqn{\Pi}: \code{"mle"} (design-weighted
+column proportions), \code{"eb"} (empirical-Bayes shrinkage of each
+column towards a target, \eqn{\hat\Pi_{\cdot\ell} = (C_{\cdot\ell} +
+c\,T_{\cdot\ell}) / (n_\ell + c)}) or \code{"dirichlet"} (add
+\code{alpha} to every cell; shrinks towards the singular uniform
+matrix). Shrinkage helps with many categories and few audited units
+per true class; it changes the estimate by \eqn{O(1/n_\ell)}, so the
+delta-method inference is unchanged to first order.}
 
 \item{prevalence}{Source of the latent prevalence \eqn{\pi}:
 \code{"validation"} (proportions of the true category in the
@@ -34,7 +47,13 @@ simplex).}
 \item{variance}{\code{"delta"} (default) propagates the estimation of
 the misclassification probabilities into the regression covariance
 through the stacked sandwich; \code{"conditional"} treats them as
-known.}
+known; \code{"bootstrap"} resamples the regression rows (keeping
+internal-audit membership) and an external audit (within strata) and
+refits everything \code{B} times; \code{"posterior"} (external audits,
+constant prevalence) draws \eqn{\Pi} from its Dirichlet posterior,
+refits with the draws treated as known and combines the conditional
+covariance and the between-draw spread as
+\eqn{\bar V + (1 + 1/B)\,\widehat{\mathrm{Var}}(\hat\psi^{(b)})}.}
 
 \item{beta_equation}{Regression estimating equation for an internal
 validation sample. \code{"yi"}: validated rows contribute the score at
@@ -52,7 +71,10 @@ value of \eqn{\hat\Pi}, and the smallest acceptable number of
 validation units per true category.}
 
 \item{on_ill}{What to do when \code{\link{diagnose_mc}} flags a problem:
-\code{"warn"} (default), \code{"error"} or \code{"none"}.}
+\code{"warn"} (default), \code{"error"}, \code{"none"} or
+\code{"regularize"} (re-estimate \eqn{\Pi} with \code{estimator =
+"eb"}, target \code{"groups"} when \code{groups} is given and
+\code{"pooled"} otherwise, and warn).}
 
 \item{em_maxit, em_tol}{Iteration limit and tolerance of the EM
 prevalence.}
@@ -70,6 +92,32 @@ likelihood from the main study's proxies given \eqn{\hat\Pi}
 Variables are taken from the main-study data and, for an external
 audit with \code{prevalence = "validation"}, from
 \code{validation_sample(data = )}.}
+
+\item{target}{Shrinkage target for \code{"eb"}: \code{"pooled"} (one
+accuracy for all classes, errors spread evenly), \code{"groups"}
+(separate rates for errors within and between \code{groups}, e.g. ISCO
+major groups), \code{"loglinear"} (Poisson quasi-independence model of
+the table with a diagonal and, with \code{groups}, a same-group term)
+or \code{"matrix"} (\code{target_matrix}). Ill-conditioned targets are
+refused.}
+
+\item{groups}{Group of each category (in model order) for
+\code{target = "groups"} or \code{"loglinear"}.}
+
+\item{target_matrix}{K x K column-stochastic target for
+\code{target = "matrix"}, e.g. a published confusion matrix.}
+
+\item{concentration}{Prior concentration \eqn{c \ge 0} for
+\code{"eb"}, or \code{"ml"} (default) to maximise the
+Dirichlet-multinomial marginal likelihood.}
+
+\item{alpha}{Pseudo-count per cell for \code{estimator = "dirichlet"}.}
+
+\item{B}{Number of bootstrap replicates or posterior draws.}
+
+\item{seed}{Optional seed for \code{variance = "bootstrap"} or
+\code{"posterior"}; the global random-number state is restored
+afterwards.}
 }
 \value{
 An object of class \code{"mc_control"}.

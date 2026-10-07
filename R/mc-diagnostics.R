@@ -85,6 +85,7 @@ print.mc_diagnostics <- function(x, ...) {
 #' @keywords internal
 .mc_on_ill <- function(diag, on_ill) {
   if (!length(diag$problems) || on_ill == "none") return(invisible(NULL))
+  if (on_ill == "regularize") on_ill <- "warn"
   msg <- paste0("Estimated misclassification matrix: ",
                 paste(diag$problems, collapse = "; "), ".")
   if (on_ill == "error") stop(msg, call. = FALSE)

@@ -86,20 +86,31 @@
 #'   \code{omega} is given).
 #' @param omega Optional n x K matrix of fixed class weights (indicators for
 #'   rows with a known category).
+#' @param prior Optional n x K matrix of prior class probabilities, used
+#'   instead of \code{logprior}. Posterior weights are then linear in the
+#'   prior, so derivatives with respect to a zero prior probability stay
+#'   finite (empty cells of an estimated misclassification matrix).
 #' @param w Row weights for the Jacobian.
 #' @param jac Compute the sum-scale Jacobian of \code{colSums(w * U)}.
 #' @return List with \code{U} (n x q rows), \code{omega}, \code{loglik}
 #'   (per row) and optionally \code{J}.
 #' @keywords internal
 .mcglm_ec_parts <- function(theta, model, logprior = NULL, omega = NULL,
-                            w = NULL, jac = FALSE) {
+                            w = NULL, jac = FALSE, prior = NULL) {
   cl <- .mcglm_ec_classes(theta, model)
   K <- model$K
   s <- K - 1L
   n <- model$n
   p <- model$p
   q <- p + model$has_sigma
-  if (is.null(omega)) {
+  if (is.null(omega) && !is.null(prior)) {
+    lf <- cl$logf
+    m <- lf[cbind(seq_len(n), max.col(lf, ties.method = "first"))]
+    ex <- prior * exp(lf - m)
+    tot <- rowSums(ex)
+    omega <- ex / tot
+    loglik <- m + log(tot)
+  } else if (is.null(omega)) {
     lj <- logprior + cl$logf
     m <- lj[cbind(seq_len(n), max.col(lj, ties.method = "first"))]
     ex <- exp(lj - m)
@@ -201,11 +212,10 @@
   model <- .mcglm_ec_model(y, x, K, family)
   w <- if (is.null(wt)) rep(1, length(y)) else wt
   if (is.null(Wi)) Wi <- W[z_hat + 1L, , drop = FALSE]
-  logprior <- log(Wi)
   theta <- .mcglm_ec_start(psi_naive, model, xi_hat, wt)
-  sol <- .mcglm_ec_solve(theta, model, logprior, w)
+  sol <- .mcglm_ec_solve(theta, model, Wi, w)
   theta <- sol$x
-  parts <- .mcglm_ec_parts(theta, model, logprior, w = w, jac = TRUE)
+  parts <- .mcglm_ec_parts(theta, model, prior = Wi, w = w, jac = TRUE)
   V <- .mc_sandwich_or_na(parts$J, crossprod(parts$U * w, parts$U), label)
   if (sol$termcd > 2)
     warning(label, " solver did not converge (termcd = ", sol$termcd, ")")
@@ -218,19 +228,20 @@
 
 #' EM then Newton for the posterior-weighted score with fixed priors
 #' @keywords internal
-.mcglm_ec_solve <- function(theta, model, logprior, w, em_maxit = 50L) {
+.mcglm_ec_solve <- function(theta, model, prior, w, em_maxit = 50L) {
   N <- sum(w)
-  f <- function(th) colSums(w * .mcglm_ec_parts(th, model, logprior)$U) / N
-  jf <- function(th) .mcglm_ec_parts(th, model, logprior, w = w, jac = TRUE)$J / N
+  f <- function(th) colSums(w * .mcglm_ec_parts(th, model, prior = prior)$U) / N
+  jf <- function(th)
+    .mcglm_ec_parts(th, model, prior = prior, w = w, jac = TRUE)$J / N
   newton <- function(th)
     nleqslv::nleqslv(th, f, jac = jf,
                      control = list(maxit = 200, ftol = 1e-11))
   em <- function(th, maxit) {
     ll_old <- -Inf
     for (it in seq_len(maxit)) {
-      omega <- .mcglm_ec_parts(th, model, logprior)$omega
+      omega <- .mcglm_ec_parts(th, model, prior = prior)$omega
       th <- .mcglm_ec_mstep(th, model, omega, w)
-      ll <- sum(w * .mcglm_ec_parts(th, model, logprior)$loglik)
+      ll <- sum(w * .mcglm_ec_parts(th, model, prior = prior)$loglik)
       if (abs(ll - ll_old) < 1e-10 * (1 + abs(ll))) break
       ll_old <- ll
     }
@@ -260,9 +271,9 @@
   start <- .mcglm_fit_ec(psi_naive, y, xi_hat, z_hat, x, K, family, NULL,
                          wt = wt, Wi = par0$Wi)$theta
   U_fun <- function(theta, par)
-    .mcglm_ec_parts(theta, model, log(par$Wi))$U
+    .mcglm_ec_parts(theta, model, prior = par$Wi)$U
   J_fun <- function(theta, par, w)
-    .mcglm_ec_parts(theta, model, log(par$Wi), w = w, jac = TRUE)$J
+    .mcglm_ec_parts(theta, model, prior = par$Wi, w = w, jac = TRUE)$J
   true_fun <- NULL
   if (vb$type == "internal") {
     model_v <- .mcglm_ec_subset(model, vb$index)
@@ -338,6 +349,10 @@
     Hv <- outer(vb$proxy, 0:s, "==") * 1
   }
 
+  # Dirichlet(c T) log-prior on the columns of Pi when the estimate uses
+  # shrinkage (estimator = "eb" or "dirichlet"): sum_jl c T_jl log Pi_jl.
+  cc <- if (is.null(est$shrinkage)) 0 else est$shrinkage$c
+  Tm <- if (is.null(est$shrinkage)) matrix(0, K, K) else est$shrinkage$T
   n_a <- s * K                       # Pi logits
   n_b <- s * q_w                     # prevalence logits or model coefficients
   b_cols <- q + n_a + seq_len(n_b)
@@ -422,10 +437,13 @@
   total_score <- function(th) {
     out <- colSums(w * main_parts(th)$G)
     if (!internal) out <- out + colSums(ext_rows(th))
+    if (cc > 0)
+      out[q + seq_len(n_a)] <- out[q + seq_len(n_a)] +
+        .mc_shrink_penalty(unpack(th)$Pi, cc, Tm)
     out
   }
   total_loglik <- function(mp, u) {
-    ll <- sum(w * mp$loglik)
+    ll <- sum(w * mp$loglik) + if (cc > 0) sum(cc * Tm * log(u$Pi)) else 0
     if (!internal) {
       ll <- ll + sum(dt * log(u$Pi[cbind(vb$proxy + 1L, vb$z + 1L)]))
       if (v_prev) ll <- ll + sum(dt * log(u$P_v[cbind(seq_len(vb$n), vb$z + 1L)]))
@@ -443,7 +461,7 @@
   for (it in seq_len(500L)) {
     mp <- main_parts(th)
     om <- mp$omega
-    cnt <- crossprod(Hm * w, om)            # K x K: [j, l]
+    cnt <- crossprod(Hm * w, om) + cc * Tm   # K x K: [j, l]
     if (!internal) cnt <- cnt + crossprod(Hv * dt, Zv)
     Pi_new <- sweep(cnt, 2, colSums(cnt), "/")
     if (has_model) {

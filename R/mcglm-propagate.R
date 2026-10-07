@@ -113,13 +113,8 @@
     cbind(score(bn), h)
   }
   r <- est$rows(est$eta)
-  total <- function(theta) {
-    out <- c(colSums(w * rows(theta)), numeric(q))
-    rr <- est$rows(theta[2L * p + seq_len(q)])
-    out[2L * p + seq_len(q)] <- colSums(vb$w_v * rr$v) +
-      (if (is.null(rr$m)) 0 else colSums(w * rr$m))
-    out
-  }
+  total <- function(theta)
+    c(colSums(w * rows(theta)), est$score(theta[2L * p + seq_len(q)]))
   theta <- c(psi_naive, psi, unname(est$eta))
   A <- .mc_num_jacobian(total, theta)
   G_m <- cbind(rows(theta), if (is.null(r$m)) matrix(0, n, q) else r$m)
@@ -146,15 +141,15 @@
   theta <- psi
   if (model$has_sigma) {
     tau_score <- function(tau)
-      sum(w * .mcglm_ec_parts(c(psi, tau), model, log(par0$Wi))$U[, model$p + 1L])
+      sum(w * .mcglm_ec_parts(c(psi, tau), model, prior = par0$Wi)$U[, model$p + 1L])
     res <- drop(y - xi_hat %*% psi)
     t0 <- 0.5 * log(sum(w * res^2) / sum(w))
     theta <- c(psi, stats::uniroot(tau_score, c(t0 - 3, t0 + 3),
                                    extendInt = "yes", tol = 1e-12)$root)
   }
-  U_fun <- function(th, par) .mcglm_ec_parts(th, model, log(par$Wi))$U
+  U_fun <- function(th, par) .mcglm_ec_parts(th, model, prior = par$Wi)$U
   J_fun <- function(th, par, ww)
-    .mcglm_ec_parts(th, model, log(par$Wi), w = ww, jac = TRUE)$J
+    .mcglm_ec_parts(th, model, prior = par$Wi, w = ww, jac = TRUE)$J
   V <- .mcglm_fit_validated(theta, est, y, x, z_hat, K, model$family, U_fun,
                             J_fun, wt = wt, control = control,
                             label = "onestep", psi_fixed = theta,

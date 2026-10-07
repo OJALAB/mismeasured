@@ -4,7 +4,7 @@
 \alias{.mcglm_ec_solve}
 \title{EM then Newton for the posterior-weighted score with fixed priors}
 \usage{
-.mcglm_ec_solve(theta, model, logprior, w, em_maxit = 50L)
+.mcglm_ec_solve(theta, model, prior, w, em_maxit = 50L)
 }
 \description{
 EM then Newton for the posterior-weighted score with fixed priors

@@ -28,8 +28,33 @@
 
 #' Control settings for estimated misclassification probabilities
 #'
-#' @param estimator Estimator of \eqn{\Pi}; currently \code{"mle"}
-#'   (design-weighted column proportions).
+#' @param estimator Estimator of \eqn{\Pi}: \code{"mle"} (design-weighted
+#'   column proportions), \code{"eb"} (empirical-Bayes shrinkage of each
+#'   column towards a target, \eqn{\hat\Pi_{\cdot\ell} = (C_{\cdot\ell} +
+#'   c\,T_{\cdot\ell}) / (n_\ell + c)}) or \code{"dirichlet"} (add
+#'   \code{alpha} to every cell; shrinks towards the singular uniform
+#'   matrix). Shrinkage helps with many categories and few audited units
+#'   per true class; it changes the estimate by \eqn{O(1/n_\ell)}, so the
+#'   delta-method inference is unchanged to first order.
+#' @param target Shrinkage target for \code{"eb"}: \code{"pooled"} (one
+#'   accuracy for all classes, errors spread evenly), \code{"groups"}
+#'   (separate rates for errors within and between \code{groups}, e.g. ISCO
+#'   major groups), \code{"loglinear"} (Poisson quasi-independence model of
+#'   the table with a diagonal and, with \code{groups}, a same-group term)
+#'   or \code{"matrix"} (\code{target_matrix}). Ill-conditioned targets are
+#'   refused.
+#' @param groups Group of each category (in model order) for
+#'   \code{target = "groups"} or \code{"loglinear"}.
+#' @param target_matrix K x K column-stochastic target for
+#'   \code{target = "matrix"}, e.g. a published confusion matrix.
+#' @param concentration Prior concentration \eqn{c \ge 0} for
+#'   \code{"eb"}, or \code{"ml"} (default) to maximise the
+#'   Dirichlet-multinomial marginal likelihood.
+#' @param alpha Pseudo-count per cell for \code{estimator = "dirichlet"}.
+#' @param B Number of bootstrap replicates or posterior draws.
+#' @param seed Optional seed for \code{variance = "bootstrap"} or
+#'   \code{"posterior"}; the global random-number state is restored
+#'   afterwards.
 #' @param prevalence Source of the latent prevalence \eqn{\pi}:
 #'   \code{"validation"} (proportions of the true category in the
 #'   validation sample; Hajek or Horvitz--Thompson as set in
@@ -41,7 +66,13 @@
 #' @param variance \code{"delta"} (default) propagates the estimation of
 #'   the misclassification probabilities into the regression covariance
 #'   through the stacked sandwich; \code{"conditional"} treats them as
-#'   known.
+#'   known; \code{"bootstrap"} resamples the regression rows (keeping
+#'   internal-audit membership) and an external audit (within strata) and
+#'   refits everything \code{B} times; \code{"posterior"} (external audits,
+#'   constant prevalence) draws \eqn{\Pi} from its Dirichlet posterior,
+#'   refits with the draws treated as known and combines the conditional
+#'   covariance and the between-draw spread as
+#'   \eqn{\bar V + (1 + 1/B)\,\widehat{\mathrm{Var}}(\hat\psi^{(b)})}.
 #' @param beta_equation Regression estimating equation for an internal
 #'   validation sample. \code{"yi"}: validated rows contribute the score at
 #'   their true category instead of the corrected score (Yi et al., 2019,
@@ -56,7 +87,10 @@
 #'   value of \eqn{\hat\Pi}, and the smallest acceptable number of
 #'   validation units per true category.
 #' @param on_ill What to do when \code{\link{diagnose_mc}} flags a problem:
-#'   \code{"warn"} (default), \code{"error"} or \code{"none"}.
+#'   \code{"warn"} (default), \code{"error"}, \code{"none"} or
+#'   \code{"regularize"} (re-estimate \eqn{\Pi} with \code{estimator =
+#'   "eb"}, target \code{"groups"} when \code{groups} is given and
+#'   \code{"pooled"} otherwise, and warn).
 #' @param em_maxit,em_tol Iteration limit and tolerance of the EM
 #'   prevalence.
 #' @param prevalence_model Optional one-sided formula for a covariate-
@@ -75,15 +109,30 @@
 #' @return An object of class \code{"mc_control"}.
 #' @seealso \code{\link{estimate_mc}}, \code{\link{mcglm}}
 #' @export
-control_mc <- function(estimator = "mle",
+control_mc <- function(estimator = c("mle", "eb", "dirichlet"),
                        prevalence = c("validation", "em", "inverse"),
-                       variance = c("delta", "conditional"),
+                       variance = c("delta", "conditional", "bootstrap",
+                                    "posterior"),
                        beta_equation = c("auto", "yi", "weighted"),
                        kappa_max = 100, sigma_min = 0.05, min_class_n = 10,
-                       on_ill = c("warn", "error", "none"),
+                       on_ill = c("warn", "error", "none", "regularize"),
                        em_maxit = 1000L, em_tol = 1e-10,
-                       prevalence_model = NULL) {
-  estimator <- match.arg(estimator, "mle")
+                       prevalence_model = NULL,
+                       target = c("pooled", "groups", "loglinear", "matrix"),
+                       groups = NULL, target_matrix = NULL,
+                       concentration = "ml", alpha = 0.5,
+                       B = 200L, seed = NULL) {
+  estimator <- match.arg(estimator)
+  target <- match.arg(target)
+  if (!identical(concentration, "ml") &&
+      (!is.numeric(concentration) || length(concentration) != 1L ||
+       !is.finite(concentration) || concentration < 0))
+    stop("concentration must be \"ml\" or one non-negative number.",
+         call. = FALSE)
+  if (target == "matrix" && estimator == "eb" && is.null(target_matrix))
+    stop("target = 'matrix' needs target_matrix.", call. = FALSE)
+  if (!is.numeric(B) || length(B) != 1L || B < 2)
+    stop("B must be at least 2.", call. = FALSE)
   num_ok <- function(v) is.numeric(v) && length(v) == 1L && is.finite(v) &&
     v >= 0
   if (!num_ok(kappa_max) || !num_ok(sigma_min) || !num_ok(min_class_n) ||
@@ -105,7 +154,11 @@ control_mc <- function(estimator = "mle",
                  beta_equation = match.arg(beta_equation),
                  kappa_max = kappa_max, sigma_min = sigma_min,
                  min_class_n = min_class_n, on_ill = match.arg(on_ill),
-                 em_maxit = as.integer(em_maxit), em_tol = em_tol),
+                 em_maxit = as.integer(em_maxit), em_tol = em_tol,
+                 target = target, groups = groups,
+                 target_matrix = target_matrix,
+                 concentration = concentration, alpha = alpha,
+                 B = as.integer(B), seed = seed),
             class = "mc_control")
 }
 
@@ -241,7 +294,8 @@ estimate_mc <- function(validation, z_hat = NULL, K = NULL, levels = NULL,
   names(par$pi)    <- levels
   est <- c(par,
            list(K = K, levels = levels, eta = nuis$eta, vcov = nuis$vcov,
-                map = nuis$map, rows = nuis$rows, A = nuis$A,
+                map = nuis$map, rows = nuis$rows, score = nuis$score,
+                A = nuis$A, shrinkage = nuis$shrinkage,
                 prevalence = nuis$prevalence, validation = vb,
                 z_hat = if (needs_main) z_hat else NULL,
                 w_main = w_main,
@@ -250,6 +304,19 @@ estimate_mc <- function(validation, z_hat = NULL, K = NULL, levels = NULL,
                 main_dependent = needs_main))
   class(est) <- "mc_estimate"
   est$diagnostics <- diagnose_mc(est)
+  if (control$on_ill == "regularize" && length(est$diagnostics$problems) &&
+      control$estimator == "mle") {
+    reg <- control
+    reg$estimator <- "eb"
+    reg$target <- if (is.null(control$groups)) "pooled" else "groups"
+    reg$on_ill <- "warn"
+    warning("Estimated misclassification matrix: ",
+            paste(est$diagnostics$problems, collapse = "; "),
+            "; re-estimating with estimator = 'eb' (target = '", reg$target,
+            "').", call. = FALSE)
+    return(.estimate_mc_codes(val, z_hat, levels, main_weights, reg,
+                              data = data))
+  }
   .mc_on_ill(est$diagnostics, control$on_ill)
   est
 }
@@ -272,7 +339,14 @@ estimate_mc <- function(validation, z_hat = NULL, K = NULL, levels = NULL,
   if (is.null(N_tot) && !is.null(vb$N_h))
     N_tot <- sum(tapply(vb$N_h, vb$strata, `[`, 1L), na.rm = TRUE)
 
-  Pi_hat <- crossprod(Hv * dw, Zv) / rep(colSums(dw * Zv), each = K)
+  # Pi uses design weights normalised to the number of validation units, so
+  # that a shrinkage prior is weighed against the actual audit size.
+  d_pi <- d * sum(vb$w_v) / sum(dw)
+  C <- crossprod(Hv * (d_pi * vb$w_v), Zv)
+  shrink <- .mc_shrink_setup(C, control)
+  cc <- if (is.null(shrink)) 0 else shrink$c
+  Tm <- if (is.null(shrink)) matrix(0, K, K) else shrink$T
+  Pi_hat <- (C + cc * Tm) / rep(colSums(C) + cc, each = K)
   em_info <- NULL
   if (prevalence == "validation") {
     denom <- if (vb$estimator == "ht") N_tot else sum(dw)
@@ -310,7 +384,7 @@ estimate_mc <- function(validation, z_hat = NULL, K = NULL, levels = NULL,
     pr <- map(eta)
     v <- matrix(0, vb$n, q)
     for (l in seq_len(K))
-      v[, (l - 1L) * s + seq_len(s)] <- d * Zv[, l] *
+      v[, (l - 1L) * s + seq_len(s)] <- d_pi * Zv[, l] *
         (Hv[, -1L, drop = FALSE] - rep(pr$Pi[-1L, l], each = vb$n))
     pc <- n_pi + seq_len(s)
     m <- NULL
@@ -339,6 +413,8 @@ estimate_mc <- function(validation, z_hat = NULL, K = NULL, levels = NULL,
     r <- rows(eta)
     out <- colSums(vb$w_v * r$v)
     if (!is.null(r$m)) out <- out + colSums(wt_m * r$m)
+    out[seq_len(n_pi)] <- out[seq_len(n_pi)] +
+      .mc_shrink_penalty(map(eta)$Pi, cc, Tm)
     out
   }
   A <- .mc_num_jacobian(total, eta)
@@ -361,7 +437,8 @@ estimate_mc <- function(validation, z_hat = NULL, K = NULL, levels = NULL,
                    seq_len(s)))
   names(eta) <- nms
   dimnames(V) <- list(nms, nms)
-  list(eta = eta, map = map, rows = rows, A = A, vcov = V,
+  list(eta = eta, map = map, rows = rows, score = total, A = A, vcov = V,
+       shrinkage = shrink,
        prevalence = list(method = prevalence, em = em_info,
                          boundary = !is.null(em_info) && em_info$boundary))
 }
@@ -395,7 +472,12 @@ estimate_mc <- function(validation, z_hat = NULL, K = NULL, levels = NULL,
   q_w <- ncol(w_ref)
   n_alpha <- s * q_w
 
-  Pi_hat <- crossprod(Hv * dw, Zv) / rep(colSums(dw * Zv), each = K)
+  d_pi <- d * sum(vb$w_v) / sum(dw)
+  C <- crossprod(Hv * (d_pi * vb$w_v), Zv)
+  shrink <- .mc_shrink_setup(C, control)
+  cc <- if (is.null(shrink)) 0 else shrink$c
+  Tm <- if (is.null(shrink)) matrix(0, K, K) else shrink$T
+  Pi_hat <- (C + cc * Tm) / rep(colSums(C) + cc, each = K)
   em_iter <- NULL
   if (src == "validation") {
     alpha <- .mc_multinom(vb$z, w_v, dw, K)
@@ -425,7 +507,7 @@ estimate_mc <- function(validation, z_hat = NULL, K = NULL, levels = NULL,
     pr <- map(eta)
     v <- matrix(0, vb$n, n_pi + n_alpha)
     for (l in seq_len(K))
-      v[, (l - 1L) * s + seq_len(s)] <- d * Zv[, l] *
+      v[, (l - 1L) * s + seq_len(s)] <- d_pi * Zv[, l] *
         (Hv[, -1L, drop = FALSE] - rep(pr$Pi[-1L, l], each = vb$n))
     m <- NULL
     if (src == "validation") {
@@ -446,6 +528,8 @@ estimate_mc <- function(validation, z_hat = NULL, K = NULL, levels = NULL,
     r <- rows(eta)
     out <- colSums(vb$w_v * r$v)
     if (!is.null(r$m)) out <- out + colSums(wt_m * r$m)
+    out[seq_len(n_pi)] <- out[seq_len(n_pi)] +
+      .mc_shrink_penalty(map(eta)$Pi, cc, Tm)
     out
   }
   eta <- c(as.numeric(Pi_hat[-1L, , drop = FALSE]), as.numeric(alpha))
@@ -470,7 +554,8 @@ estimate_mc <- function(validation, z_hat = NULL, K = NULL, levels = NULL,
                            function(l, k) sprintf("alpha[%d,%s]", l, k))))
   names(eta) <- nms
   dimnames(V) <- list(nms, nms)
-  list(eta = eta, map = map, rows = rows, A = A, vcov = V,
+  list(eta = eta, map = map, rows = rows, score = total, A = A, vcov = V,
+       shrinkage = shrink,
        prevalence = list(method = src, em = list(iterations = em_iter),
                          boundary = FALSE))
 }
@@ -545,6 +630,9 @@ print.mc_estimate <- function(x, digits = 4L, ...) {
   cat(sprintf("Prevalence: %s; estimator: %s%s\n", x$prevalence$method,
               if (vb$estimator == "ht") "Horvitz-Thompson" else "Hajek",
               if (vb$user_weights) ", design weights" else ""))
+  if (!is.null(x$shrinkage))
+    cat(sprintf("Shrinkage: %s towards the %s target, concentration c = %.4g\n",
+                x$shrinkage$estimator, x$shrinkage$target, x$shrinkage$c))
   cat("\nPi = P(z_hat = row | z = column):\n")
   print(round(x$Pi, digits))
   if (is.null(x$prevalence$model)) {
