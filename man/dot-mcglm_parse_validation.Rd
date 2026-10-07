@@ -7,8 +7,8 @@
 .mcglm_parse_validation(validation, z_hat, K)
 }
 \arguments{
-\item{validation}{\code{list(z, z_hat)} (external) or
-\code{list(z, index)} (internal).}
+\item{validation}{\code{list(z, z_hat)} (external),
+\code{list(z, index)} (internal) or a \code{\link{validation_sample}}.}
 
 \item{z_hat}{Main-study proxy codes (0-based).}
 

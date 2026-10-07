@@ -22,6 +22,8 @@ export(build.mc.matrix)
 export(check.mc.matrix)
 export(refit)
 export(diag.block)
+export(validation_sample)
+export(as_validation_sample)
 
 S3method(print, simex)
 S3method(summary, simex)
@@ -37,6 +39,8 @@ S3method(refit, simex)
 S3method(nobs, simex)
 S3method(family, simex)
 S3method(formula, simex)
+
+S3method(print, mc_validation)
 
 S3method(print, mcglm)
 S3method(summary, mcglm)

@@ -30,49 +30,20 @@
 
 #' Parse and check a validation-sample description
 #'
-#' @param validation \code{list(z, z_hat)} (external) or
-#'   \code{list(z, index)} (internal).
+#' @param validation \code{list(z, z_hat)} (external),
+#'   \code{list(z, index)} (internal) or a \code{\link{validation_sample}}.
 #' @param z_hat Main-study proxy codes (0-based).
 #' @param K Number of categories.
 #' @return List with \code{z}, \code{proxy}, \code{index}, \code{n},
 #'   \code{type}.
 #' @keywords internal
 .mcglm_parse_validation <- function(validation, z_hat, K) {
-  if (!is.list(validation) || is.null(validation$z) ||
-      any(!names(validation) %in% c("z", "z_hat", "index")))
-    stop("validation must be a list with z and z_hat (external) or index (internal).",
-         call. = FALSE)
-  z <- validation$z
-  nv <- length(z)
-  check_codes <- function(v) {
-    is.numeric(v) && is.null(dim(v)) && length(v) == nv &&
-      all(is.finite(v)) && all(v == floor(v)) && all(v >= 0 & v < K)
-  }
-  if (nv < 2L || !check_codes(z))
-    stop("validation$z must contain at least two codes in 0, ..., K-1.",
-         call. = FALSE)
-  index <- validation$index
-  proxy <- validation$z_hat
-  if (!is.null(index)) {
-    if (!is.numeric(index) || !is.null(dim(index)) || length(index) != nv ||
-        any(!is.finite(index)) || any(index != floor(index)) ||
-        any(index < 1 | index > length(z_hat)) || anyDuplicated(index))
-      stop("validation$index must contain distinct regression row numbers, one per z.",
-           call. = FALSE)
-    if (!is.null(proxy) &&
-        (!check_codes(proxy) || any(proxy != z_hat[index])))
-      stop("validation$z_hat does not match z_hat at validation$index.",
-           call. = FALSE)
-    proxy <- z_hat[index]
-  }
-  if (!check_codes(proxy))
-    stop("validation$z_hat must contain one code in 0, ..., K-1 per z.",
-         call. = FALSE)
-  if (any(tabulate(z + 1L, nbins = K) == 0L))
-    stop("Every true category must occur in validation.", call. = FALSE)
-  list(z = as.integer(z), proxy = as.integer(proxy),
-       index = if (is.null(index)) NULL else as.integer(index), n = nv,
-       type = if (is.null(index)) "external" else "internal")
+  val <- as_validation_sample(validation)
+  if (!is.null(val$weights) || val$strata_type != "none" ||
+      val$estimator != "hajek")
+    stop("Design weights, strata and estimator = 'ht' are not yet ",
+         "supported by mcglm().", call. = FALSE)
+  .mc_bind_validation(val, z_hat, K)
 }
 
 #' Empirical (Pi, pi_z) from a validation sample
