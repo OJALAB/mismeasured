@@ -62,6 +62,10 @@
 #'   from the main-study proxies for internal validation with
 #'   \code{strata = "z_hat"}; otherwise required when \code{strata} is
 #'   given without \code{weights}.
+#' @param data Optional data frame with the covariates of an external
+#'   validation sample (one row per unit), needed when a prevalence model
+#'   (\code{\link{control_mc}(prevalence_model = )}) is estimated from the
+#'   audit. Internal audits take the covariates from the main study.
 #'
 #' @return An object of class \code{"mc_validation"}.
 #' @seealso \code{\link{estimate_mc}}, \code{\link{mcglm}}
@@ -78,7 +82,7 @@
 #' @export
 validation_sample <- function(z, z_hat = NULL, index = NULL, weights = NULL,
                               strata = NULL, estimator = c("hajek", "ht"),
-                              N = NULL, N_strata = NULL) {
+                              N = NULL, N_strata = NULL, data = NULL) {
   estimator <- match.arg(estimator)
   nv <- length(z)
   is_labels <- function(v) {
@@ -126,6 +130,14 @@ validation_sample <- function(z, z_hat = NULL, index = NULL, weights = NULL,
        any(!is.finite(N_strata)) || any(N_strata <= 0)))
     stop("N_strata must be a named vector of positive stratum sizes.",
          call. = FALSE)
+  if (!is.null(data)) {
+    if (!is.null(index))
+      stop("validation_sample(data = ) is for external audits; internal ",
+           "audits use the covariates of the main study.", call. = FALSE)
+    if (!is.data.frame(data) || nrow(data) != nv)
+      stop("validation_sample(data = ) must be a data frame with one row ",
+           "per validation unit (", nv, ").", call. = FALSE)
+  }
   if (estimator == "ht" && is.null(index) && is.null(N) &&
       is.null(N_strata))
     stop("estimator = 'ht' with an external validation sample needs the ",
@@ -144,7 +156,7 @@ validation_sample <- function(z, z_hat = NULL, index = NULL, weights = NULL,
                  weights = if (is.null(weights)) NULL else as.numeric(weights),
                  strata = if (strata_type == "user") strata else NULL,
                  strata_type = strata_type, estimator = estimator,
-                 N = N, N_strata = N_strata, n = nv,
+                 N = N, N_strata = N_strata, n = nv, data = data,
                  type = if (is.null(index)) "external" else "internal"),
             class = "mc_validation")
 }

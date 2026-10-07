@@ -42,6 +42,17 @@
 #' \eqn{(\pi_0, \dots, \pi_{K-1})}. Misclassification is assumed
 #' nondifferential: \eqn{\hat Z \perp\!\!\!\perp (Y, x) \mid Z}.
 #'
+#' \emph{Prevalence.} BCA, BCM, CS, SUB, EC and IL use \eqn{\Pr(Z = \ell)}
+#' and assume that \eqn{Z} is independent of \eqn{x}; when the latent
+#' category depends on the covariates they are biased (Yi et al., 2019,
+#' Sections 3.5 and 4.3). With a validation sample, SUB, EC and IL can
+#' instead use a covariate-dependent prevalence \eqn{\Pr(Z = \ell \mid x)}
+#' (\code{\link{control_mc}(prevalence_model = ~ ...)}), and CS-AKN does not
+#' use the prevalence at all. For an internal validation sample without a
+#' prevalence model, \code{mcglm} tests the association between the true
+#' category and \eqn{x} in the audit (likelihood ratio, stored in
+#' \code{$independence_test}) and warns when \eqn{p < 0.01}.
+#'
 #' \emph{Estimators.}
 #' Let \eqn{\hat\psi} solve the proxy score
 #' \eqn{\hat U_n(\psi) = n^{-1} \sum_i \hat\xi_i \{Y_i - \mu(\psi^\top \hat\xi_i)\} = 0}
@@ -260,6 +271,16 @@
 #'       \code{prevalence = "validation"}, \eqn{\log \pi_z} (design
 #'       weights, normalised to sum to \eqn{n_V}, give a
 #'       pseudo-likelihood). The estimates are in \code{$nuisance$il}.}
+#'     \item{prevalence model}{with \code{control_mc(prevalence_model =
+#'       ~ ...)}, \code{"sub"}, \code{"ec"} and \code{"il"} use
+#'       \eqn{\Pr(Z = \ell \mid \hat Z_i, x_i) \propto \Pi_{\hat z_i \ell}
+#'       \pi_\ell(x_i)} with a multinomial-logit \eqn{\pi_\ell(x)} fitted by
+#'       \code{nnet::multinom}; its coefficients are part of the stacked
+#'       sandwich (\code{"il"}: of the joint likelihood). The model's
+#'       variables come from \code{data} (formula interface) and, for an
+#'       external audit with \code{prevalence = "validation"}, from
+#'       \code{validation_sample(data = )}. \code{"bca"}, \code{"bcm"} and
+#'       \code{"cs"} cannot be combined with it.}
 #'     \item{\code{"cs_akn"}}{\eqn{\Pi} is estimated from the validation
 #'       sample and plugged into the unbiased surrogate; the stacked
 #'       sandwich propagates its uncertainty. The prevalence is not used,
@@ -528,7 +549,18 @@ mcglm <- function(formula, data = NULL, family = "poisson",
       validation <- .estimate_mc_codes(
         as_validation_sample(validation), as.integer(z_hat),
         .mcglm_model_levels(z_levels, K_v), main_weights = weights,
-        control = mc_control)
+        control = mc_control, data = data)
+    }
+    pm <- validation$prevalence$model
+    if (!is.null(pm)) {
+      constant <- intersect(method, c("bca", "bcm", "cs"))
+      if (length(constant))
+        stop("A prevalence model cannot be used with method(s) ",
+             paste(constant, collapse = ", "), ", which assume a constant ",
+             "prevalence; use 'sub', 'ec', 'il' or 'cs_akn'.", call. = FALSE)
+      if (is.null(validation$w_main))
+        validation$w_main <- .mc_prev_design(pm$formula, data, pm$terms,
+                                             pm$xlevels)$x
     }
     if (!any(supplied)) {
       Pi   <- unname(validation$Pi)
@@ -897,6 +929,26 @@ mcglm <- function(formula, data = NULL, family = "poisson",
            "levels = levels(<the mc() variable>).", call. = FALSE)
     est <- validation
     vd  <- est$validation
+    independence_test <- NULL
+    at_risk <- intersect(method, c("sub", "ec", "il", "cs", "bca", "bcm"))
+    if (vd$type == "internal" && is.null(est$prevalence$model) &&
+        !vd$user_weights && length(at_risk)) {
+      independence_test <- .mc_independence_test(vd$z,
+                                                 x[vd$index, , drop = FALSE], K)
+      if (!is.null(independence_test) && independence_test$p.value < 0.01 &&
+          mc_control$on_ill != "none") {
+        msg <- paste0("In the validation sample the true category is ",
+                      "associated with the covariates (likelihood-ratio test ",
+                      "p = ", format.pval(independence_test$p.value, digits = 2),
+                      "). ", paste(at_risk, collapse = "/"),
+                      if (length(at_risk) == 1L) " assumes" else " assume",
+                      " a constant prevalence; consider ",
+                      "control_mc(prevalence_model = ~ ...) or ",
+                      "method = 'cs_akn'.")
+        if (mc_control$on_ill == "error") stop(msg, call. = FALSE)
+        warning(msg, call. = FALSE)
+      }
+    }
     if (!any(method %in% c("cs", .mcglm_validated_methods)))
       stop("validation requires method = 'cs', 'sub', 'ec', 'il' or 'cs_akn'.",
            call. = FALSE)
@@ -1228,6 +1280,8 @@ mcglm <- function(formula, data = NULL, family = "poisson",
   if (length(convergence)) out$convergence <- convergence
   if (length(nuisance)) out$nuisance <- nuisance
   out$validation_design <- if (is.null(vd)) "known" else vd$type
+  if (!is.null(vd) && !is.null(independence_test))
+    out$independence_test <- independence_test
   if (!is.null(est)) out$mc_estimate <- est
   if (!is.null(validation)) out$validation <- validation
   if (is_multinomial)  out$J     <- J

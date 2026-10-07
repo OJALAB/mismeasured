@@ -28,7 +28,8 @@ Imports:
     stats,
     graphics,
     MASS,
-    nleqslv
+    nleqslv,
+    nnet
 LinkingTo:
     Rcpp,
     RcppEigen
@@ -40,7 +41,6 @@ Suggests:
     knitr,
     rmarkdown,
     RTMB,
-    nnet,
     pkgdown
 VignetteBuilder: knitr
 URL: https://ojalab.github.io/mismeasured/, https://github.com/OJALAB/mismeasured

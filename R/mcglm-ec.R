@@ -191,15 +191,17 @@
 #' Louis Jacobian. Identical to the induced-likelihood estimator when the
 #' misclassification probabilities are known.
 #' @param W Predictive matrix \eqn{\Pr(Z = \ell \mid \hat Z = j)}.
+#' @param Wi Optional n x K row-specific prior weights (overrides
+#'   \code{W}; used under a prevalence model).
 #' @return List with \code{coefficients} (psi), \code{theta}, \code{vcov}
 #'   (psi block), \code{sigma}, convergence fields.
 #' @keywords internal
 .mcglm_fit_ec <- function(psi_naive, y, xi_hat, z_hat, x, K, family, W,
-                          wt = NULL, label = "EC") {
+                          wt = NULL, label = "EC", Wi = NULL) {
   model <- .mcglm_ec_model(y, x, K, family)
   w <- if (is.null(wt)) rep(1, length(y)) else wt
-  N <- sum(w)
-  logprior <- log(W)[z_hat + 1L, , drop = FALSE]
+  if (is.null(Wi)) Wi <- W[z_hat + 1L, , drop = FALSE]
+  logprior <- log(Wi)
   theta <- .mcglm_ec_start(psi_naive, model, xi_hat, wt)
   sol <- .mcglm_ec_solve(theta, model, logprior, w)
   theta <- sol$x
@@ -254,13 +256,13 @@
   vb <- est$validation
   p <- model$p
   # Warm start: the known-probability solution at the estimated W.
-  start <- .mcglm_fit_ec(psi_naive, y, xi_hat, z_hat, x, K, family,
-                         unname(est$W), wt = wt)$theta
+  par0 <- .mc_with_rows(est$map(est$eta), z_hat, est$w_main)
+  start <- .mcglm_fit_ec(psi_naive, y, xi_hat, z_hat, x, K, family, NULL,
+                         wt = wt, Wi = par0$Wi)$theta
   U_fun <- function(theta, par)
-    .mcglm_ec_parts(theta, model, log(par$W)[z_hat + 1L, , drop = FALSE])$U
+    .mcglm_ec_parts(theta, model, log(par$Wi))$U
   J_fun <- function(theta, par, w)
-    .mcglm_ec_parts(theta, model, log(par$W)[z_hat + 1L, , drop = FALSE],
-                    w = w, jac = TRUE)$J
+    .mcglm_ec_parts(theta, model, log(par$Wi), w = w, jac = TRUE)$J
   true_fun <- NULL
   if (vb$type == "internal") {
     model_v <- .mcglm_ec_subset(model, vb$index)
@@ -319,6 +321,10 @@
     stop("method = 'il' estimates the prevalence by maximum likelihood; ",
          "use control_mc(prevalence = 'validation') or 'em'.", call. = FALSE)
   v_prev <- !internal && prev_mode == "validation"
+  has_model <- !is.null(est$prevalence$model)
+  w_main <- est$w_main
+  w_v <- if (has_model && v_prev) est$w_v else NULL
+  q_w <- if (has_model) ncol(w_main) else 1L
 
   Hm <- outer(z_hat, 0:s, "==") * 1
   omega_fix <- NULL
@@ -332,29 +338,51 @@
     Hv <- outer(vb$proxy, 0:s, "==") * 1
   }
 
-  n_a <- s * K
+  n_a <- s * K                       # Pi logits
+  n_b <- s * q_w                     # prevalence logits or model coefficients
+  b_cols <- q + n_a + seq_len(n_b)
+  softmax_rows <- function(eta) {
+    eta <- eta - apply(eta, 1L, max)
+    ex <- exp(eta)
+    ex / rowSums(ex)
+  }
   unpack <- function(th) {
     a <- matrix(th[q + seq_len(n_a)], s, K)
     Pi <- apply(rbind(0, a), 2, function(v) exp(v - max(v)) / sum(exp(v - max(v))))
-    b <- c(0, th[q + n_a + seq_len(s)])
-    pi <- exp(b - max(b)) / sum(exp(b - max(b)))
-    list(theta = th[seq_len(q)], Pi = Pi, pi = pi)
+    b <- th[b_cols]
+    if (has_model) {
+      alpha <- matrix(b, s, q_w)
+      list(theta = th[seq_len(q)], Pi = Pi, alpha = alpha,
+           P = .mc_prev_probs(alpha, w_main),
+           P_v = if (v_prev) .mc_prev_probs(alpha, w_v) else NULL)
+    } else {
+      pi <- softmax_rows(matrix(c(0, b), 1L))[1L, ]
+      list(theta = th[seq_len(q)], Pi = Pi, pi = pi,
+           P = matrix(pi, n, K, byrow = TRUE),
+           P_v = if (v_prev) matrix(pi, vb$n, K, byrow = TRUE) else NULL)
+    }
   }
-  logit_of <- function(Pi, pi) {
+  Pi_logits <- function(Pi) {
     Pi <- pmax(Pi, 1e-8)
     Pi <- sweep(Pi, 2, colSums(Pi), "/")
+    as.numeric(log(Pi[-1L, , drop = FALSE]) - rep(log(Pi[1L, ]), each = s))
+  }
+  pi_logits <- function(pi) {
     pi <- pmax(pi, 1e-8)
-    pi <- pi / sum(pi)
-    c(as.numeric(log(Pi[-1L, , drop = FALSE]) -
-                   rep(log(Pi[1L, ]), each = s)),
-      log(pi[-1L]) - log(pi[1L]))
+    log(pi[-1L] / sum(pi)) - log(pi[1L] / sum(pi))
+  }
+  # Score rows of the prevalence parameters from residuals R (rows x s).
+  prev_scores <- function(R, wmat) {
+    if (!has_model) return(R)
+    out <- matrix(0, nrow(R), n_b)
+    for (k in seq_len(q_w)) out[, (k - 1L) * s + seq_len(s)] <- R * wmat[, k]
+    out
   }
 
   # Main-study rows (internal validation rows use their true category).
   main_parts <- function(th, jac = FALSE) {
     u <- unpack(th)
-    logprior <- log(u$Pi)[z_hat + 1L, , drop = FALSE] +
-      rep(log(u$pi), each = n)
+    logprior <- log(u$Pi)[z_hat + 1L, , drop = FALSE] + log(u$P)
     pp <- .mcglm_ec_parts(u$theta, model, logprior, w = w, jac = jac)
     if (internal) {
       model_v <- .mcglm_ec_subset(model, vb$index)
@@ -363,33 +391,32 @@
       pp$U[vb$index, ] <- pv$U
       pp$omega[vb$index, ] <- omega_fix[vb$index, ]
       pp$loglik[vb$index] <- pv$loglik +
-        log(u$Pi[cbind(z_hat[vb$index] + 1L, vb$z + 1L)]) + log(u$pi[vb$z + 1L])
+        log(u$Pi[cbind(z_hat[vb$index] + 1L, vb$z + 1L)]) +
+        log(u$P[cbind(vb$index, vb$z + 1L)])
       if (jac) {
         pn <- .mcglm_ec_parts(u$theta, model_v, logprior[vb$index, , drop = FALSE],
                               w = w[vb$index], jac = TRUE)
         pp$J <- pp$J - pn$J + pv$J
       }
     }
-    G <- matrix(0, n, q + n_a + s)
+    G <- matrix(0, n, q + n_a + n_b)
     G[, seq_len(q)] <- pp$U
     om <- pp$omega
     for (l in seq_len(K))
       G[, q + (l - 1L) * s + seq_len(s)] <- om[, l] *
         (Hm[, -1L, drop = FALSE] - rep(u$Pi[-1L, l], each = n))
-    G[, q + n_a + seq_len(s)] <- om[, -1L, drop = FALSE] -
-      rep(u$pi[-1L], each = n)
+    G[, b_cols] <- prev_scores((om - u$P)[, -1L, drop = FALSE], w_main)
     list(G = G, loglik = pp$loglik, omega = om, J = pp$J, u = u)
   }
   ext_rows <- function(th) {
     if (internal) return(NULL)
     u <- unpack(th)
-    G <- matrix(0, vb$n, q + n_a + s)
+    G <- matrix(0, vb$n, q + n_a + n_b)
     for (l in seq_len(K))
       G[, q + (l - 1L) * s + seq_len(s)] <- dt * Zv[, l] *
         (Hv[, -1L, drop = FALSE] - rep(u$Pi[-1L, l], each = vb$n))
     if (v_prev)
-      G[, q + n_a + seq_len(s)] <- dt * (Zv[, -1L, drop = FALSE] -
-                                           rep(u$pi[-1L], each = vb$n))
+      G[, b_cols] <- prev_scores(dt * (Zv - u$P_v)[, -1L, drop = FALSE], w_v)
     G
   }
   total_score <- function(th) {
@@ -401,14 +428,17 @@
     ll <- sum(w * mp$loglik)
     if (!internal) {
       ll <- ll + sum(dt * log(u$Pi[cbind(vb$proxy + 1L, vb$z + 1L)]))
-      if (v_prev) ll <- ll + sum(dt * log(u$pi[vb$z + 1L]))
+      if (v_prev) ll <- ll + sum(dt * log(u$P_v[cbind(seq_len(vb$n), vb$z + 1L)]))
     }
     ll
   }
 
-  # EM: closed-form M-steps for Pi and pi, weighted GLM for (psi, tau).
-  th <- c(.mcglm_ec_start(psi_naive, model, xi_hat, wt),
-          logit_of(unname(est$Pi), unname(est$pi)))
+  # EM: closed-form M-step for Pi, closed form (constant) or weighted
+  # nnet::multinom (prevalence model) for the prevalence, weighted GLM for
+  # (psi, tau).
+  par_est <- est$map(est$eta)
+  th <- c(.mcglm_ec_start(psi_naive, model, xi_hat, wt), Pi_logits(unname(est$Pi)),
+          if (has_model) as.numeric(par_est$alpha) else pi_logits(unname(est$pi)))
   ll_old <- -Inf
   for (it in seq_len(500L)) {
     mp <- main_parts(th)
@@ -416,11 +446,23 @@
     cnt <- crossprod(Hm * w, om)            # K x K: [j, l]
     if (!internal) cnt <- cnt + crossprod(Hv * dt, Zv)
     Pi_new <- sweep(cnt, 2, colSums(cnt), "/")
-    pc <- colSums(w * om)
-    if (v_prev) pc <- pc + colSums(dt * Zv)
-    pi_new <- pc / sum(pc)
+    if (has_model) {
+      codes <- rep(0:s, each = n)
+      design <- w_main[rep(seq_len(n), K), , drop = FALSE]
+      wts <- as.numeric(w * om)
+      if (v_prev) {
+        codes <- c(codes, vb$z)
+        design <- rbind(design, w_v)
+        wts <- c(wts, dt)
+      }
+      b_new <- as.numeric(.mc_multinom(codes, design, wts, K))
+    } else {
+      pc <- colSums(w * om)
+      if (v_prev) pc <- pc + colSums(dt * Zv)
+      b_new <- pi_logits(pc / sum(pc))
+    }
     th_psi <- .mcglm_ec_mstep(th[seq_len(q)], model, om, w)
-    th <- c(th_psi, logit_of(Pi_new, pi_new))
+    th <- c(th_psi, Pi_logits(Pi_new), b_new)
     ll <- total_loglik(main_parts(th), unpack(th))
     if (abs(ll - ll_old) < 1e-11 * (1 + abs(ll))) break
     ll_old <- ll
@@ -450,29 +492,40 @@
   }
 
   u <- unpack(th)
-  # Delta method from logits to the free probabilities (as in estimate_mc).
-  to_prob <- function(lg) {
+  # Delta method from the logits to the reported nuisance parameters (free
+  # entries of Pi, then pi or the prevalence-model coefficients).
+  to_eta <- function(lg) {
     uu <- unpack(c(th[seq_len(q)], lg))
-    c(as.numeric(uu$Pi[-1L, , drop = FALSE]), uu$pi[-1L])
+    c(as.numeric(uu$Pi[-1L, , drop = FALSE]),
+      if (has_model) as.numeric(uu$alpha) else uu$pi[-1L])
   }
-  Jp <- .mc_num_jacobian(to_prob, th[-seq_len(q)])
+  Jp <- .mc_num_jacobian(to_eta, th[-seq_len(q)])
   V_eta <- Jp %*% V[-seq_len(q), -seq_len(q), drop = FALSE] %*% t(Jp)
-  eta_names <- c(as.vector(outer(seq_len(s), 0:s,
-                                 function(j, l) sprintf("Pi[%d,%d]", j, l))),
-                 sprintf("pi[%d]", seq_len(s)))
+  eta_names <- names(est$eta)
+  if (!has_model && est$prevalence$method == "inverse")
+    eta_names <- NULL
+  if (is.null(eta_names) || length(eta_names) != nrow(V_eta))
+    eta_names <- c(as.vector(outer(seq_len(s), 0:s,
+                                   function(j, l) sprintf("Pi[%d,%d]", j, l))),
+                   sprintf("pi[%d]", seq_len(s)))
   dimnames(V_eta) <- list(eta_names, eta_names)
   lev <- est$levels
   Pi <- u$Pi
   dimnames(Pi) <- list(z_hat = lev, z = lev)
-  pi <- stats::setNames(u$pi, lev)
-  W <- .mcglm_predictive_matrix(u$Pi, u$pi)
-  dimnames(W) <- list(z_hat = lev, z = lev)
+  pi <- stats::setNames(if (has_model) colMeans(u$P) else u$pi, lev)
+  W <- NULL
+  if (!has_model) {
+    W <- .mcglm_predictive_matrix(u$Pi, u$pi)
+    dimnames(W) <- list(z_hat = lev, z = lev)
+  }
   list(coefficients = th[seq_len(p)],
        vcov = V[seq_len(p), seq_len(p), drop = FALSE],
        sigma = if (model$has_sigma) exp(th[p + 1L]) else NULL,
        converged = sol$termcd <= 2, termcd = sol$termcd,
        iterations = sol$iter, em_iterations = it,
-       nuisance = list(Pi = Pi, pi_z = pi, W = W, vcov = V_eta,
+       nuisance = list(Pi = Pi, pi_z = pi, W = W,
+                       alpha = if (has_model) u$alpha else NULL,
+                       vcov = V_eta,
                        sigma = if (model$has_sigma) exp(th[p + 1L]) else NULL,
                        prevalence = if (internal) "joint" else prev_mode,
                        variance = control$variance))

@@ -59,6 +59,19 @@
 #'   \code{"warn"} (default), \code{"error"} or \code{"none"}.
 #' @param em_maxit,em_tol Iteration limit and tolerance of the EM
 #'   prevalence.
+#' @param prevalence_model Optional one-sided formula for a covariate-
+#'   dependent prevalence \eqn{\Pr(Z = \ell \mid x)}, a multinomial logit
+#'   (binary logit for \eqn{K = 2}) fitted with \code{nnet::multinom}
+#'   (Yi et al., 2019, Section 4.3). Use it when the latent category depends
+#'   on covariates (e.g. occupation on region and industry): the constant
+#'   prevalence of \code{"sub"}, \code{"ec"} and \code{"il"} then makes
+#'   them inconsistent. The model is fitted on the validation sample
+#'   (\code{prevalence = "validation"}; design-weighted) or by maximum
+#'   likelihood from the main study's proxies given \eqn{\hat\Pi}
+#'   (\code{prevalence = "em"}); \code{"il"} estimates it jointly.
+#'   Variables are taken from the main-study data and, for an external
+#'   audit with \code{prevalence = "validation"}, from
+#'   \code{validation_sample(data = )}.
 #' @return An object of class \code{"mc_control"}.
 #' @seealso \code{\link{estimate_mc}}, \code{\link{mcglm}}
 #' @export
@@ -68,7 +81,8 @@ control_mc <- function(estimator = "mle",
                        beta_equation = c("auto", "yi", "weighted"),
                        kappa_max = 100, sigma_min = 0.05, min_class_n = 10,
                        on_ill = c("warn", "error", "none"),
-                       em_maxit = 1000L, em_tol = 1e-10) {
+                       em_maxit = 1000L, em_tol = 1e-10,
+                       prevalence_model = NULL) {
   estimator <- match.arg(estimator, "mle")
   num_ok <- function(v) is.numeric(v) && length(v) == 1L && is.finite(v) &&
     v >= 0
@@ -76,8 +90,17 @@ control_mc <- function(estimator = "mle",
       !num_ok(em_maxit) || !num_ok(em_tol))
     stop("control_mc(): thresholds and EM settings must be single ",
          "non-negative numbers.", call. = FALSE)
+  if (!is.null(prevalence_model) &&
+      (!inherits(prevalence_model, "formula") || length(prevalence_model) != 2L))
+    stop("prevalence_model must be a one-sided formula, e.g. ~ x1 + region.",
+         call. = FALSE)
+  prevalence <- match.arg(prevalence)
+  if (!is.null(prevalence_model) && prevalence == "inverse")
+    stop("prevalence = 'inverse' has no covariate-dependent version; use ",
+         "'validation' or 'em' with prevalence_model.", call. = FALSE)
   structure(list(estimator = estimator,
-                 prevalence = match.arg(prevalence),
+                 prevalence = prevalence,
+                 prevalence_model = prevalence_model,
                  variance = match.arg(variance),
                  beta_equation = match.arg(beta_equation),
                  kappa_max = kappa_max, sigma_min = sigma_min,
@@ -125,6 +148,8 @@ control_mc <- function(estimator = "mle",
 #'   \code{mc()} variable when \code{z_hat} is not given.
 #' @param main_weights Optional main-study frequency weights.
 #' @param control A \code{\link{control_mc}} object.
+#' @param data Main-study data frame with the variables of
+#'   \code{control$prevalence_model} (rows aligned with \code{z_hat}).
 #' @return An object of class \code{"mc_estimate"} with components
 #'   \code{Pi}, \code{pi}, \code{W} (labelled by category), \code{K},
 #'   \code{levels}, \code{eta} (free parameters), \code{vcov} (their
@@ -146,18 +171,20 @@ control_mc <- function(estimator = "mle",
 #' summary(est)
 #' @export
 estimate_mc <- function(validation, z_hat = NULL, K = NULL, levels = NULL,
-                        main_weights = NULL, control = control_mc()) {
+                        main_weights = NULL, control = control_mc(),
+                        data = NULL) {
   val <- as_validation_sample(validation)
   if (!inherits(control, "mc_control"))
     stop("control must be created by control_mc().", call. = FALSE)
   cats <- .mc_category_levels(val, z_hat, K, levels)
-  .estimate_mc_codes(val, cats$z_hat, cats$levels, main_weights, control)
+  .estimate_mc_codes(val, cats$z_hat, cats$levels, main_weights, control,
+                     data = data)
 }
 
 #' estimate_mc() on 0-based main-study codes and known category labels
 #' @keywords internal
 .estimate_mc_codes <- function(val, z_hat, levels, main_weights = NULL,
-                               control = control_mc()) {
+                               control = control_mc(), data = NULL) {
   K <- length(levels)
   needs_main <- val$type == "internal" ||
     control$prevalence %in% c("em", "inverse")
@@ -173,17 +200,52 @@ estimate_mc <- function(validation, z_hat = NULL, K = NULL, levels = NULL,
          call. = FALSE)
 
   vb   <- .mc_bind_validation(val, z_hat, K, main_weights, levels = levels)
-  nuis <- .mc_nuisance(vb, z_hat, K, control, main_weights)
-
-  par <- nuis$map(nuis$eta)
+  model <- control$prevalence_model
+  w_main <- NULL
+  w_v <- NULL
+  if (is.null(model)) {
+    nuis <- .mc_nuisance(vb, z_hat, K, control, main_weights)
+    par <- nuis$map(nuis$eta)
+  } else {
+    des_m <- if (!is.null(data)) .mc_prev_design(model, data) else NULL
+    if (!is.null(des_m) && !is.null(z_hat) && nrow(des_m$x) != length(z_hat))
+      stop("estimate_mc(data = ) must have one row per main-study proxy.",
+           call. = FALSE)
+    if (is.null(des_m) && (needs_main || val$type == "internal"))
+      .mc_prev_design(model, NULL)          # informative error
+    w_main <- des_m$x
+    w_v <- NULL
+    des <- des_m
+    if (control$prevalence == "validation") {
+      if (val$type == "internal") {
+        w_v <- w_main[vb$index, , drop = FALSE]
+      } else {
+        des_v <- .mc_prev_design(model, val$data, terms = des_m$terms,
+                                 xlevels = des_m$xlevels)
+        w_v <- des_v$x
+        if (is.null(des)) des <- des_v
+      }
+    }
+    nuis <- .mc_nuisance_model(vb, z_hat, K, control, main_weights, w_main,
+                               w_v)
+    nuis$prevalence$model <- list(formula = model, terms = des$terms,
+                                  xlevels = des$xlevels,
+                                  columns = colnames(des$x))
+    par <- nuis$map(nuis$eta)
+    probs <- .mc_prev_probs(par$alpha, if (is.null(w_main)) w_v else w_main)
+    par$pi <- colMeans(probs)
+    par$W <- NULL
+  }
   dimnames(par$Pi) <- list(z_hat = levels, z = levels)
-  dimnames(par$W)  <- list(z_hat = levels, z = levels)
+  if (!is.null(par$W)) dimnames(par$W) <- list(z_hat = levels, z = levels)
   names(par$pi)    <- levels
   est <- c(par,
            list(K = K, levels = levels, eta = nuis$eta, vcov = nuis$vcov,
                 map = nuis$map, rows = nuis$rows, A = nuis$A,
                 prevalence = nuis$prevalence, validation = vb,
                 z_hat = if (needs_main) z_hat else NULL,
+                w_main = w_main,
+                w_v = if (is.null(model)) NULL else w_v,
                 main_weights = main_weights, control = control,
                 main_dependent = needs_main))
   class(est) <- "mc_estimate"
@@ -304,6 +366,115 @@ estimate_mc <- function(validation, z_hat = NULL, K = NULL, levels = NULL,
                          boundary = !is.null(em_info) && em_info$boundary))
 }
 
+#' Nuisance estimates with a covariate-dependent prevalence
+#'
+#' Parameters: the free entries of \eqn{\Pi} (as without a model) and the
+#' multinomial-logit coefficients \eqn{\alpha} ((K - 1) x q, stored
+#' column-major). Estimating functions for \eqn{\alpha}:
+#' \itemize{
+#'   \item \code{prevalence = "validation"}: validation units,
+#'     \eqn{d_i\{1(Z_i = \ell) - \pi_\ell(x_i)\} x_i};
+#'   \item \code{prevalence = "em"}: main units,
+#'     \eqn{\{\Pr(Z = \ell \mid \hat Z_i, x_i) - \pi_\ell(x_i)\} x_i}, the
+#'     score of \eqn{\log \sum_\ell \Pi_{\hat z_i \ell}\pi_\ell(x_i)}.
+#' }
+#' Starting values come from \code{nnet::multinom} (EM with multinom
+#' M-steps for \code{"em"}); Newton steps then solve the stacked equations.
+#' @keywords internal
+.mc_nuisance_model <- function(vb, z_hat, K, control, wt, w_main, w_v) {
+  s <- K - 1L
+  n_pi <- K * s
+  src <- control$prevalence
+  n_m <- if (is.null(z_hat)) 0L else length(z_hat)
+  wt_m <- if (is.null(wt)) rep(1, n_m) else wt
+  d <- vb$d
+  dw <- d * vb$w_v
+  Zv <- outer(vb$z, 0:s, "==") * 1
+  Hv <- outer(vb$proxy, 0:s, "==") * 1
+  w_ref <- if (is.null(w_main)) w_v else w_main
+  q_w <- ncol(w_ref)
+  n_alpha <- s * q_w
+
+  Pi_hat <- crossprod(Hv * dw, Zv) / rep(colSums(dw * Zv), each = K)
+  em_iter <- NULL
+  if (src == "validation") {
+    alpha <- .mc_multinom(vb$z, w_v, dw, K)
+  } else {
+    alpha <- .mc_multinom(z_hat, w_main, wt_m, K)
+    rows_big <- rep(seq_len(n_m), K)
+    ll_old <- -Inf
+    for (em_iter in seq_len(min(control$em_maxit, 300L))) {
+      joint <- Pi_hat[z_hat + 1L, , drop = FALSE] * .mc_prev_probs(alpha, w_main)
+      ll <- sum(wt_m * log(rowSums(joint)))
+      if (abs(ll - ll_old) < 1e-10 * (1 + abs(ll))) break
+      ll_old <- ll
+      post <- joint / rowSums(joint)
+      alpha <- .mc_multinom(rep(0:s, each = n_m), w_main[rows_big, , drop = FALSE],
+                            as.numeric(wt_m * post), K)
+    }
+  }
+
+  map <- function(eta) {
+    eta <- unname(eta)
+    P  <- matrix(eta[seq_len(n_pi)], s, K)
+    list(Pi = rbind(1 - colSums(P), P),
+         alpha = matrix(eta[n_pi + seq_len(n_alpha)], s, q_w),
+         pi = NULL, W = NULL)
+  }
+  rows <- function(eta) {
+    pr <- map(eta)
+    v <- matrix(0, vb$n, n_pi + n_alpha)
+    for (l in seq_len(K))
+      v[, (l - 1L) * s + seq_len(s)] <- d * Zv[, l] *
+        (Hv[, -1L, drop = FALSE] - rep(pr$Pi[-1L, l], each = vb$n))
+    m <- NULL
+    if (src == "validation") {
+      R <- d * (Zv - .mc_prev_probs(pr$alpha, w_v))[, -1L, drop = FALSE]
+      for (k in seq_len(q_w))
+        v[, n_pi + (k - 1L) * s + seq_len(s)] <- R * w_v[, k]
+    } else {
+      P <- .mc_prev_probs(pr$alpha, w_main)
+      joint <- pr$Pi[z_hat + 1L, , drop = FALSE] * P
+      R <- (joint / rowSums(joint) - P)[, -1L, drop = FALSE]
+      m <- matrix(0, n_m, n_pi + n_alpha)
+      for (k in seq_len(q_w))
+        m[, n_pi + (k - 1L) * s + seq_len(s)] <- R * w_main[, k]
+    }
+    list(m = m, v = v)
+  }
+  total <- function(eta) {
+    r <- rows(eta)
+    out <- colSums(vb$w_v * r$v)
+    if (!is.null(r$m)) out <- out + colSums(wt_m * r$m)
+    out
+  }
+  eta <- c(as.numeric(Pi_hat[-1L, , drop = FALSE]), as.numeric(alpha))
+  scale <- sum(vb$w_v) + sum(wt_m)
+  sol <- nleqslv::nleqslv(eta, function(e) total(e) / scale,
+                          jac = function(e) .mc_num_jacobian(total, e) / scale,
+                          control = list(maxit = 100, ftol = 1e-12))
+  if (sol$termcd > 2)
+    warning("estimate_mc(): the prevalence model did not converge ",
+            "(termcd = ", sol$termcd, ").", call. = FALSE)
+  eta <- sol$x
+  A <- .mc_num_jacobian(total, eta)
+  r <- rows(eta)
+  B <- .mc_meat(r$m, r$v, vb, wt_m, n_m)
+  V <- .mc_sandwich_or_na(A, B, "estimate_mc()")
+
+  cols <- colnames(w_ref)
+  if (is.null(cols)) cols <- paste0("w", seq_len(q_w))
+  nms <- c(as.vector(outer(seq_len(s), 0:s,
+                           function(j, l) sprintf("Pi[%d,%d]", j, l))),
+           as.vector(outer(seq_len(s), cols,
+                           function(l, k) sprintf("alpha[%d,%s]", l, k))))
+  names(eta) <- nms
+  dimnames(V) <- list(nms, nms)
+  list(eta = eta, map = map, rows = rows, A = A, vcov = V,
+       prevalence = list(method = src, em = list(iterations = em_iter),
+                         boundary = FALSE))
+}
+
 #' Sandwich covariance, or NA with a warning when the bread is singular
 #'
 #' A singular bread arises at a boundary prevalence (EM) or with an empty
@@ -376,7 +547,12 @@ print.mc_estimate <- function(x, digits = 4L, ...) {
               if (vb$user_weights) ", design weights" else ""))
   cat("\nPi = P(z_hat = row | z = column):\n")
   print(round(x$Pi, digits))
-  cat("\nLatent prevalence pi:\n")
+  if (is.null(x$prevalence$model)) {
+    cat("\nLatent prevalence pi:\n")
+  } else {
+    cat("\nPrevalence model ", deparse(x$prevalence$model$formula),
+        "; average latent prevalence:\n", sep = "")
+  }
   print(round(x$pi, digits))
   if (length(x$diagnostics$problems))
     cat("\nDiagnostics:", paste(x$diagnostics$problems, collapse = "; "), "\n")

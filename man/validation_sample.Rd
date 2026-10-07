@@ -12,7 +12,8 @@ validation_sample(
   strata = NULL,
   estimator = c("hajek", "ht"),
   N = NULL,
-  N_strata = NULL
+  N_strata = NULL,
+  data = NULL
 )
 }
 \arguments{
@@ -52,6 +53,11 @@ for \code{estimator = "ht"} with an external sample.}
 from the main-study proxies for internal validation with
 \code{strata = "z_hat"}; otherwise required when \code{strata} is
 given without \code{weights}.}
+
+\item{data}{Optional data frame with the covariates of an external
+validation sample (one row per unit), needed when a prevalence model
+(\code{\link{control_mc}(prevalence_model = )}) is estimated from the
+audit. Internal audits take the covariates from the main study.}
 }
 \value{
 An object of class \code{"mc_validation"}.

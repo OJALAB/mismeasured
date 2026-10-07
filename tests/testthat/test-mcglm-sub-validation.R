@@ -40,10 +40,10 @@
        K = K, family = family, psi = c(gamma[-1L], -0.3, 0.5))
 }
 
-.subv_fit <- function(d, prevalence = "validation", ...) {
+.subv_fit <- function(d, prevalence = "validation", on_ill = "warn", ...) {
   mcglm(d$y, z_hat = d$z_hat, x = d$x, family = d$family,
         method = c("naive", "sub"), validation = d$v,
-        mc_control = control_mc(prevalence = prevalence), ...)
+        mc_control = control_mc(prevalence = prevalence, on_ill = on_ill), ...)
 }
 
 # Independent stacked estimating function: rows for every unit, columns
@@ -226,7 +226,7 @@ test_that("validated sub is consistent and its SEs are calibrated", {
     est <- se <- matrix(NA_real_, 150L, 3L)
     for (r in seq_len(150L)) {
       d <- .subv_data(type = type, n = 1500L, nv = 300L, seed = 1000L + r)
-      fit <- .subv_fit(d)
+      fit <- .subv_fit(d, on_ill = "none")
       est[r, ] <- coef(fit, method = "sub")
       se[r, ] <- fit$se$sub
     }

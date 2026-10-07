@@ -4,7 +4,11 @@
 \alias{.mcglm_sub_parts}
 \title{Per-observation subtraction-corrected score and its derivative pieces}
 \usage{
-.mcglm_sub_parts(psi, y, xi_hat, z_hat, x, K, fam, W)
+.mcglm_sub_parts(psi, y, xi_hat, x, K, fam, Wi)
+}
+\arguments{
+\item{Wi}{n x K matrix of \eqn{\Pr(Z = \ell \mid \hat Z_i, x_i)} (rows of
+the predictive matrix, or row-specific under a prevalence model).}
 }
 \value{
 List with \code{U} (n x p estimating-function rows),

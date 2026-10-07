@@ -63,14 +63,15 @@
 
 #' Per-observation subtraction-corrected score and its derivative pieces
 #'
+#' @param Wi n x K matrix of \eqn{\Pr(Z = \ell \mid \hat Z_i, x_i)} (rows of
+#'   the predictive matrix, or row-specific under a prevalence model).
 #' @return List with \code{U} (n x p estimating-function rows),
 #'   \code{D} (n x p matrix of d nu_i / d psi), \code{mu} (n x K class
 #'   means) and \code{nu} (length-n corrected means).
 #' @keywords internal
-.mcglm_sub_parts <- function(psi, y, xi_hat, z_hat, x, K, fam, W) {
+.mcglm_sub_parts <- function(psi, y, xi_hat, x, K, fam, Wi) {
   mu  <- .mcglm_class_eval(psi, x, K, fam$linkinv)
   mud <- .mcglm_class_eval(psi, x, K, fam$mu.eta)
-  Wi  <- W[z_hat + 1L, , drop = FALSE]
   nu  <- rowSums(Wi * mu)
   D   <- cbind(Wi[, -1L, drop = FALSE] * mud[, -1L, drop = FALSE],
                rowSums(Wi * mud) * x)
@@ -88,11 +89,12 @@
   fam <- .normalize_family(family)
   w   <- if (is.null(wt)) rep(1, length(y)) else wt
   N   <- sum(w)
+  Wi  <- W[z_hat + 1L, , drop = FALSE]
 
   score_mean <- function(psi)
-    colSums(w * .mcglm_sub_parts(psi, y, xi_hat, z_hat, x, K, fam, W)$U) / N
+    colSums(w * .mcglm_sub_parts(psi, y, xi_hat, x, K, fam, Wi)$U) / N
   score_jac <- function(psi) {
-    D <- .mcglm_sub_parts(psi, y, xi_hat, z_hat, x, K, fam, W)$D
+    D <- .mcglm_sub_parts(psi, y, xi_hat, x, K, fam, Wi)$D
     -crossprod(xi_hat * w, D) / N
   }
 
@@ -116,10 +118,10 @@
                                      control = control_mc()) {
   fam <- .normalize_family(family)
   U_fun <- function(psi, par)
-    .mcglm_sub_parts(psi, y, xi_hat, z_hat, x, K, fam, par$W)$U
+    .mcglm_sub_parts(psi, y, xi_hat, x, K, fam, par$Wi)$U
   J_fun <- function(psi, par, w)
     -crossprod(xi_hat * w,
-               .mcglm_sub_parts(psi, y, xi_hat, z_hat, x, K, fam, par$W)$D)
+               .mcglm_sub_parts(psi, y, xi_hat, x, K, fam, par$Wi)$D)
   .mcglm_fit_validated(psi_init, est, y, x, z_hat, K, fam, U_fun, J_fun,
                        wt = wt, control = control, label = "SUB")
 }
@@ -135,7 +137,8 @@
   fam <- .normalize_family(family)
   w   <- if (is.null(wt)) rep(1, length(y)) else wt
   N   <- sum(w)
-  parts <- .mcglm_sub_parts(psi, y, xi_hat, z_hat, x, K, fam, W)
+  parts <- .mcglm_sub_parts(psi, y, xi_hat, x, K, fam,
+                            W[z_hat + 1L, , drop = FALSE])
   S <- crossprod(parts$U * w, parts$U) / N
   J <- -crossprod(xi_hat * w, parts$D) / N
   J_inv <- solve(J)

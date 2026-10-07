@@ -10,7 +10,8 @@ estimate_mc(
   K = NULL,
   levels = NULL,
   main_weights = NULL,
-  control = control_mc()
+  control = control_mc(),
+  data = NULL
 )
 }
 \arguments{
@@ -33,6 +34,9 @@ own labels. Use it so that the estimate matches the levels of the
 \item{main_weights}{Optional main-study frequency weights.}
 
 \item{control}{A \code{\link{control_mc}} object.}
+
+\item{data}{Main-study data frame with the variables of
+\code{control$prevalence_model} (rows aligned with \code{z_hat}).}
 }
 \value{
 An object of class \code{"mc_estimate"} with components

@@ -544,8 +544,44 @@ with the sample size. `"cs_akn"` differs by `r d3("cs_akn")`, that is
 `r formatC(abs(dep["x1", "cs_akn"] - dep["x1", 1]) / dep["se_x1", "cs_akn"], format = "f", digits = 1)`
 of its standard errors
 (`r formatC(dep["se_x1", "cs_akn"], format = "f", digits = 3)`), which is
-ordinary sampling variation; in repeated samples it is unbiased. Its standard errors are larger, so it is the
-estimator to use when the independence of $Z$ and $x$ is doubtful.
+ordinary sampling variation; in repeated samples it is unbiased. Its standard errors are larger: it needs neither
+the independence of $Z$ and $x$ nor a model for $\Pr(Z \mid x)$.
+
+Because the audit is internal, `mcglm()` also tested whether the true
+category is associated with the covariates in the audit and warned:
+
+```{r dependence-test}
+fit_dep$independence_test
+```
+
+The remedy for `"sub"`, `"ec"` and `"il"` is a covariate-dependent
+prevalence, a multinomial logit for $\Pr(Z \mid x)$ fitted with
+`nnet::multinom` (Yi et al., 2019, Section 4.3):
+
+```{r dependence-model}
+fit_dep_pm <- mcglm(y ~ mc(z) + x1, data = df_dep,
+                    method = c("sub", "il"),
+                    validation = validation_sample(df_dep$z_true[idx_dep],
+                                                   index = idx_dep),
+                    mc_control = control_mc(prevalence_model = ~ x1))
+dep_pm <- sapply(c("sub", "il"), function(m)
+  c(coef(fit_dep_pm, method = m)[c("gamma", "x1")],
+    fit_dep_pm$se[[m]][c("gamma", "x1")]))
+rownames(dep_pm) <- c("gamma", "x1", "se_gamma", "se_x1")
+round(cbind(dep, model_sub = dep_pm[, "sub"], model_il = dep_pm[, "il"]), 3)
+```
+
+```{r dependence-model-numbers, include = FALSE}
+d3pm <- function(m) formatC(dep_pm["x1", m] - dep["x1", "true Z (infeasible)"],
+                            format = "f", digits = 3, flag = "+")
+```
+
+With the prevalence model the slopes of `"sub"` and `"il"` differ from the
+true-category fit by `r d3pm("sub")` and `r d3pm("il")`, and they keep
+smaller standard errors than `"cs_akn"`. For an external audit, give its
+covariates with `validation_sample(z, z_hat, data = audit_df)`, or estimate
+the model from the regression data's proxies with
+`control_mc(prevalence = "em", prevalence_model = ~ x1)`.
 
 ## Summary
 
@@ -557,6 +593,7 @@ estimator to use when the independence of $Z$ and $x$ is doubtful.
 | Internal, fixed $n$ per predicted class | `(z, index = rows, strata = "z_hat")` | weights $N_j/n_j$ from the data |
 | Internal, unequal known probabilities | `(z, index = rows, weights = 1/p)` | design-weighted equation; Hajek or `estimator = "ht"` |
 | External, stratified | `(z, z_hat, strata = ..., N_strata = ...)` | stratum-centred variance |
+| True category depends on covariates | any of the above + `control_mc(prevalence_model = ~ x1 + ...)`, or `method = "cs_akn"` | external audits with `prevalence = "validation"` need `validation_sample(data = )` |
 
 ## References
 

@@ -37,6 +37,19 @@
   steps; sandwich variance). For internal audits `"il"` needs no design
   weights when selection depends on the observed outcome, proxy and
   covariates.
+* **Covariate-dependent prevalence.** `control_mc(prevalence_model = ~ x1 +
+  region)` replaces the constant prevalence of `"sub"`, `"ec"` and `"il"` by a
+  multinomial logit `P(Z | x)` (Yi et al., 2019, Section 4.3), fitted with
+  `nnet::multinom` (now in Imports): on the validation sample
+  (`prevalence = "validation"`, design-weighted; external audits supply
+  covariates through `validation_sample(data = )`), by maximum likelihood
+  from the main study's proxies given `Pi` (`prevalence = "em"`), or jointly
+  in `"il"`. Its coefficients enter the stacked sandwich. Without it, these
+  methods (and `"bca"`, `"bcm"`, `"cs"`) assume that the latent category is
+  independent of the covariates and are biased otherwise; `mcglm()` now
+  tests that association in internal validation samples and warns when it
+  is significant (`fit$independence_test`; follows `control_mc(on_ill)`).
+  `estimate_mc()` gains a `data` argument for the model's variables.
 * **`"cs_akn"` with validation samples.** The corrected score of
   Akazawa, Kinukawa and Nakamura (Yi et al., 2019, eq. 17) estimates `Pi`
   from an internal or external audit and propagates its uncertainty

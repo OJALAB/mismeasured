@@ -190,6 +190,16 @@ depends on the method:
     \code{prevalence = "validation"}, \eqn{\log \pi_z} (design
     weights, normalised to sum to \eqn{n_V}, give a
     pseudo-likelihood). The estimates are in \code{$nuisance$il}.}
+  \item{prevalence model}{with \code{control_mc(prevalence_model =
+    ~ ...)}, \code{"sub"}, \code{"ec"} and \code{"il"} use
+    \eqn{\Pr(Z = \ell \mid \hat Z_i, x_i) \propto \Pi_{\hat z_i \ell}
+    \pi_\ell(x_i)} with a multinomial-logit \eqn{\pi_\ell(x)} fitted by
+    \code{nnet::multinom}; its coefficients are part of the stacked
+    sandwich (\code{"il"}: of the joint likelihood). The model's
+    variables come from \code{data} (formula interface) and, for an
+    external audit with \code{prevalence = "validation"}, from
+    \code{validation_sample(data = )}. \code{"bca"}, \code{"bcm"} and
+    \code{"cs"} cannot be combined with it.}
   \item{\code{"cs_akn"}}{\eqn{\Pi} is estimated from the validation
     sample and plugged into the unbiased surrogate; the stacked
     sandwich propagates its uncertainty. The prevalence is not used,
@@ -285,6 +295,17 @@ matrix \eqn{\Pi_{j\ell} = \Pr(\hat Z = j - 1 \mid Z = \ell - 1)}
 (column-stochastic) and the prevalence vector
 \eqn{(\pi_0, \dots, \pi_{K-1})}. Misclassification is assumed
 nondifferential: \eqn{\hat Z \perp\!\!\!\perp (Y, x) \mid Z}.
+
+\emph{Prevalence.} BCA, BCM, CS, SUB, EC and IL use \eqn{\Pr(Z = \ell)}
+and assume that \eqn{Z} is independent of \eqn{x}; when the latent
+category depends on the covariates they are biased (Yi et al., 2019,
+Sections 3.5 and 4.3). With a validation sample, SUB, EC and IL can
+instead use a covariate-dependent prevalence \eqn{\Pr(Z = \ell \mid x)}
+(\code{\link{control_mc}(prevalence_model = ~ ...)}), and CS-AKN does not
+use the prevalence at all. For an internal validation sample without a
+prevalence model, \code{mcglm} tests the association between the true
+category and \eqn{x} in the audit (likelihood ratio, stored in
+\code{$independence_test}) and warns when \eqn{p < 0.01}.
 
 \emph{Estimators.}
 Let \eqn{\hat\psi} solve the proxy score

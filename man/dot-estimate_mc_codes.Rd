@@ -9,7 +9,8 @@
   z_hat,
   levels,
   main_weights = NULL,
-  control = control_mc()
+  control = control_mc(),
+  data = NULL
 )
 }
 \description{

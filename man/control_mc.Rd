@@ -14,7 +14,8 @@ control_mc(
   min_class_n = 10,
   on_ill = c("warn", "error", "none"),
   em_maxit = 1000L,
-  em_tol = 1e-10
+  em_tol = 1e-10,
+  prevalence_model = NULL
 )
 }
 \arguments{
@@ -55,6 +56,20 @@ validation units per true category.}
 
 \item{em_maxit, em_tol}{Iteration limit and tolerance of the EM
 prevalence.}
+
+\item{prevalence_model}{Optional one-sided formula for a covariate-
+dependent prevalence \eqn{\Pr(Z = \ell \mid x)}, a multinomial logit
+(binary logit for \eqn{K = 2}) fitted with \code{nnet::multinom}
+(Yi et al., 2019, Section 4.3). Use it when the latent category depends
+on covariates (e.g. occupation on region and industry): the constant
+prevalence of \code{"sub"}, \code{"ec"} and \code{"il"} then makes
+them inconsistent. The model is fitted on the validation sample
+(\code{prevalence = "validation"}; design-weighted) or by maximum
+likelihood from the main study's proxies given \eqn{\hat\Pi}
+(\code{prevalence = "em"}); \code{"il"} estimates it jointly.
+Variables are taken from the main-study data and, for an external
+audit with \code{prevalence = "validation"}, from
+\code{validation_sample(data = )}.}
 }
 \value{
 An object of class \code{"mc_control"}.

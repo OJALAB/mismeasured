@@ -14,11 +14,15 @@
   family,
   W,
   wt = NULL,
-  label = "EC"
+  label = "EC",
+  Wi = NULL
 )
 }
 \arguments{
 \item{W}{Predictive matrix \eqn{\Pr(Z = \ell \mid \hat Z = j)}.}
+
+\item{Wi}{Optional n x K row-specific prior weights (overrides
+\code{W}; used under a prevalence model).}
 }
 \value{
 List with \code{coefficients} (psi), \code{theta}, \code{vcov}

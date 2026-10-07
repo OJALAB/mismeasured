@@ -54,12 +54,35 @@
   -crossprod(parts$xi * (w * parts$mud), parts$xi)
 }
 
+#' Row-specific predictive probabilities for the main study
+#'
+#' Adds \code{Wi} (n x K, \eqn{\Pr(Z = \ell \mid \hat Z_i, x_i)}) to the
+#' parameters returned by an estimate's \code{map()}: the proxy's row of the
+#' predictive matrix for a constant prevalence, or
+#' \eqn{\Pi_{\hat z_i \ell}\pi_\ell(x_i) / \sum_m \Pi_{\hat z_i m}\pi_m(x_i)}
+#' under a prevalence model (with \code{P}, the n x K prevalences).
+#' @keywords internal
+.mc_with_rows <- function(par, z_hat, w_main = NULL) {
+  if (is.null(par$alpha)) {
+    par$Wi <- par$W[z_hat + 1L, , drop = FALSE]
+    return(par)
+  }
+  par$P <- .mc_prev_probs(par$alpha, w_main)
+  joint <- par$Pi[z_hat + 1L, , drop = FALSE] * par$P
+  par$Wi <- joint / rowSums(joint)
+  par
+}
+
 #' Check that an estimate object belongs to the main study being fitted
 #' @keywords internal
 .mcglm_check_estimate <- function(est, z_hat, K, wt) {
   if (est$K != K)
     stop("The estimate_mc() object has K = ", est$K, " but the model has K = ",
          K, ".", call. = FALSE)
+  if (!is.null(est$prevalence$model) &&
+      (is.null(est$w_main) || nrow(est$w_main) != length(z_hat)))
+    stop("The estimate_mc() object's prevalence model has no covariates for ",
+         "the data being fitted.", call. = FALSE)
   if (isTRUE(est$main_dependent)) {
     if (!identical(as.integer(est$z_hat), as.integer(z_hat)))
       stop("The estimate_mc() object was computed with different main-study ",
@@ -145,7 +168,7 @@
         true_fun$J(psi, vb$d * wt_m[idx])
   }
 
-  par0 <- est$map(est$eta)
+  par0 <- .mc_with_rows(est$map(est$eta), z_hat, est$w_main)
   N <- sum(wt_m)
   sol <- nleqslv::nleqslv(
     psi_init,
@@ -159,7 +182,9 @@
   # Stacked sandwich over (psi, eta).
   A_pp <- psi_jac(psi, par0)
   A_pe <- .mc_num_jacobian(
-    function(e) colSums(wt_m * psi_rows(psi, est$map(e))), unname(est$eta))
+    function(e) colSums(wt_m * psi_rows(psi, .mc_with_rows(est$map(e), z_hat,
+                                                            est$w_main))),
+    unname(est$eta))
   A <- rbind(cbind(A_pp, A_pe), cbind(matrix(0, q, p), est$A))
   r <- est$rows(est$eta)
   G_m <- cbind(psi_rows(psi, par0),
