@@ -105,7 +105,7 @@
 #'   \item If \code{Pi} is supplied with \code{nrow(Pi) == 2},
 #'     \code{p01 = Pi[2, 1]} and \code{p10 = Pi[1, 2]} are extracted.
 #'   \item If \code{Pi} and \code{z_hat} are available but \code{pi_z}
-#'     is not, \code{pi_z} is estimated by Bayesian inversion of the
+#'     is not, \code{pi_z} is estimated by maximum likelihood from the
 #'     observed proxy frequencies (\code{.mcglm_estimate_pi_z}).
 #'   \item If \code{p01}, \code{p10}, \code{pi_z} are available but
 #'     \code{c1}, \code{c2} are not, the latter are computed from the
@@ -151,8 +151,9 @@
 #'   \eqn{\pi = \Pr(Z = 1)} (\code{K = 2}) or a \eqn{K}-vector
 #'   \eqn{(\pi_0, \dots, \pi_{K-1})} of class probabilities. If
 #'   \code{NULL}, \code{pi_z} is estimated from \code{z_hat} and
-#'   \code{Pi} via \eqn{\hat\pi = \Pi^{-1} \hat\pi_{\text{obs}}}
-#'   (clamped to \eqn{[0.01, 0.99]}).
+#'   \code{Pi} by maximum likelihood (EM; equal to
+#'   \eqn{\Pi^{-1} \hat\pi_{\text{obs}}} when that is a valid probability
+#'   vector, the boundary estimate with a warning otherwise).
 #' @param Pi The \eqn{K \times K} misclassification matrix
 #'   \eqn{\Pi_{j\ell} = \Pr(\hat Z = j - 1 \mid Z = \ell - 1)}; columns
 #'   must sum to 1. Extracted automatically from the \code{mc()} term

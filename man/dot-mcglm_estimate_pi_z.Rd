@@ -12,10 +12,13 @@
 \item{Pi}{K x K misclassification matrix.}
 }
 \value{
-Numeric vector of length K (estimated true prevalences).
+Numeric vector of length K (estimated true prevalences); a
+  scalar \eqn{\Pr(Z = 1)} when K = 2.
 }
 \description{
-Uses Bayesian inversion: if pi_obs = Pi %*% pi_z, then
-pi_z = solve(Pi) %*% pi_obs. Clamps to [0.01, 0.99] for stability.
+Maximum-likelihood estimate of the latent prevalence from the proxy
+frequencies (EM, \code{.mc_prevalence_em}). It equals
+\eqn{\Pi^{-1}\hat p} when that is a valid probability vector and the
+boundary MLE otherwise (with a warning) -- no clamping.
 }
 \keyword{internal}

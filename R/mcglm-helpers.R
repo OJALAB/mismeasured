@@ -5,11 +5,14 @@
 
 #' Estimate pi_z (true prevalence) from observed proxy and Pi
 #'
-#' Uses Bayesian inversion: if pi_obs = Pi %*% pi_z, then
-#' pi_z = solve(Pi) %*% pi_obs. Clamps to [0.01, 0.99] for stability.
+#' Maximum-likelihood estimate of the latent prevalence from the proxy
+#' frequencies (EM, \code{.mc_prevalence_em}). It equals
+#' \eqn{\Pi^{-1}\hat p} when that is a valid probability vector and the
+#' boundary MLE otherwise (with a warning) -- no clamping.
 #' @param z_hat Integer vector of observed proxy values (0-based).
 #' @param Pi K x K misclassification matrix.
-#' @return Numeric vector of length K (estimated true prevalences).
+#' @return Numeric vector of length K (estimated true prevalences); a
+#'   scalar \eqn{\Pr(Z = 1)} when K = 2.
 #' @keywords internal
 .mcglm_estimate_pi_z <- function(z_hat, Pi) {
   K <- nrow(Pi)
@@ -17,34 +20,26 @@
   if (any(z_hat < 0L) || any(z_hat >= K))
     stop("z_hat must be coded 0, ..., K-1 (K = ", K, "); got values in [",
          min(z_hat), ", ", max(z_hat), "].", call. = FALSE)
-  # Observed proportions
   tab <- tabulate(z_hat + 1L, nbins = K)
   if (any(tab == 0L))
     stop("Cannot estimate pi_z: proxy category ",
          paste(which(tab == 0L) - 1L, collapse = ", "),
          " has no observations in z_hat (K = ", K, " from Pi). ",
-         "Clamping would fabricate a prevalence for it. Supply pi_z ",
-         "directly, or collapse Pi to the observed categories.",
+         "Supply pi_z directly, or collapse Pi to the observed categories.",
          call. = FALSE)
-  pi_obs <- tab / sum(tab)
-  # Invert: pi_z = Pi^{-1} %*% pi_obs
-  pi_raw <- tryCatch(
-    as.numeric(solve(Pi, pi_obs)),
-    error = function(e)
-      stop("Cannot estimate pi_z: the misclassification matrix Pi is ",
-           "singular. Supply pi_z directly.", call. = FALSE)
-  )
-  # Clamp to valid range (two-sided) and renormalize
-  pi_z <- pmin(pmax(pi_raw, 0.01), 0.99)
-  pi_z <- pi_z / sum(pi_z)
-  if (max(abs(pi_z - pi_raw)) > 0.01)
-    warning("Estimated pi_z required clamping to [0.01, 0.99]: ",
-            "Pi-inversion gave (", paste(round(pi_raw, 4), collapse = ", "),
-            "), using (", paste(round(pi_z, 4), collapse = ", "), "). ",
-            "The observed proxy frequencies are barely consistent with ",
-            "Pi; consider supplying pi_z directly.", call. = FALSE)
-  if (K == 2L) return(pi_z[2])  # scalar for binary case
-  pi_z
+  tryCatch(solve(Pi),
+           error = function(e)
+             stop("Cannot estimate pi_z: the misclassification matrix Pi is ",
+                  "singular. Supply pi_z directly.", call. = FALSE))
+  em <- .mc_prevalence_em(tab / sum(tab), Pi)
+  if (em$boundary)
+    warning("Estimated pi_z lies on the boundary of the probability ",
+            "simplex (", paste(round(em$pi, 4), collapse = ", "), "): Pi^{-1} ",
+            "applied to the proxy frequencies is not a valid prevalence. ",
+            "The observed proxies are barely consistent with Pi; consider ",
+            "supplying pi_z directly.", call. = FALSE)
+  if (K == 2L) return(em$pi[2])  # scalar for binary case
+  em$pi
 }
 
 #' Build xi_hat design matrix for mcglm

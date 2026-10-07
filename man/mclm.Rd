@@ -64,8 +64,9 @@ needs only \eqn{\Pi} (not \eqn{\pi_z}) and is unsupported for
 \eqn{\pi = \Pr(Z = 1)} (\code{K = 2}) or a \eqn{K}-vector
 \eqn{(\pi_0, \dots, \pi_{K-1})} of class probabilities. If
 \code{NULL}, \code{pi_z} is estimated from \code{z_hat} and
-\code{Pi} via \eqn{\hat\pi = \Pi^{-1} \hat\pi_{\text{obs}}}
-(clamped to \eqn{[0.01, 0.99]}).}
+\code{Pi} by maximum likelihood (EM; equal to
+\eqn{\Pi^{-1} \hat\pi_{\text{obs}}} when that is a valid probability
+vector, the boundary estimate with a warning otherwise).}
 
 \item{Pi}{The \eqn{K \times K} misclassification matrix
 \eqn{\Pi_{j\ell} = \Pr(\hat Z = j - 1 \mid Z = \ell - 1)}; columns
