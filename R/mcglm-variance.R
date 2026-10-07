@@ -297,36 +297,11 @@
   if (!is.null(wt) && any(wt != 1))
     stop("validation currently requires unweighted observations or unit weights.",
          call. = FALSE)
-  if (!is.list(validation) || is.null(validation$z) ||
-      any(!names(validation) %in% c("z", "z_hat", "index")))
-    stop("validation must be a list with z and z_hat (external) or index (internal).",
-         call. = FALSE)
-  z <- validation$z
-  nv <- length(z)
-  check_codes <- function(v) {
-    is.numeric(v) && is.null(dim(v)) && length(v) == nv &&
-      all(is.finite(v)) && all(v == floor(v)) && all(v >= 0 & v < K)
-  }
-  if (nv < 2L || !check_codes(z))
-    stop("validation$z must contain at least two codes in 0, ..., K-1.",
-         call. = FALSE)
-  index <- validation$index
-  proxy <- validation$z_hat
-  if (!is.null(index)) {
-    if (!is.numeric(index) || !is.null(dim(index)) || length(index) != nv ||
-        any(!is.finite(index)) || any(index != floor(index)) ||
-        any(index < 1 | index > length(z_hat)) || anyDuplicated(index))
-      stop("validation$index must contain distinct regression row numbers, one per z.",
-           call. = FALSE)
-    if (!is.null(proxy) &&
-        (!check_codes(proxy) || any(proxy != z_hat[index])))
-      stop("validation$z_hat does not match z_hat at validation$index.",
-           call. = FALSE)
-    proxy <- z_hat[index]
-  }
-  if (!check_codes(proxy))
-    stop("validation$z_hat must contain one code in 0, ..., K-1 per z.",
-         call. = FALSE)
+  vd <- .mcglm_parse_validation(validation, z_hat, K)
+  z <- vd$z
+  nv <- vd$n
+  index <- vd$index
+  proxy <- vd$proxy
   cells <- proxy + 1L + K * z  # column-major vec(B), as in the paper
   b <- tabulate(cells, nbins = K * K) / nv
   B <- matrix(b, K, K)

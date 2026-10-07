@@ -26,7 +26,8 @@ mcglm(
   optim_control = list(),
   z_hat = NULL,
   x = NULL,
-  validation = NULL
+  validation = NULL,
+  pi_source = c("validation", "main")
 )
 }
 \arguments{
@@ -135,21 +136,46 @@ pooled nonbaseline variance.}
 \eqn{n \times r}; should include an intercept column when one is
 desired (matrix interface only).}
 
-\item{validation}{Optional list describing the sample used to estimate the
-probabilities for \code{method = "cs"}. For independent external
-validation use \code{list(z = true_codes, z_hat = proxy_codes)}. For an
-internal simple random subsample use
-\code{list(z = true_codes, index = regression_row_numbers)}; proxy codes
-are taken from those rows, which remain in the regression. Codes must be
-numeric integers in \code{0, ..., K-1}, in the model's category order.
-Supply \code{pi_z} and \code{Pi} (or binary \code{p01/p10}, or
-\code{c1/c2}) computed from these same validation observations using
-empirical proportions. This argument changes only the CS covariance,
-adding validation uncertainty and, for internal validation, the overlap
-covariance. Requires unweighted observations (or all weights equal to
-one) and every true category present in validation. With \code{NULL},
-the existing variance conditional on the supplied probabilities is used,
-including when \code{pi_z} is inferred from proxy frequencies.}
+\item{validation}{Optional list describing a validation sample in which
+the true category is observed next to the proxy. For an independent
+external validation sample use
+\code{list(z = true_codes, z_hat = proxy_codes)}; for an internal
+simple random subsample of the regression rows use
+\code{list(z = true_codes, index = regression_row_numbers)} (proxy
+codes are taken from those rows). Codes must be numeric integers in
+\code{0, ..., K-1}, in the model's category order, and every true
+category must occur. Its effect depends on the method:
+\describe{
+  \item{\code{"sub"}}{\eqn{\Pi} and \eqn{\pi_z} are \emph{estimated}
+    from the validation sample (see \code{pi_source}); supplying
+    \code{Pi} (also inside \code{mc()}), \code{p01}, \code{p10},
+    \code{pi_z}, \code{c1} or \code{c2} is then an error. With
+    internal validation the validated rows contribute the score at
+    their true category (Yi et al., 2019, Section 4.2). The reported
+    covariance is the stacked sandwich for the regression and
+    misclassification parameters; the latter are returned in
+    \code{$nuisance}.}
+  \item{\code{"cs"}}{only the covariance changes: it adds validation
+    uncertainty and, for internal validation, the overlap covariance.
+    The probabilities must be the empirical proportions of the
+    validation sample; when none are supplied they are computed from
+    it. Requires unweighted observations (or all weights equal to
+    one).}
+  \item{\code{"bca"}, \code{"bcm"}}{use the validation-sample
+    probabilities as plug-ins; their variance treats them as known.}
+}
+\code{"cs_akn"} and \code{"onestep"} do not accept a validation
+sample yet. With \code{NULL}, all methods condition on the supplied
+probabilities, including when \code{pi_z} is inferred from proxy
+frequencies.}
+
+\item{pi_source}{Where \code{"sub"} takes the latent prevalence from when
+a validation sample is supplied: \code{"validation"} (default; the
+proportions of \code{validation$z}, which assumes the validation
+sample has the main study's prevalence) or \code{"main"}
+(\eqn{\hat\pi = \hat\Pi^{-1}\hat p}, with \eqn{\hat p} the proxy
+frequencies of the regression rows, so only \eqn{\Pi} is transported
+from the validation sample).}
 }
 \value{
 An object of class \code{"mcglm"} with components:

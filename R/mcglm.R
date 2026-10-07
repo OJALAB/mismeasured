@@ -169,21 +169,45 @@
 #'   \code{FALSE} (default), the drifting-regime asymptotic variance
 #'   \eqn{A^{-1} C A^{-1}} is used. Both share the same point estimate.
 #' @param weights Optional positive frequency weights of length \eqn{n}.
-#' @param validation Optional list describing the sample used to estimate the
-#'   probabilities for \code{method = "cs"}. For independent external
-#'   validation use \code{list(z = true_codes, z_hat = proxy_codes)}. For an
-#'   internal simple random subsample use
-#'   \code{list(z = true_codes, index = regression_row_numbers)}; proxy codes
-#'   are taken from those rows, which remain in the regression. Codes must be
-#'   numeric integers in \code{0, ..., K-1}, in the model's category order.
-#'   Supply \code{pi_z} and \code{Pi} (or binary \code{p01/p10}, or
-#'   \code{c1/c2}) computed from these same validation observations using
-#'   empirical proportions. This argument changes only the CS covariance,
-#'   adding validation uncertainty and, for internal validation, the overlap
-#'   covariance. Requires unweighted observations (or all weights equal to
-#'   one) and every true category present in validation. With \code{NULL},
-#'   the existing variance conditional on the supplied probabilities is used,
-#'   including when \code{pi_z} is inferred from proxy frequencies.
+#' @param validation Optional list describing a validation sample in which
+#'   the true category is observed next to the proxy. For an independent
+#'   external validation sample use
+#'   \code{list(z = true_codes, z_hat = proxy_codes)}; for an internal
+#'   simple random subsample of the regression rows use
+#'   \code{list(z = true_codes, index = regression_row_numbers)} (proxy
+#'   codes are taken from those rows). Codes must be numeric integers in
+#'   \code{0, ..., K-1}, in the model's category order, and every true
+#'   category must occur. Its effect depends on the method:
+#'   \describe{
+#'     \item{\code{"sub"}}{\eqn{\Pi} and \eqn{\pi_z} are \emph{estimated}
+#'       from the validation sample (see \code{pi_source}); supplying
+#'       \code{Pi} (also inside \code{mc()}), \code{p01}, \code{p10},
+#'       \code{pi_z}, \code{c1} or \code{c2} is then an error. With
+#'       internal validation the validated rows contribute the score at
+#'       their true category (Yi et al., 2019, Section 4.2). The reported
+#'       covariance is the stacked sandwich for the regression and
+#'       misclassification parameters; the latter are returned in
+#'       \code{$nuisance}.}
+#'     \item{\code{"cs"}}{only the covariance changes: it adds validation
+#'       uncertainty and, for internal validation, the overlap covariance.
+#'       The probabilities must be the empirical proportions of the
+#'       validation sample; when none are supplied they are computed from
+#'       it. Requires unweighted observations (or all weights equal to
+#'       one).}
+#'     \item{\code{"bca"}, \code{"bcm"}}{use the validation-sample
+#'       probabilities as plug-ins; their variance treats them as known.}
+#'   }
+#'   \code{"cs_akn"} and \code{"onestep"} do not accept a validation
+#'   sample yet. With \code{NULL}, all methods condition on the supplied
+#'   probabilities, including when \code{pi_z} is inferred from proxy
+#'   frequencies.
+#' @param pi_source Where \code{"sub"} takes the latent prevalence from when
+#'   a validation sample is supplied: \code{"validation"} (default; the
+#'   proportions of \code{validation$z}, which assumes the validation
+#'   sample has the main study's prevalence) or \code{"main"}
+#'   (\eqn{\hat\pi = \hat\Pi^{-1}\hat p}, with \eqn{\hat p} the proxy
+#'   frequencies of the regression rows, so only \eqn{\Pi} is transported
+#'   from the validation sample).
 #' @param J Number of response categories (multinomial family only;
 #'   auto-detected).
 #' @param homoskedastic Logical. For one-step Gaussian fits, assume a
@@ -325,10 +349,12 @@ mcglm <- function(formula, data = NULL, family = "poisson",
                   J = NULL,
                   homoskedastic = TRUE,
                   optim_control = list(),
-                  z_hat = NULL, x = NULL, validation = NULL) {
+                  z_hat = NULL, x = NULL, validation = NULL,
+                  pi_source = c("validation", "main")) {
 
   cl <- match.call()
   jacobian <- match.arg(jacobian)
+  pi_source <- match.arg(pi_source)
   formula_obj <- NULL
 
   # --- Dispatch: formula vs matrix interface ---
@@ -380,6 +406,32 @@ mcglm <- function(formula, data = NULL, family = "poisson",
       stop(nm, " must be one finite numeric value.", call. = FALSE)
   }
 
+  # --- Validation sample: probabilities are estimated, not supplied ---
+  if (!is.null(validation)) {
+    supplied <- c(Pi = !is.null(Pi), p01 = !is.null(p01),
+                  p10 = !is.null(p10), pi_z = !is.null(pi_z),
+                  c1 = !is.null(c1), c2 = !is.null(c2))
+    estimated_by <- intersect(method, .mcglm_validated_methods)
+    if (length(estimated_by) && any(supplied))
+      stop("With a validation sample, method(s) ",
+           paste(estimated_by, collapse = ", "), " estimate the ",
+           "misclassification probabilities from it; remove ",
+           paste(names(supplied)[supplied], collapse = ", "),
+           " (including a matrix given in mc()).", call. = FALSE)
+    if (!any(supplied)) {
+      .mcglm_check_z_hat(z_hat)
+      K_v <- K
+      if (is.null(K_v)) {
+        unique_z <- sort(unique(as.integer(z_hat)))
+        K_v <- if (all(unique_z %in% c(0L, 1L))) 2L else length(unique_z)
+      }
+      vd <- .mcglm_parse_validation(validation, as.integer(z_hat), K_v)
+      probs <- .mcglm_validation_probabilities(vd, K_v)
+      Pi    <- probs$Pi
+      pi_z  <- probs$pi_z
+    }
+  }
+
   # --- Derive p01/p10 from 2x2 Pi ---
   if (!is.null(Pi) && nrow(Pi) == 2L) {
     if (is.null(p01)) p01 <- Pi[2, 1]
@@ -409,7 +461,7 @@ mcglm <- function(formula, data = NULL, family = "poisson",
                     homoskedastic = homoskedastic,
                     optim_control = optim_control,
                     z_levels = z_levels, x_names = x_names,
-                    validation = validation)
+                    validation = validation, pi_source = pi_source)
   out$call     <- cl
   out$formula  <- formula_obj
   out$z_levels <- z_levels
@@ -561,7 +613,8 @@ mcglm <- function(formula, data = NULL, family = "poisson",
                        homoskedastic = TRUE,
                        optim_control = list(),
                        z_levels = NULL,
-                       x_names = NULL, validation = NULL) {
+                       x_names = NULL, validation = NULL,
+                       pi_source = "validation") {
 
   # --- input validation ---
   y     <- as.numeric(y)
@@ -694,9 +747,26 @@ mcglm <- function(formula, data = NULL, family = "poisson",
     }
   }
 
+  # A validation sample makes "sub" estimate (Pi, pi_z) itself and adds
+  # the validation term to the "cs" covariance; bca/bcm use the
+  # validation-sample probabilities as plug-ins.
+  vd <- NULL
+  if (!is.null(validation)) {
+    if (!any(method %in% c("cs", .mcglm_validated_methods)))
+      stop("validation requires method = 'cs' or 'sub'.", call. = FALSE)
+    unsupported <- intersect(method, c("cs_akn", "onestep"))
+    if (length(unsupported))
+      stop("validation is not supported for method(s) ",
+           paste(unsupported, collapse = ", "), ".", call. = FALSE)
+    vd <- .mcglm_parse_validation(validation, z_hat, K)
+    validation <- if ("cs" %in% method)
+      .mcglm_prepare_cs_validation(validation, z_hat, K, wt,
+                                   c1, c2, Pi, pi_z)
+  }
+
   # --- SUB needs the full (Pi, pi_z) through P(Z | Z_hat) ---
   sub_W <- NULL
-  if ("sub" %in% method) {
+  if ("sub" %in% method && is.null(vd)) {
     Pi_sub <- Pi
     if (is.null(Pi_sub) && is_binary && !is.null(p01) && !is.null(p10))
       Pi_sub <- matrix(c(1 - p01, p01, p10, 1 - p10), 2L, 2L)
@@ -706,15 +776,6 @@ mcglm <- function(formula, data = NULL, family = "poisson",
     Pi_sub <- as.matrix(Pi_sub)
     stopifnot(nrow(Pi_sub) == K, ncol(Pi_sub) == K)
     sub_W <- .mcglm_predictive_matrix(Pi_sub, pi_z)
-  }
-
-  # Validation affects only the CS covariance; probabilities and point
-  # estimates continue to use the existing interface and fitting code.
-  if (!is.null(validation)) {
-    if (!"cs" %in% method)
-      stop("validation requires method = 'cs'.", call. = FALSE)
-    validation <- .mcglm_prepare_cs_validation(validation, z_hat, K, wt,
-                                                c1, c2, Pi, pi_z)
   }
 
   # --- build xi_hat once ---
@@ -818,9 +879,19 @@ mcglm <- function(formula, data = NULL, family = "poisson",
   }
 
   convergence <- list()
+  nuisance    <- list()
+  sub_vcov    <- NULL
   if ("sub" %in% method && !is_multinomial) {
-    sub_fit <- .mcglm_fit_sub(results$naive, y, xi_hat, z_hat, x, K, family,
-                              sub_W, wt = wt)
+    if (is.null(vd)) {
+      sub_fit <- .mcglm_fit_sub(results$naive, y, xi_hat, z_hat, x, K,
+                                family, sub_W, wt = wt)
+    } else {
+      sub_fit <- .mcglm_fit_sub_validated(results$naive, y, xi_hat, z_hat,
+                                          x, K, family, vd, pi_source,
+                                          wt = wt)
+      sub_vcov     <- sub_fit$vcov
+      nuisance$sub <- sub_fit$nuisance
+    }
     results$sub     <- sub_fit$coefficients
     convergence$sub <- sub_fit[c("converged", "termcd", "iterations")]
   }
@@ -909,8 +980,9 @@ mcglm <- function(formula, data = NULL, family = "poisson",
         } else if (nm == "cs_akn") {
           .mcglm_vcov_cs_akn(psi_nm, y, x_akn, x, K, family, wt = wt)
         } else if (nm == "sub") {
-          .mcglm_vcov_sub(psi_nm, y, xi_hat, z_hat, x, K, family, sub_W,
-                          wt = wt)
+          if (!is.null(sub_vcov)) sub_vcov else
+            .mcglm_vcov_sub(psi_nm, y, xi_hat, z_hat, x, K, family, sub_W,
+                            wt = wt)
         } else if (nm == "onestep") {
           onestep_vcov
         },
@@ -956,6 +1028,8 @@ mcglm <- function(formula, data = NULL, family = "poisson",
   )
   if (!is_multinomial) out$xi_hat <- xi_hat
   if (length(convergence)) out$convergence <- convergence
+  if (length(nuisance)) out$nuisance <- nuisance
+  out$validation_design <- if (is.null(vd)) "known" else vd$type
   if (!is.null(validation)) out$validation <- validation
   if (is_multinomial)  out$J     <- J
 

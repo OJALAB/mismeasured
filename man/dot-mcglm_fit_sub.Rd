@@ -4,10 +4,25 @@
 \alias{.mcglm_fit_sub}
 \title{Solve the subtraction-corrected estimating equation}
 \usage{
-.mcglm_fit_sub(psi_init, y, xi_hat, z_hat, x, K, family, W, wt = NULL)
+.mcglm_fit_sub(
+  psi_init,
+  y,
+  xi_hat,
+  z_hat,
+  x,
+  K,
+  family,
+  W,
+  wt = NULL,
+  true_rows = NULL
+)
 }
 \arguments{
 \item{W}{Predictive matrix from \code{.mcglm_predictive_matrix}.}
+
+\item{true_rows}{Optional list \code{(index, z)} for internal
+validation: those regression rows contribute the score at the true
+category instead of the corrected score (Yi et al., 2019, eq. 23).}
 }
 \value{
 List with \code{coefficients}, \code{converged}, \code{termcd}
