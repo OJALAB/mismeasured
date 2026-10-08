@@ -59,7 +59,8 @@
 #'     it is a first-order approximation that can be visibly biased when the
 #'     misclassified variable's effect is large \eqn{--} for logistic or
 #'     Poisson models with strong effects, consider \code{\link{mcglm}} with
-#'     \code{method = "cs"} or \code{"cs_akn"} as a consistent alternative.
+#'     \code{method = "sub"}, \code{"il"} or \code{"cs_akn"} as a consistent
+#'     alternative.
 #'     With \code{method = "standard"}, the original Kuechenhoff et al.
 #'     (2006) extrapolation-based approach is used. A matrix given as a number
 #'     is treated as known. When the matrix was estimated from an audit, pass

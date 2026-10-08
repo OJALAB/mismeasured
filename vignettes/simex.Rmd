@@ -28,9 +28,11 @@ This vignette covers the simulation-extrapolation family of corrections in
 correction of Sevilimedu & Yu (2026). All are accessed through the
 single `simex()` function with a formula interface.
 
-For analytical bias-correction estimators (BCA, BCM, corrected score,
-one-step) under misclassification, see the companion vignette
-`vignette("mcglm", "mismeasured")`.
+For analytical bias-correction estimators under misclassification
+(subtraction correction, expectation correction, induced likelihood,
+corrected scores, BCA/BCM, one-step), see the companion vignette
+`vignette("mcglm", "mismeasured")`; for misclassification matrices
+estimated from an audit, `vignette("validation", "mismeasured")`.
 
 ### Supported error types
 
@@ -285,8 +287,8 @@ For non-gaussian families `simex()` defaults to the standard MC-SIMEX. You
 can still request `method = "improved"`, but for non-identity links the
 closed-form correction is only a first-order approximation and its bias
 grows with the effect size of the misclassified variable. For logistic or
-Poisson models with strong effects, `mcglm()` with `method = "cs"` or
-`"cs_akn"` is the consistent alternative.
+Poisson models with strong effects, `mcglm()` with `method = "sub"`,
+`"il"` or `"cs_akn"` is the consistent alternative.
 
 ```{r poisson-mc}
 z9 <- rbinom(n, 1, 0.4)

@@ -17,115 +17,132 @@ knitr::opts_chunk$set(
 )
 library(mismeasured)
 set.seed(42)
+f3 <- function(x) formatC(x, format = "f", digits = 3)
+f4 <- function(x) formatC(x, format = "f", digits = 4)
 ```
 
 ## Scope
 
-This vignette describes the analytical bias-correction estimators in
-**mismeasured**: `mcglm()` for any supported family and `mclm()`, the
-Gaussian-fixed wrapper of `mcglm()`. Five estimators are implemented for
-GLMs in which a discrete covariate is observed only through a misclassified
-proxy: naive, additive bias correction (BCA), multiplicative bias correction
-(BCM), corrected score (CS, two formulations), and a one-step joint
-mixture-likelihood estimator.
+This vignette describes the analytical estimators of `mcglm()` (and
+`mclm()`, its Gaussian wrapper) for GLMs in which a discrete covariate is
+observed only through a misclassified proxy: the naive fit, the additive
+and multiplicative bias corrections (BCA, BCM), the drift-corrected score
+(CS), the subtraction correction (SUB, the default), the expectation
+correction (EC), the induced likelihood (IL), the corrected score of
+Akazawa, Kinukawa and Nakamura (CS-AKN) and a one-step mixture likelihood.
 
-For simulation-extrapolation methods, see the companion vignette
-`vignette("simex", "mismeasured")`.
+Here the misclassification probabilities are taken as known. When they are
+estimated from an audit, see `vignette("validation", "mismeasured")`; for
+many categories and small audits, `vignette("sparse", "mismeasured")`; for
+simulation-extrapolation, `vignette("simex", "mismeasured")`.
 
 ## Setup and notation
 
 Let $Y_i$ be a scalar response, $x_i \in \mathbb{R}^r$ a vector of cleanly
 observed covariates (typically including an intercept), and
 $Z_i \in \{0, 1, \dots, K-1\}$ a latent categorical regressor observed only
-through a proxy $\hat Z_i$. For binary problems ($K = 2$) take
-$\xi_i = (Z_i, x_i^\top)^\top$ and
-$\hat\xi_i = (\hat Z_i, x_i^\top)^\top$; for $K \ge 3$, $Z_i$ is dummy-encoded
-with baseline $0$ so $\xi_i = (d_i^\top, x_i^\top)^\top$. The parameter is
-$\psi = (\gamma^\top, \alpha^\top)^\top$ with $\gamma \in \mathbb{R}^{K-1}$ on
-the (dummy-coded) latent regressor and $\alpha \in \mathbb{R}^r$ on $x_i$.
+through a proxy $\hat Z_i$. For $K = 2$ take
+$\xi_i = (Z_i, x_i^\top)^\top$ and $\hat\xi_i = (\hat Z_i, x_i^\top)^\top$;
+for $K \ge 3$, $Z_i$ is dummy-encoded with baseline $0$. The parameter is
+$\psi = (\gamma^\top, \alpha^\top)^\top$, and
+$\mathbb{E}[Y_i \mid Z_i, x_i] = \mu(\psi^\top \xi_i)$ with $\mu$ the
+inverse canonical link.
 
-The conditional mean is $\mathbb{E}[Y_i \mid Z_i, x_i] = \mu(\psi^\top \xi_i)$
-for $\mu = g^{-1}$ the inverse canonical link.
+**Misclassification.** $\Pi_{j\ell} = \Pr(\hat Z = j \mid Z = \ell)$ (for
+$K = 2$: $p_{01} = \Pi_{21}$, $p_{10} = \Pi_{12}$), prevalence
+$\pi_\ell = \Pr(Z = \ell)$, and predictive probabilities
+$W_{j\ell} = \Pr(Z = \ell \mid \hat Z = j) =
+\Pi_{j\ell}\pi_\ell / \sum_m \Pi_{jm}\pi_m$. Misclassification is
+nondifferential, $\hat Z_i \perp\!\!\!\perp (Y_i, x_i) \mid Z_i$.
 
-**Misclassification mechanism.** For $K = 2$ this is summarized by
-$p_{01} = \Pr(\hat Z = 1 \mid Z = 0)$, $p_{10} = \Pr(\hat Z = 0 \mid Z = 1)$,
-and prevalence $\pi = \Pr(Z = 1)$. For $K \ge 3$, by the $K \times K$
-column-stochastic matrix $\Pi_{j\ell} = \Pr(\hat Z = j \mid Z = \ell)$ and
-the prevalence vector $(\pi_0, \dots, \pi_{K-1})$. We assume nondifferential
-misclassification: $\hat Z_i \perp\!\!\!\perp (Y_i, x_i) \mid Z_i$.
+**Prevalence.** All methods except CS-AKN use one prevalence $\pi$ for
+every observation, i.e. they assume that $Z$ is independent of $x$. When
+the latent category depends on the covariates they are biased unless a
+covariate-dependent prevalence $\Pr(Z \mid x)$ is modelled
+(`control_mc(prevalence_model = ~ ...)`, see the validation vignette).
 
-## The naive proxy-score estimator and its bias
+## The naive estimator and its drift
 
-The naive estimator solves the proxy-score equation
+The naive estimator solves the proxy score
 $$
-\hat U_n(\psi) = \frac{1}{n} \sum_{i=1}^n \hat\xi_i \{Y_i - \mu(\psi^\top \hat\xi_i)\} = 0.
+\hat U_n(\psi) = \frac{1}{n} \sum_{i=1}^n \hat\xi_i \{Y_i - \mu(\psi^\top \hat\xi_i)\} = 0 ,
 $$
-This is just GLM estimation with $\hat Z_i$ in place of $Z_i$. It is
-typically inconsistent for $\psi_0$. For binary $Z$, the package theory
-(Warmuz & Beresewicz, 2026, Proposition on score drift) shows
-$$
-\mathbb{E}[\hat U_n(\psi_0)] = \mathbb{E}[m_i(\psi_0)],
-$$
-where the per-observation drift is
+i.e. a GLM with $\hat Z_i$ in place of $Z_i$. For binary $Z$ its expectation
+at the truth is $\mathbb{E}[m_i(\psi_0)]$, with the per-observation drift
 $$
 m_i(\psi) = \begin{pmatrix} -c_1\, \delta_i(\psi) \\ -c_2\, \delta_i(\psi)\, x_i \end{pmatrix},
 \qquad
 \delta_i(\psi) = \mu(\gamma + \alpha^\top x_i) - \mu(\alpha^\top x_i),
 $$
-with constants $c_1 = p_{01}(1-\pi)$ and $c_2 = p_{01}(1-\pi) - p_{10}\pi$.
-The multicategory version replaces $(\delta_i, c_1, c_2)$ with explicit
-double sums over $(\Pi, \pi_z)$ (Appendix B of the package theory note).
+$c_1 = p_{01}(1-\pi)$ and $c_2 = p_{01}(1-\pi) - p_{10}\pi$ (Warmuz and
+Beresewicz, 2026; the multicategory drift uses $(\Pi, \pi)$ in the same
+way). The drift is the conditional expectation of the naive score given the
+covariates, $m_i(\psi) = \mathbb{E}_\psi[\hat\xi_i\{Y_i - \mu(\psi^\top\hat\xi_i)\} \mid x_i]$.
 
-## The five estimators
+## The estimators
 
-| Method      | Idea                                                                                              | Required nuisance | Asymptotic regime                |
-|-------------|---------------------------------------------------------------------------------------------------|-------------------|----------------------------------|
-| `naive`     | proxy GLM, no correction                                                                          | --                | inconsistent under fixed $\Pi$   |
-| `bca`       | additive: $\hat\psi_{\mathrm{bca}} = \hat\psi - \hat I(\hat\psi)^{-1}\hat m(\hat\psi)$              | $(c_1, c_2)$ or $(\Pi, \pi)$ | drifting $\Pi = O(n^{-1/2})$ |
-| `bcm`       | multiplicative: $\hat\psi_{\mathrm{bcm}} = \hat\psi - (\hat I + \hat M)^{-1} \hat m$                | same              | drifting $\Pi = O(n^{-1/2})$ |
-| `cs`        | corrected score: solve $\sum_i [\hat\xi_i\{Y_i - \mu(\psi^\top\hat\xi_i)\} - m_i(\psi)] = 0$       | same              | **fixed $\Pi$**                  |
-| `cs_akn`    | AKN98 corrected score via unbiased surrogate $x = Q^{-1}(u - p_0)$                                | $\Pi$ only        | **fixed $\Pi$**                  |
-| `onestep`   | maximize $\prod_i \sum_\ell \pi_\ell \Pi_{\hat z_i+1, \ell+1} f(Y_i \mid Z = \ell, \psi)$ via RTMB | (see below)        | fixed $\Pi$                      |
+| Method | Estimating function or idea | Needs | Assumes $Z \perp x$ |
+|---|---|---|---|
+| `naive` | proxy GLM | -- | -- (inconsistent) |
+| `bca` | $\hat\psi - \hat I^{-1}\hat m(\hat\psi)$ | $\Pi, \pi$ (or $c_1, c_2$) | yes |
+| `bcm` | $\hat\psi - (\hat I + \hat M)^{-1}\hat m(\hat\psi)$ | $\Pi, \pi$ (or $c_1, c_2$) | yes |
+| `cs` | $\sum_i [\hat\xi_i\{Y_i - \mu(\psi^\top\hat\xi_i)\} - m_i(\psi)] = 0$ | $\Pi, \pi$ (or $c_1, c_2$) | yes |
+| `sub` | $\sum_i \hat\xi_i\{Y_i - \nu_i(\psi)\} = 0$, $\nu_i = \sum_\ell W_{\hat z_i\ell}\,\mu(\gamma_\ell + \alpha^\top x_i)$ | $\Pi, \pi$ | yes (or a prevalence model) |
+| `ec` | $\sum_i \sum_\ell \omega_{i\ell}(\psi) S_{i\ell}(\psi) = 0$, $\omega_{i\ell} \propto W_{\hat z_i\ell} f(Y_i \mid \ell, x_i)$ | $\Pi, \pi$, response distribution | yes (or a prevalence model) |
+| `il` | maximise $\prod_i \sum_\ell W_{\hat z_i\ell} f(Y_i \mid \ell, x_i)$ | $\Pi, \pi$, response distribution | yes (or a prevalence model) |
+| `cs_akn` | corrected score: $\sum_i \sum_\ell \tilde x_{i\ell} S_{i\ell}(\psi) = 0$, $\tilde x_{i\cdot}$ the $\hat z_i$-th column of $\Pi^{-1}$ | $\Pi$ only | no |
+| `onestep` | maximise $\prod_i \sum_\ell \omega_{\hat z_i\ell} f(Y_i \mid \ell, x_i)$ with free or fixed weights | -- (`fix_omega = TRUE`: $\Pi, \pi$) | yes |
 
-`bca` and `bcm` remove the leading $n^{-1/2}$ bias under a drifting-sequence
-regime where misclassification probabilities shrink with $n$. `cs` and
-`cs_akn` are unbiased estimating equations under fixed $\Pi$ -- they remain
-consistent even when misclassification is moderate or large. `onestep` is a
-likelihood-based alternative implemented through automatic differentiation
-(`RTMB`); it estimates mixture weights jointly with $\psi$ unless
-`fix_omega = TRUE`.
+Here $S_{i\ell}(\psi)$ is the complete-data score at $Z_i = \ell$ and
+$f(\cdot \mid \ell, x)$ the response density (Poisson, Bernoulli, or normal
+with an estimated $\sigma$). `ec`, `il` and `onestep` need a count response
+for Poisson and a 0/1 response for the binomial family.
 
-### Two CS formulations
+### How they relate
 
-The package implements *two* corrected-score estimators that solve the same
-population equation but differ in finite-sample form:
-
-- **`cs` (drift)** keeps the proxy as-is and adds the explicit drift
-  $m_i(\psi)$ to the naive score. Needs $(\Pi, \pi_z)$. (Warmuz &
-  Beresewicz, 2026, Theorem on the corrected-score estimator;
-  Battaglia et al., 2025 for the linear-model origin.)
-- **`cs_akn` (unbiased surrogate)** transforms the regressor via
-  $x = Q^{-1}(u - p_0)$ where
-  $Q = [p_1 - p_0, \ldots, p_{K-1} - p_0]$, then substitutes into the
-  log-likelihood. Needs only $\Pi$ -- $\pi_z$ cancels out.
-  (Akazawa, Kinukawa & Nakamura, 1998.)
-
-The two are population-equivalent at $\psi_0$. Empirically they agree to
-$\sim 10^{-4}$ for $K = 2$ and within sampling noise for $K \ge 3$;
-`cs_akn`'s SD is slightly larger when $\Pi$ has off-diagonals away from zero
-(the $Q^{-1}$ amplifies single-observation contributions).
+* **`sub` dominates `cs`.** `cs` subtracts the conditional expectation of
+  the naive score given $x$; `sub` (Yi, Yan, Liao and Spiegelman, 2019,
+  Section 3.2) subtracts it given $(\hat Z, x)$. The two estimating
+  functions differ by a term with conditional mean zero given $x$, so they
+  have the same Jacobian and the middle matrix of `cs` is that of `sub`
+  plus the variance of that term: `sub` is never less efficient. Despite
+  its name, `cs` is not a corrected score in the sense of Nakamura (1990);
+  the label is kept for compatibility.
+* **`ec` and `il` coincide with known probabilities.** The EC estimating
+  function, the posterior mean of the complete-data score (Section 3.3), is
+  the score of the induced likelihood (Section 3.1; their Appendix A), and
+  both equal `onestep` with `fix_omega = TRUE`. They use the full response
+  distribution and are the efficient estimators when it is correctly
+  specified. They differ once the probabilities are estimated: `ec` plugs
+  them in, `il` estimates them jointly with $\psi$.
+* **Structural versus functional.** `cs`, `sub`, `ec` and `il` are
+  structural: they need the distribution of $Z$ given $x$ (here a constant
+  prevalence, or a prevalence model). `cs_akn` (Akazawa, Kinukawa and
+  Nakamura, 1998; Yi et al., 2019, eq. 17) is functional: its conditional
+  expectation given $(Y, Z, x)$ is the complete-data score whatever the
+  distribution of $Z$, so it needs only $\Pi$ and stays consistent when $Z$
+  depends on $x$. The price is a larger variance and an inversion of
+  $Q = [p_1 - p_0, \dots, p_{K-1} - p_0]$ that becomes unstable when the
+  classifier is weak (Yi et al., 2019, Section 3.5).
+* **`bca` and `bcm`** are one-step approximations to `cs` derived under
+  misclassification probabilities that shrink with $n$ (Battaglia et al.,
+  2025); with fixed misclassification `bcm` is close to `cs` and `bca`
+  keeps a first-order bias.
 
 ### Inference
 
-All five estimators report an asymptotic variance through `vcov()`:
+With known probabilities:
 
-- naive / BCA / BCM: $A^{-1} C A^{-1}$ where $A = \mathbb{E}[\dot\mu(\psi_0^\top\xi_i)\xi_i\xi_i^\top]$ and $C = \mathbb{E}[\varepsilon_i^2 \xi_i \xi_i^\top]$.
-- CS / cs_akn: $J^{-1} S J^{-\top}$ with $J = -(\hat I + \hat M)$ (cs) or $J = -I_{\mathrm{akn}}$ (cs_akn) and $S = \mathbb{E}[\phi_i \phi_i^\top]$.
-- onestep: inverse Hessian of the integrated log-likelihood.
+* naive, BCA, BCM: $A^{-1} C A^{-1}$ (drifting-regime formula);
+  `vcov_corrected = TRUE` gives a more conservative BCA/BCM sandwich;
+* CS, SUB, EC, CS-AKN: the Z-estimator sandwich $J^{-1} S J^{-\top}$ (EC
+  with the Louis-identity Jacobian);
+* onestep: inverse Hessian of the integrated log-likelihood.
 
-Set `vcov_corrected = TRUE` in `mcglm()` to get a more conservative BCA/BCM
-sandwich that accounts for the additional uncertainty from estimating
-$\hat m(\hat\psi)$.
+With a validation sample, every corrected method propagates the
+uncertainty of the estimated probabilities through stacked estimating
+functions (or the joint likelihood for `il`), and bootstrap or posterior
+variances are available; see the validation vignette.
 
 ## Worked examples
 
@@ -143,16 +160,32 @@ y  <- rpois(n, exp(0.8 * z - 0.5 + 0.7 * x1))
 
 df <- data.frame(y = y, z = factor(z_hat), x1 = x1)
 
+methods <- c("naive", "bca", "bcm", "cs", "sub", "ec", "il", "cs_akn")
 fit <- mcglm(y ~ mc(z, Pi) + x1, data = df, family = "poisson",
-             method = c("naive", "bca", "bcm", "cs", "cs_akn"))
-fit
+             method = methods, pi_z = 0.4)
+gamma_hat <- sapply(methods, function(m) coef(fit, method = m)[["gamma"]])
+se_gamma  <- sapply(methods, function(m) fit$se[[m]][["gamma"]])
+round(rbind(estimate = gamma_hat, se = se_gamma), 3)
 ```
 
-The naive $\hat\gamma$ is biased toward zero; all four corrections recover
-$\gamma_0 = 0.8$.
+```{r poisson-numbers, include = FALSE}
+fixed <- c("cs", "sub", "ec", "il", "cs_akn")
+```
+
+The true effect is $\gamma_0 = 0.8$. The naive estimate,
+`r f3(gamma_hat[["naive"]])`, is attenuated; the corrected estimates lie
+between `r f3(min(gamma_hat[-1]))` and `r f3(max(gamma_hat[-1]))`. Among the
+estimators valid under fixed misclassification, the standard error of
+`sub` (`r f4(se_gamma[["sub"]])`) is no larger than that of `cs`
+(`r f4(se_gamma[["cs"]])`); `ec` and `il` coincide
+(`r f3(gamma_hat[["ec"]])`) and, using the Poisson distribution of the
+response, have the smallest standard error
+(`r f4(min(se_gamma[fixed]))`); `cs_akn` has
+`r f4(se_gamma[["cs_akn"]])`. The standard errors of `bca` and `bcm` come
+from the drifting-misclassification theory and are not comparable.
 
 ```{r poisson-summary}
-summary(fit)
+coef(summary(fit))$sub
 ```
 
 ### Binary misclassification, logistic response
@@ -168,16 +201,14 @@ y  <- rbinom(n, 1, plogis(0.9 * z - 0.4 + 0.6 * x1))
 
 dfb <- data.frame(y = y, z = factor(zh), x1 = x1)
 fitb <- mcglm(y ~ mc(z, Pi) + x1, data = dfb, family = "binomial",
-              method = c("naive", "cs", "cs_akn"))
-coef(fitb, method = "naive")
-coef(fitb, method = "cs")
-coef(fitb, method = "cs_akn")
+              method = c("naive", "sub", "il", "cs_akn"), pi_z = 0.4)
+round(do.call(rbind, fitb$coefficients), 3)
 ```
 
 ### Multicategory misclassification ($K = 3$)
 
-For $K \ge 3$ pass the misclassification matrix and (for `cs`/`bca`/`bcm`)
-the prevalence vector $\pi$. `cs_akn` needs only $\Pi$.
+For $K \ge 3$ pass the misclassification matrix and the prevalence vector;
+`cs_akn` needs only $\Pi$.
 
 ```{r multicat}
 n   <- 5000
@@ -189,25 +220,27 @@ x1 <- rnorm(n)
 ym <- rpois(n, exp(c(0, 1.0, -0.9)[Z + 1] + 0.8 - 0.7 * x1))
 
 fit3 <- mcglm(ym, z_hat = Zh, x = cbind(1, x1), family = "poisson",
-              method = c("naive", "cs", "cs_akn"),
+              method = c("naive", "sub", "il", "cs_akn"),
               Pi = Pi3, pi_z = pi3)
-coef(fit3, method = "cs")
-coef(fit3, method = "cs_akn")
+round(do.call(rbind, fit3$coefficients), 3)
 ```
+
+The true effects are $\gamma = (1.0, -0.9)$.
 
 ### Confidence intervals
 
 ```{r ci}
-confint(fit, method = "cs")
+confint(fit, method = "sub")
 confint(fit, method = "cs_akn")
 ```
 
 ### One-step (joint mixture likelihood)
 
-The one-step estimator maximizes the integrated mixture likelihood across
-the latent categories. It uses `RTMB` for automatic differentiation and is
-robust under fixed $\Pi$ for any $K$. Mixture weights can be estimated
-jointly (default) or fixed at user-supplied $\pi_z$ via `fix_omega = TRUE`.
+With `fix_omega = FALSE` (default) the one-step estimator estimates the
+mixture weights jointly with $\psi$ from the main study alone, so it needs
+no misclassification probabilities but relies on the mixture being
+identified by the response distribution; with `fix_omega = TRUE` and
+known probabilities it equals `il` and `ec`. It uses `RTMB`.
 
 ```{r onestep, eval = requireNamespace("RTMB", quietly = TRUE)}
 fit_os <- mcglm(y ~ mc(z, Pi) + x1, data = df, family = "poisson",
@@ -219,8 +252,7 @@ coef(fit_os, method = "onestep")
 
 `mclm()` is a thin wrapper around `mcglm()` with `family = "gaussian"`, in
 the spirit of base R's `lm()` versus `glm()`. All other arguments forward
-unchanged and the returned object remains of class `"mcglm"`, so all S3
-methods (`summary`, `vcov`, `confint`, ...) work identically.
+unchanged and the returned object remains of class `"mcglm"`.
 
 ```{r mclm}
 n  <- 4000
@@ -233,68 +265,67 @@ yg <- 0.8 * z - 0.5 + 0.7 * x1 + rnorm(n, 0, 0.5)
 
 dfg <- data.frame(y = yg, z = factor(zh), x1 = x1)
 fitg <- mclm(y ~ mc(z, Pi) + x1, data = dfg,
-             method = c("naive", "cs", "cs_akn"))
-coef(fitg, method = "cs")
-coef(fitg, method = "cs_akn")
+             method = c("naive", "sub", "il", "cs_akn"), pi_z = 0.4)
+round(do.call(rbind, fitg$coefficients), 3)
 ```
 
-For Gaussian, `cs_akn` admits a closed-form linear-system solution (no
-iterative solver), so the two CS formulations agree to numerical precision.
+For the Gaussian family `sub` and `cs_akn` have closed forms (linear
+estimating equations), and `il` estimates the residual standard deviation
+jointly (`fitg$nuisance$il$sigma`).
 
-## When to use which method
+## Choosing a method
 
-- **Reliable $(\Pi, \pi_z)$, well-curated proxy.** Any of `cs`, `cs_akn`, or
-  `onestep`. Use `cs` for the most established formulation; `onestep` when
-  you also want a likelihood-based confidence set or model fit comparison.
-- **Reliable $\Pi$ but $\pi_z$ unknown or unstable.** Prefer `cs_akn` --
-  the surrogate construction makes $\pi_z$ irrelevant.
-- **Misclassification probabilities small and shrinking with $n$.** `bca`
-  or `bcm` are valid (drifting-sequence regime). `bcm` removes second-order
-  bias and is closer to the iterated CS update.
-- **Multicategory $K \ge 3$.** All five estimators apply; `cs_akn` carries a
-  small variance penalty (≈ 10--20% larger SD) versus drift `cs`.
-- **Multinomial response.** Only `naive` and `onestep` (the others are
-  univariate-response specific).
-
-## Estimated misclassification parameters
-
-The package theory (Warmuz & Beresewicz, 2026, Proposition on plug-in
-robustness) shows that the corrected-score estimator remains consistent
-when $(\Pi, \pi)$ are estimated from auxiliary data, provided the plug-in
-score satisfies $\sup_\psi \|\Phi_n^* - \Phi_n^\circ\| = o_P(1)$, and is
-asymptotically unbiased under the tighter rate $o_P(n^{-1/2})$. In
-practice this means a validation subsample of moderate size (e.g. 5--10%
-of the main sample) is sufficient.
+* **Default: `sub`.** It needs only the mean model, is never less efficient
+  than `cs`, and supports every validation design.
+* **Response distribution trusted: `il` or `ec`.** They are the efficient
+  estimators for a correctly specified Poisson, Bernoulli or normal
+  response. With an estimated misclassification matrix `il` also lets the
+  main study inform it, and for an internal audit it needs no design
+  weights when selection depends only on observed variables.
+* **$Z$ may depend on the covariates:** add a prevalence model to
+  `sub`/`ec`/`il` (`control_mc(prevalence_model = ~ ...)`), or use
+  `cs_akn`, which needs only $\Pi$. Without either, all other methods are
+  biased; with an internal audit `mcglm()` tests for this association and
+  warns.
+* **Only $\Pi$ is credible (e.g. an external benchmark with another
+  prevalence):** `cs_akn`, or the other methods with the prevalence
+  re-estimated from the main study (`control_mc(prevalence = "em")`).
+* **Small, shrinking misclassification:** `bca`/`bcm` are valid in that
+  regime; with fixed misclassification `bca` keeps a first-order bias.
+* **No information on the misclassification:** `onestep` with free mixture
+  weights, if the response distribution identifies the mixture.
+* **Multinomial response:** `naive` and `onestep` only.
 
 ## Result object and S3 methods
 
-`mcglm()` and `mclm()` both return objects of class `"mcglm"`. The
-following S3 methods are available:
+`mcglm()` and `mclm()` return objects of class `"mcglm"`:
 
-- `print()`, `summary()` -- coefficient tables per method.
-- `coef()`, `vcov()`, `se()`, `confint()` -- accept a `method = ` argument
-  to select which estimator's quantity to extract.
-- `predict()`, `fitted()`, `residuals()` -- on the original (proxy) data.
-- `logLik()`, `AIC()`, `BIC()`, `nobs()` -- only meaningful for `onestep`.
+- `print()`, `summary()` -- coefficient tables per method;
+- `coef()`, `vcov()`, `confint()` and `se.mcglm()` -- with `method = ` to
+  select the estimator; `fit$se` holds all standard errors;
+- `predict()`, `fitted()`, `residuals()` -- on the original (proxy) data;
+- `logLik()`, `AIC()`, `BIC()`, `nobs()` -- for the naive and one-step fits;
+- `fit$nuisance`, `fit$mc_estimate`, `fit$convergence` -- estimated
+  misclassification quantities and solver status.
 
 ## References
 
 Akazawa, K., Kinukawa, N. and Nakamura, T. (1998). A note on the corrected
-score function adjusting for misclassification. *J. Japan Statist. Soc.*
-28(1), 115--123. (Foundational existence theorem and explicit corrected
-scores for misclassified discrete covariates; basis of `cs_akn`.)
+score function adjusting for misclassification. *Journal of the Japan
+Statistical Society*, 28(1), 115--123. doi:10.14490/jjss1995.28.115.
 
 Battaglia, L., Christensen, T., Hansen, S. and Sacher, S. (2025). Inference
-for regression with variables generated by AI or machine learning.
-*arXiv preprint* arXiv:2402.15585. (Drifting-asymptotics framework for
-linear models; origin of BCA/BCM and one-step.)
+for regression with variables generated by AI or machine learning. *arXiv
+preprint* arXiv:2402.15585. doi:10.48550/arXiv.2402.15585.
 
 Nakamura, T. (1990). Corrected score function for errors-in-variables
 models: methodology and application to generalized linear models.
-*Biometrika* 77(1), 127--137. \doi{10.1093/biomet/77.1.127} (Originating
-reference for the corrected-score concept under continuous additive error.)
+*Biometrika*, 77(1), 127--137. doi:10.1093/biomet/77.1.127.
 
 Warmuz, M. and Beresewicz, M. (2026). Bias corrections for GLMs with
-misclassified covariates. Working paper. (GLM extension of the
-drifting-asymptotics regime; multicategory drift formulas; plug-in
-robustness conditions used in the package.)
+misclassified covariates. Working paper.
+
+Yi, G. Y., Yan, Y., Liao, X. and Spiegelman, D. (2019). Parametric
+regression analysis with covariate misclassification in main
+study/validation study designs. *The International Journal of
+Biostatistics*, 15(1), 20170002. doi:10.1515/ijb-2017-0002.

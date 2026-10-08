@@ -174,10 +174,12 @@
 #'   likelihood of Yi et al. (2019), which use the full response
 #'   distribution (count response for poisson, 0/1 for binomial) and need
 #'   the same inputs as \code{"sub"}. The \code{"cs_akn"} entry
-#'   selects the Akazawa--Kinukawa--Nakamura (1998) corrected-score
-#'   construction (an alternative formulation of \code{"cs"} based on
-#'   the unbiased-surrogate transform \eqn{x = Q^{-1}(u - p_0)}); it
-#'   needs only \eqn{\Pi} (not \eqn{\pi_z}) and is unsupported for
+#'   selects the corrected score of Akazawa, Kinukawa and Nakamura (1998),
+#'   built on the unbiased surrogate \eqn{x = Q^{-1}(u - p_0)}; it is a
+#'   different estimator from \code{"cs"} (a corrected score in the sense
+#'   of Nakamura, 1990, whereas \code{"cs"} subtracts the conditional
+#'   expectation of the naive score given \eqn{x}). It needs only
+#'   \eqn{\Pi} (not \eqn{\pi_z}) and is unsupported for
 #'   \code{family = "multinomial"}. It is the corrected score of Yi et
 #'   al. (2019, eq. 17) and, unlike \code{"cs"}, \code{"sub"},
 #'   \code{"ec"} and \code{"il"}, does not assume that \eqn{Z} is
@@ -354,9 +356,10 @@
 #' Akazawa, K., Kinukawa, N. and Nakamura, T. (1998). A note on the
 #' corrected score function adjusting for misclassification.
 #' \emph{Journal of the Japan Statistical Society}, 28(1), 115--123.
-#' Establishes existence of a corrected score for misclassified discrete
-#' covariates and gives explicit forms for normal, Poisson, and binary
-#' logistic GLMs; foundational reference for the \code{"cs"} method.
+#' \doi{10.14490/jjss1995.28.115}. Establishes the existence of a corrected
+#' score for misclassified discrete covariates and gives explicit forms for
+#' normal, Poisson and binary logistic GLMs; source of the \code{"cs_akn"}
+#' method.
 #'
 #' Yi, G. Y., Yan, Y., Liao, X. and Spiegelman, D. (2019). Parametric
 #' regression analysis with covariate misclassification in main

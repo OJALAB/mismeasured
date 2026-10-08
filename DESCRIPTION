@@ -10,17 +10,23 @@ Authors@R: c(
 Description: Correction methods for generalized linear models with measurement error
     and misclassification. Provides two main interfaces: 'simex()' for
     Simulation-Extrapolation (SIMEX) and MC-SIMEX with a formula interface using
-    'me()' and 'mc()' terms, and 'mcglm()' for analytical bias-correction methods
-    (BCA, BCM, corrected score) and one-step joint mixture-likelihood estimation
-    following Battaglia, Christensen, Hansen and Sacher (2025,
-    <doi:10.48550/arXiv.2402.15585>). Supports binary and multicategory misclassified
-    covariates, Poisson, Binomial, and Gaussian families, as well as multinomial
-    response models. The simulation step uses compiled C++ code via 'Rcpp' and
-    'RcppEigen' for fast IRLS fitting. Implements both the standard MC-SIMEX
-    (Kuechenhoff et al., 2006, <doi:10.1111/j.1541-0420.2005.00396.x>) and the
-    improved exact-correction method (Sevilimedu and Yu, 2026,
-    <doi:10.1002/sim.70418>). Based on Cook and Stefanski (1994)
-    <doi:10.1080/01621459.1994.10476871>.
+    'me()' and 'mc()' terms, and 'mcglm()' for analytical corrections of a
+    misclassified covariate: the subtraction correction, expectation correction
+    and induced likelihood of Yi, Yan, Liao and Spiegelman (2019,
+    <doi:10.1515/ijb-2017-0002>), the corrected score of Akazawa, Kinukawa and
+    Nakamura (1998, <doi:10.14490/jjss1995.28.115>), and the bias corrections
+    and one-step mixture likelihood following Battaglia, Christensen, Hansen and
+    Sacher (2025, <doi:10.48550/arXiv.2402.15585>). Misclassification
+    probabilities can be estimated from internal or external validation samples
+    with design weights, strata, a covariate-dependent prevalence and shrinkage
+    for sparse samples, and their uncertainty is propagated into the standard
+    errors. Supports binary and multicategory misclassified covariates, Poisson,
+    Binomial, and Gaussian families, as well as multinomial response models.
+    The simulation step uses compiled C++ code via 'Rcpp' and 'RcppEigen' for
+    fast IRLS fitting. Implements both the standard MC-SIMEX (Kuechenhoff et
+    al., 2006, <doi:10.1111/j.1541-0420.2005.00396.x>) and the improved
+    exact-correction method (Sevilimedu and Yu, 2026, <doi:10.1002/sim.70418>).
+    Based on Cook and Stefanski (1994) <doi:10.1080/01621459.1994.10476871>.
 License: GPL (>= 3)
 Depends: R (>= 3.5.0)
 Imports:

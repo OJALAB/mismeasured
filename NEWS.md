@@ -162,6 +162,15 @@
   (`beta_equation`: Yi et al.'s true-score swap, or a design-weighted
   augmentation that stays unbiased for any known inclusion probabilities;
   the default picks the latter when design weights are given).
+* **Documentation.** The mcglm vignette is rewritten for the full set of
+  estimators: their estimating functions, what each needs and assumes, how
+  they relate (`"sub"` dominates `"cs"`; `"ec"` and `"il"` coincide with
+  known probabilities; structural versus functional methods), and how to
+  choose. Two new vignettes cover validation samples and sparse audits.
+  `"cs"` is no longer described as a corrected score, nor as
+  population-equivalent to `"cs_akn"`; the Akazawa, Kinukawa and Nakamura
+  (1998) reference (doi:10.14490/jjss1995.28.115) is attributed to
+  `"cs_akn"`. README and DESCRIPTION describe the new methods.
 * When a validation sample is given without probabilities, `"bca"`, `"bcm"`
   and `"cs"` use the validation-sample proportions (for `"cs"` these are the
   empirical probabilities its validation covariance requires).

@@ -28,7 +28,7 @@ toolsets:
 | Toolset                     | When to use                                                                         | Vignette                          |
 |-----------------------------|--------------------------------------------------------------------------------------|-----------------------------------|
 | `simex()`                   | Continuous measurement error, Berkson error, single or multiple misclassified factors, response misclassification | `vignette("simex", "mismeasured")`  |
-| `mcglm()` / `mclm()`        | Misclassified discrete covariate(s) with known (or auxiliary-estimated) $\Pi$, where you want analytical bias-corrected GLM/LM inference | `vignette("mcglm", "mismeasured")`  |
+| `mcglm()` / `mclm()`        | A misclassified discrete covariate with known $\Pi$ or $\Pi$ estimated from an audit, where you want analytical bias-corrected GLM/LM inference | `vignette("mcglm", "mismeasured")`, `vignette("validation", "mismeasured")`, `vignette("sparse", "mismeasured")` |
 
 Variables subject to error are marked directly in the formula:
 `me(x, sd)` for continuous measurement error, `mc(z, Pi)` for discrete
@@ -73,16 +73,20 @@ y  <- rpois(n, exp(0.8 * z - 0.5 + 0.7 * x1))
 df <- data.frame(y = y, z = factor(z_hat), x1 = x1)
 
 fit_mcglm <- mcglm(y ~ mc(z, Pi) + x1, data = df, family = "poisson",
-                   method = c("naive", "cs", "cs_akn"))
-coef(fit_mcglm, method = "naive")
-coef(fit_mcglm, method = "cs")
-coef(fit_mcglm, method = "cs_akn")
+                   method = c("naive", "sub", "il", "cs_akn"), pi_z = 0.4)
+gamma_hat <- sapply(fit_mcglm$coefficients, `[[`, "gamma")
+round(gamma_hat, 3)
 ```
 
-The naive $\hat\gamma$ is attenuated below the truth (0.8); both corrected
-scores recover it. `mclm()` is a Gaussian-fixed wrapper of `mcglm()` for
-linear models. See `vignette("mcglm", "mismeasured")` for the full theory,
-the BCA/BCM/one-step alternatives, and the multicategory case.
+The naive $\hat\gamma$
+(`r formatC(gamma_hat[["naive"]], format = "f", digits = 3)`) is attenuated
+below the truth (0.8); the corrected estimates are
+`r paste(formatC(gamma_hat[-1], format = "f", digits = 3), collapse = ", ")`.
+`sub` is the default corrected estimator; `il` uses the full response
+distribution; `cs_akn` needs only $\Pi$. When $\Pi$ is estimated from an
+audit, pass the audit itself (`validation = validation_sample(...)`) instead
+of a matrix. `mclm()` is a Gaussian-fixed wrapper of `mcglm()`. See
+`vignette("mcglm", "mismeasured")` for the theory and the other estimators.
 
 ## Utility functions
 
@@ -107,6 +111,11 @@ check.mc.matrix(list(Pi_valid))
 - `?simex`, `?mcglm`, `?mclm`, `?me`, `?mc` — function references.
 - `vignette("simex", "mismeasured")` — SIMEX/MC-SIMEX in depth.
 - `vignette("mcglm", "mismeasured")` — bias-corrected GLM theory and methods.
+- `vignette("validation", "mismeasured")` — specifying audit samples and
+  estimating misclassification matrices (`validation_sample()`,
+  `estimate_mc()`).
+- `vignette("sparse", "mismeasured")` — sparse audits: shrinkage,
+  diagnostics, merging categories, bootstrap and posterior variances.
 - `https://ojalab.github.io/mismeasured/` — pkgdown site with the full
   reference index.
 - Issues: `https://github.com/OJALAB/mismeasured/issues`.

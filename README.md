@@ -35,15 +35,23 @@ formula interface:
   models)
 
 **`mcglm()`** — Analytical bias correction for GLMs with misclassified
-covariates (Battaglia, Christensen, Hansen & Sacher, 2025):
+covariates (Yi, Yan, Liao & Spiegelman, 2019; Battaglia, Christensen,
+Hansen & Sacher, 2025):
 
-- **Naive** — uncorrected GLM on the proxy covariate
-- **BCA** — additive bias correction
-- **BCM** — multiplicative bias correction (iterated BCM converges to
-  CS)
-- **CS** — corrected-score estimator
+- **SUB** (default) — subtraction correction; **EC** — expectation
+  correction; **IL** — induced likelihood
+- **CS-AKN** — corrected score of Akazawa, Kinukawa & Nakamura (1998);
+  needs only the misclassification matrix and allows the true category
+  to depend on the covariates
+- **CS** — drift-corrected score; **BCA** / **BCM** — additive and
+  multiplicative bias corrections
 - **One-step** — joint mixture-likelihood via automatic differentiation
   (RTMB)
+- **Validation samples**: misclassification probabilities estimated from
+  internal or external audits (`validation_sample()`, `estimate_mc()`),
+  with design weights, strata, a covariate-dependent prevalence,
+  shrinkage for sparse audits, and their uncertainty propagated into the
+  standard errors
 - Supports binary and multicategory misclassified covariates,
   Poisson/Binomial/Gaussian families, and multinomial response models
 - Asymptotic inference (sandwich SE, Wald CIs) and the usual glm-style
@@ -121,16 +129,14 @@ summary(fit_mc)
 #> 
 #> Family: poisson 
 #> MC-SIMEX variable: z 
-#> Method: improved 
-#> Extrapolation: closed-form (improved) 
-#> Lambda grid: 0, 1 
-#> B = 1 , n = 2000 
-#> Estimated P(X=1): 0.4187 
-#> Correction factor(s): 1.7676 
+#> Method: standard 
+#> Extrapolation: quadratic 
+#> Lambda grid: 0, 0.5, 1, 1.5, 2 
+#> B = 200 , n = 2000 
 #> 
 #> Residuals:
 #>     Min      1Q  Median      3Q     Max 
-#> -8.3727 -1.2950 -0.3292  0.8381  8.2882 
+#> -6.9372 -1.1856 -0.1909  0.9679  8.4095 
 #> 
 #> Naive coefficients:
 #>           1 (Intercept)           x 
@@ -138,16 +144,18 @@ summary(fit_mc)
 #> 
 #> MC-SIMEX corrected coefficients:
 #>             Estimate Std. Error t value Pr(>|t|)    
-#> 1            0.88919    0.05082   17.50   <2e-16 ***
-#> (Intercept)  0.46438    0.02977   15.60   <2e-16 ***
-#> x            0.30831    0.01416   21.77   <2e-16 ***
+#> 1            0.82262    0.04275   19.24   <2e-16 ***
+#> (Intercept)  0.44074    0.03191   13.81   <2e-16 ***
+#> x            0.29552    0.01788   16.53   <2e-16 ***
 #> ---
 #> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 ```
 
 ### Bias-corrected GLM (mcglm)
 
-For analytical bias corrections when misclassification rates are known:
+For analytical bias corrections when misclassification rates are known
+(see `vignette("validation", "mismeasured")` when they are estimated
+from an audit):
 
 ``` r
 set.seed(42)
@@ -166,21 +174,21 @@ Pi <- matrix(c(1 - p01, p01, p10, 1 - p10), 2, 2)
 df3 <- data.frame(y = y, z = factor(z_hat), x1 = x1)
 
 fit <- mcglm(y ~ mc(z, Pi) + x1, data = df3, family = "poisson",
-             method = c("naive", "bca", "bcm", "cs"), pi_z = 0.4)
+             method = c("naive", "sub", "il", "cs_akn"), pi_z = 0.4)
 fit
 #> 
 #> Call:
 #> mcglm(formula = y ~ mc(z, Pi) + x1, data = df3, family = "poisson", 
-#>     method = c("naive", "bca", "bcm", "cs"), pi_z = 0.4)
+#>     method = c("naive", "sub", "il", "cs_akn"), pi_z = 0.4)
 #> 
 #> Family: poisson  |  n = 5000, K = 2, p = 3
-#> Methods: naive, bca, bcm, cs
+#> Methods: naive, sub, il, cs_akn
 #> 
 #> Coefficients:
-#>         NAIVE    BCA      BCM      CS     
-#> gamma    0.6272   0.7843   0.8367   0.8400
-#> alpha0  -0.4113  -0.4988  -0.5280  -0.5353
-#> alpha1   0.7134   0.7136   0.7137   0.7137
+#>              NAIVE    CS_AKN   SUB      IL     
+#> gamma         0.6272   0.8401   0.8400   0.8372
+#> (Intercept)  -0.4113  -0.5358  -0.5350  -0.5341
+#> x1            0.7134   0.7143   0.7134   0.7126
 #> 
 #> Degrees of Freedom: 5000 Total (i.e. Null);  4997 Residual
 #> Null Deviance:     9252 
@@ -189,9 +197,9 @@ fit
 
 #### Inference and glm-style methods
 
-`mcglm()` returns asymptotic standard errors for every fitted method
-(sandwich estimators from Battaglia et al., 2025). All the usual GLM S3
-methods are available; pass `method =` to select an estimator.
+`mcglm()` returns asymptotic standard errors for every fitted method.
+All the usual GLM S3 methods are available; pass `method =` to select an
+estimator.
 
 ``` r
 # Wald table per method (estimate, SE, z, p)
@@ -199,40 +207,41 @@ summary(fit)
 #> 
 #> Call:
 #> mcglm(formula = y ~ mc(z, Pi) + x1, data = df3, family = "poisson", 
-#>     method = c("naive", "bca", "bcm", "cs"), pi_z = 0.4)
+#>     method = c("naive", "sub", "il", "cs_akn"), pi_z = 0.4)
 #> 
 #> Family: poisson  |  n = 5000, K = 2, p = 3
-#> Methods: naive, bca, bcm, cs
+#> Methods: naive, sub, il, cs_akn
+#> z categories (Pi assumed in this order): 0 (baseline), 1
 #> 
 #> --- NAIVE ---
-#>        Estimate Std. Error z value Pr(>|z|)    
-#> gamma   0.62722    0.02866   21.89   <2e-16 ***
-#> alpha0 -0.41131    0.02356  -17.46   <2e-16 ***
-#> alpha1  0.71335    0.01470   48.52   <2e-16 ***
+#>             Estimate Std. Error z value Pr(>|z|)    
+#> gamma        0.62722    0.02866   21.89   <2e-16 ***
+#> (Intercept) -0.41131    0.02356  -17.46   <2e-16 ***
+#> x1           0.71335    0.01470   48.52   <2e-16 ***
 #> ---
 #> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 #> 
-#> --- BCA ---
-#>        Estimate Std. Error z value Pr(>|z|)    
-#> gamma   0.78434    0.02951   26.58   <2e-16 ***
-#> alpha0 -0.49881    0.02539  -19.64   <2e-16 ***
-#> alpha1  0.71364    0.01461   48.85   <2e-16 ***
+#> --- SUB ---
+#>             Estimate Std. Error z value Pr(>|z|)    
+#> gamma        0.83997    0.03955   21.24   <2e-16 ***
+#> (Intercept) -0.53497    0.02977  -17.97   <2e-16 ***
+#> x1           0.71335    0.01470   48.52   <2e-16 ***
 #> ---
 #> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 #> 
-#> --- BCM ---
-#>        Estimate Std. Error z value Pr(>|z|)    
-#> gamma   0.83669    0.02994   27.95   <2e-16 ***
-#> alpha0 -0.52797    0.02608  -20.24   <2e-16 ***
-#> alpha1  0.71374    0.01461   48.87   <2e-16 ***
+#> --- IL ---
+#>             Estimate Std. Error z value Pr(>|z|)    
+#> gamma        0.83720    0.03434   24.38   <2e-16 ***
+#> (Intercept) -0.53413    0.02720  -19.64   <2e-16 ***
+#> x1           0.71256    0.01489   47.86   <2e-16 ***
 #> ---
 #> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 #> 
-#> --- CS ---
-#>        Estimate Std. Error z value Pr(>|z|)    
-#> gamma   0.83996    0.03956   21.23   <2e-16 ***
-#> alpha0 -0.53531    0.02980  -17.96   <2e-16 ***
-#> alpha1  0.71374    0.01468   48.61   <2e-16 ***
+#> --- CS_AKN ---
+#>             Estimate Std. Error z value Pr(>|z|)    
+#> gamma        0.84005    0.03960   21.21   <2e-16 ***
+#> (Intercept) -0.53584    0.03012  -17.79   <2e-16 ***
+#> x1           0.71425    0.01520   47.00   <2e-16 ***
 #> ---
 #> Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 #> 
@@ -240,33 +249,33 @@ summary(fit)
 #> AIC (naive): 12590
 #> 
 #> Bias correction (difference from naive):
-#>         bca         bcm         cs        
-#> gamma    0.1571192   0.2094717   0.2127385
-#> alpha0  -0.0874993  -0.1166543  -0.1240022
-#> alpha1   0.0002896   0.0003861   0.0003856
+#>              cs_akn      sub         il        
+#> gamma         2.128e-01   2.128e-01   2.100e-01
+#> (Intercept)  -1.245e-01  -1.237e-01  -1.228e-01
+#> x1            8.984e-04   2.226e-10  -7.883e-04
 
-# Variance-covariance matrix and confidence intervals for the CS estimator
-vcov(fit, method = "cs")
-#>                gamma        alpha0        alpha1
-#> gamma   1.564896e-03 -0.0009691680  7.824985e-06
-#> alpha0 -9.691680e-04  0.0008882385 -1.399587e-04
-#> alpha1  7.824985e-06 -0.0001399587  2.155703e-04
-confint(fit, method = "cs", level = 0.95)
-#>             2.5 %     97.5 %
-#> gamma   0.7624216  0.9174891
-#> alpha0 -0.5937283 -0.4769014
-#> alpha1  0.6849617  0.7425153
+# Variance-covariance matrix and confidence intervals for SUB
+vcov(fit, method = "sub")
+#>                     gamma   (Intercept)            x1
+#> gamma        1.564521e-03 -0.0009690157  7.023513e-06
+#> (Intercept) -9.690157e-04  0.0008861499 -1.404931e-04
+#> x1           7.023513e-06 -0.0001404931  2.161381e-04
+confint(fit, method = "sub", level = 0.95)
+#>                  2.5 %     97.5 %
+#> gamma        0.7624468  0.9174957
+#> (Intercept) -0.5933166 -0.4766271
+#> x1           0.6845382  0.7421676
 
 # Standard glm helpers, dispatched per-method
-coef(fit, method = "bca")
-#>      gamma     alpha0     alpha1 
-#>  0.7843361 -0.4988120  0.7136425
-head(fitted(fit, method = "cs"))
+coef(fit, method = "il")
+#>       gamma (Intercept)          x1 
+#>   0.8372042  -0.5341347   0.7125646
+head(fitted(fit, method = "sub"))
 #>         1         2         3         4         5         6 
-#> 2.1069839 0.5835903 0.5485658 1.8041813 0.8913723 0.5784742
-head(residuals(fit, method = "cs", type = "pearson"))
+#> 2.1072387 0.5837916 0.5487733 1.8045507 0.8914757 0.5786764
+head(residuals(fit, method = "sub", type = "pearson"))
 #>           1           2           3           4           5           6 
-#> -0.07370344  1.85410728 -0.74065227 -0.59870637 -0.94412515 -0.76057489
+#> -0.07387449  1.85352421 -0.74079236 -0.59892008 -0.94417991 -0.76070784
 AIC(fit)         # naive log-likelihood when no onestep was fit
 #> [1] 12592.08
 nobs(fit); family(fit)$family

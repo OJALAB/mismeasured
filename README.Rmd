@@ -36,13 +36,13 @@ The `mismeasured` package provides two complementary approaches for correcting b
 - C++ simulation engine via Rcpp/RcppEigen (100--300x faster than pure-R implementations)
 - Standard and improved MC-SIMEX (Sevilimedu & Yu, 2026) with closed-form fixed-matrix correction (exact for identity-link linear models)
 
-**`mcglm()`** --- Analytical bias correction for GLMs with misclassified covariates (Battaglia, Christensen, Hansen & Sacher, 2025):
+**`mcglm()`** --- Analytical bias correction for GLMs with misclassified covariates (Yi, Yan, Liao & Spiegelman, 2019; Battaglia, Christensen, Hansen & Sacher, 2025):
 
-- **Naive** --- uncorrected GLM on the proxy covariate
-- **BCA** --- additive bias correction
-- **BCM** --- multiplicative bias correction (iterated BCM converges to CS)
-- **CS** --- corrected-score estimator
+- **SUB** (default) --- subtraction correction; **EC** --- expectation correction; **IL** --- induced likelihood
+- **CS-AKN** --- corrected score of Akazawa, Kinukawa & Nakamura (1998); needs only the misclassification matrix and allows the true category to depend on the covariates
+- **CS** --- drift-corrected score; **BCA** / **BCM** --- additive and multiplicative bias corrections
 - **One-step** --- joint mixture-likelihood via automatic differentiation (RTMB)
+- **Validation samples**: misclassification probabilities estimated from internal or external audits (`validation_sample()`, `estimate_mc()`), with design weights, strata, a covariate-dependent prevalence, shrinkage for sparse audits, and their uncertainty propagated into the standard errors
 - Supports binary and multicategory misclassified covariates, Poisson/Binomial/Gaussian families, and multinomial response models
 - Asymptotic inference (sandwich SE, Wald CIs) and the usual glm-style
   S3 methods (`summary`, `vcov`, `confint`, `fitted`, `predict`,
@@ -91,7 +91,9 @@ summary(fit_mc)
 
 ### Bias-corrected GLM (mcglm)
 
-For analytical bias corrections when misclassification rates are known:
+For analytical bias corrections when misclassification rates are known
+(see `vignette("validation", "mismeasured")` when they are estimated from an
+audit):
 
 ```{r mcglm-example}
 set.seed(42)
@@ -110,28 +112,28 @@ Pi <- matrix(c(1 - p01, p01, p10, 1 - p10), 2, 2)
 df3 <- data.frame(y = y, z = factor(z_hat), x1 = x1)
 
 fit <- mcglm(y ~ mc(z, Pi) + x1, data = df3, family = "poisson",
-             method = c("naive", "bca", "bcm", "cs"), pi_z = 0.4)
+             method = c("naive", "sub", "il", "cs_akn"), pi_z = 0.4)
 fit
 ```
 
 #### Inference and glm-style methods
 
-`mcglm()` returns asymptotic standard errors for every fitted method
-(sandwich estimators from Battaglia et al., 2025). All the usual GLM
-S3 methods are available; pass `method =` to select an estimator.
+`mcglm()` returns asymptotic standard errors for every fitted method.
+All the usual GLM S3 methods are available; pass `method =` to select an
+estimator.
 
 ```{r mcglm-inference}
 # Wald table per method (estimate, SE, z, p)
 summary(fit)
 
-# Variance-covariance matrix and confidence intervals for the CS estimator
-vcov(fit, method = "cs")
-confint(fit, method = "cs", level = 0.95)
+# Variance-covariance matrix and confidence intervals for SUB
+vcov(fit, method = "sub")
+confint(fit, method = "sub", level = 0.95)
 
 # Standard glm helpers, dispatched per-method
-coef(fit, method = "bca")
-head(fitted(fit, method = "cs"))
-head(residuals(fit, method = "cs", type = "pearson"))
+coef(fit, method = "il")
+head(fitted(fit, method = "sub"))
+head(residuals(fit, method = "sub", type = "pearson"))
 AIC(fit)         # naive log-likelihood when no onestep was fit
 nobs(fit); family(fit)$family
 ```
